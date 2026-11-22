@@ -156,14 +156,21 @@ done
 
 # 4b. metrics-server, pinned (dev/CI only, ADR 0003). The istio HPAs need it; without it the
 # istio Application shows Degraded. Real clusters (AKS) already have one.
-log "Installing metrics-server $METRICS_SERVER_VERSION"
-k apply --server-side --force-conflicts \
-  -f "https://github.com/kubernetes-sigs/metrics-server/releases/download/${METRICS_SERVER_VERSION}/components.yaml" >/dev/null
+ms_get() { k -n kube-system get deployment metrics-server -o jsonpath="$1" 2>/dev/null || true; }
+# On a rerun with the pinned version already patched, skip the apply: it would drop the patched
+# flag and restart metrics-server twice.
+if [[ "$(ms_get '{.spec.template.spec.containers[0].image}')" == *":${METRICS_SERVER_VERSION}" \
+      && "$(ms_get '{.spec.template.spec.containers[0].args}')" == *'--kubelet-insecure-tls'* ]]; then
+  log "metrics-server $METRICS_SERVER_VERSION already installed; skipping apply"
+else
+  log "Installing metrics-server $METRICS_SERVER_VERSION"
+  k apply --server-side --force-conflicts \
+    -f "https://github.com/kubernetes-sigs/metrics-server/releases/download/${METRICS_SERVER_VERSION}/components.yaml" >/dev/null
+fi
 # purpose: Kind kubelets serve self-signed certs, so metrics-server must skip kubelet TLS verification.
 # upstream: none
 # remove-when: kind-up gives kubelets CA-signed serving certs (serverTLSBootstrap plus CSR approval).
-ms_args="$(k -n kube-system get deployment metrics-server -o jsonpath='{.spec.template.spec.containers[0].args}')"
-if [[ "$ms_args" != *'--kubelet-insecure-tls'* ]]; then
+if [[ "$(ms_get '{.spec.template.spec.containers[0].args}')" != *'--kubelet-insecure-tls'* ]]; then
   k -n kube-system patch deployment metrics-server --type=json \
     -p '[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]' >/dev/null
 fi
