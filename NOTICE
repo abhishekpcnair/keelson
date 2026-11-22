@@ -8,6 +8,9 @@ following Apache-2.0 licensed projects:
   - deployKF (https://github.com/deployKF/deployKF)
   - treebeardtech/kubeflow-bootstrap (https://github.com/treebeardtech/kubeflow-bootstrap)
   - TheCodingSheikh/helm-charts (https://github.com/TheCodingSheikh/helm-charts)
+  - kubeflow/manifests (https://github.com/kubeflow/manifests): the Kind cluster
+    config in hack/kind-up.sh (node layout and kubeadm service-account-issuer
+    patch) is adapted from tests/install_KinD_create_KinD_cluster_install_kustomize.sh
 
 hack/argocd/argocd-cm-health.yaml contains the argoproj.io/Application health
 check from the Argo CD documentation (docs/operator-manual/health.md, v3.6.2),
