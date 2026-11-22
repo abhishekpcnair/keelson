@@ -1,4 +1,4 @@
-# override-syncoptions: kind-core plus appSpecOverride syncOptions (#65).
+# override-syncoptions: kind-core plus appSpecOverride syncOptions (#65) and ignoreDifferences (#88).
 platform: kind
 # #65: override syncOptions merge into the engine defaults by key.
 advanced:
@@ -12,3 +12,9 @@ advanced:
       appSpecOverride:
         syncPolicy:
           syncOptions: [RespectIgnoreDifferences=false]
+    # A module with no registry ignoreDifferences: an override entry also forces RespectIgnoreDifferences=true (#88).
+    cert-manager-kubeflow:
+      appSpecOverride:
+        ignoreDifferences:
+          - kind: Deployment
+            jsonPointers: [/spec/replicas]

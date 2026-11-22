@@ -23,6 +23,7 @@ Keelson is a GitOps-first Kubeflow distribution: one Helm chart that renders Arg
 ## Commands
 - `make verify`: lint, schema, golden diff, kubeconform, rules (must pass before any PR)
 - `make golden`: regenerate golden snapshots (review the diff; never regenerate blindly to make a test pass)
+- `make values-ref`: regenerate `docs/reference/values.md` from `values.schema.json` (run it after any schema change; `make verify` fails on a stale file or a property without `description`)
 - `make e2e [MODULES=core]`: Kind + ArgoCD + smoke tests
 - `make upstream-cache TAG=26.10.0`: fetch upstream manifests into `.cache/upstream/`
 

@@ -88,6 +88,7 @@ This is how work moves from an idea to a release in this repo. Two kinds of work
 - [ ] Linked issue with an approved plan
 - [ ] `make verify` green; e2e green if required
 - [ ] Schema, golden scenario, docs and change fragment updated
+- [ ] Values reference regenerated (`make values-ref`) after any schema change
 - [ ] Reviewer subagent findings addressed or answered
 - [ ] No unpinned sources, no copied upstream templates, no forked images
 - [ ] Maintainer approved
