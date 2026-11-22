@@ -1,0 +1,15 @@
+# connectors-oidc: dev install with the static user and one OIDC connector, Istio TLS.
+domain: kubeflow.example.com
+tls:
+  issuer: existing
+  secretRef:
+    name: kubeflow-tls
+auth:
+  dex:
+    connectors:
+      - type: oidc
+        id: corp-sso
+        name: Corp SSO
+        issuer: https://idp.example.com/realms/corp
+        secretRef:
+          name: dex-corp-sso

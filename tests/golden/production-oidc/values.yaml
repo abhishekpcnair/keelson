@@ -1,0 +1,19 @@
+# production-oidc: production, static user off, one OIDC connector with custom keys and claim.
+environment: production
+domain: kubeflow.example.com
+tls:
+  issuer: external
+auth:
+  staticUsers:
+    enabled: false
+  dex:
+    connectors:
+      - type: oidc
+        id: idp
+        issuer: https://login.example.com
+        groupsClaim: roles
+        scopes: [openid, email, profile]
+        secretRef:
+          name: dex-idp
+          clientIDKey: id
+          clientSecretKey: secret
