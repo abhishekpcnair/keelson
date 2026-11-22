@@ -126,7 +126,6 @@
   ],
   "properties": {
     "global": { "type": "object", "description": "Helm global values. Allowed so parent charts and --set global.* keep working." },
-    "profiles": { "type": "array", "description": "Placeholder; defined by #9" },
     "storage": { "type": "object", "description": "Placeholder; defined by #12 and #38" },
     "database": { "type": "object", "description": "Placeholder; defined by #12 and #39" },
     "policy": { "type": "object", "description": "Placeholder; defined by #11" },
@@ -255,6 +254,43 @@
           "description": "Extra repos allowed in the AppProject, after upstream.manifestsRepo."
         }
       }
+    },
+    "profiles": {
+      "type": "array",
+      "description": "Kubeflow profiles as code. Names must be unique (checked at render time).",
+      "items": {
+        "type": "object",
+        "required": ["name", "owner"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "maxLength": 63, "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$", "description": "Profile and namespace name (DNS-1123 label)." },
+          "owner": { "type": "string", "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", "description": "Owner email: the kubeflow-userid header value." },
+          "groups": { "description": "Not supported yet. Rejected at render time; see issue #28." }
+        }
+      }
+    },
+    "keelson": {
+      "type": "object",
+      "description": "Settings for Keelson's own chart, used by component Applications (ADR 0004).",
+      "additionalProperties": false,
+      "properties": {
+        "selfSource": {
+          "type": "object",
+          "required": ["repoURL", "chart"],
+          "additionalProperties": false,
+          "description": "Where component Applications pull this chart from (ADR 0004).",
+          "properties": {
+            "repoURL": { "type": "string", "pattern": "^[A-Za-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._-]+)*$", "description": "OCI registry path, no scheme (e.g. ghcr.io/org/charts)." },
+            "chart": { "type": "string", "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$", "description": "Chart name in the registry." },
+            "targetRevision": { "type": "string", "pattern": "^$|^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$", "description": "Empty: this chart's version. Otherwise an exact SemVer version." }
+          }
+        }
+      }
+    },
+    "component": {
+      "type": "string",
+      "enum": ["", "profiles"],
+      "description": "Internal. Only the engine sets it, in component Applications (ADR 0004)."
     },
     "modules": {
       "type": "object",
