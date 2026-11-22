@@ -1,0 +1,9 @@
+# expect: missing property 'orgs'
+# Without orgs, any GitHub user can log in.
+domain: kubeflow.example.com
+auth:
+  dex:
+    connectors:
+      - type: github
+        id: github
+        secretRef: { name: dex-github }

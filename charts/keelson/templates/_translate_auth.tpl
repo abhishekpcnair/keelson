@@ -54,6 +54,21 @@ staticClients:
 {{- $_ := set $cfg "scopes" ($c.scopes | default (list "openid" "profile" "email" "groups")) -}}
 {{- $_ := set $cfg "insecureEnableGroups" true -}}
 {{- $_ := set $cfg "claimMapping" (dict "groups" ($c.groupsClaim | default "groups")) -}}
+{{- else if eq $c.type "microsoft" -}}
+{{- $_ := set $cfg "tenant" $c.tenant -}}
+{{- $_ := set $cfg "onlySecurityGroups" (dig "onlySecurityGroups" false $c) -}}
+{{- $_ := set $cfg "groupNameFormat" ($c.groupNameFormat | default "name") -}}
+{{- /* Kubeflow compares kubeflow-userid (the email) case-sensitively with Profile owners. */ -}}
+{{- $_ := set $cfg "emailToLowercase" (dig "emailToLowercase" true $c) -}}
+{{- with $c.allowedGroups -}}
+{{- $_ := set $cfg "groups" . -}}
+{{- $_ := set $cfg "useGroupsAsWhitelist" true -}}
+{{- end -}}
+{{- else if eq $c.type "github" -}}
+{{- $_ := set $cfg "orgs" $c.orgs -}}
+{{- $_ := set $cfg "teamNameField" ($c.teamNameField | default "slug") -}}
+{{- $_ := set $cfg "loadAllGroups" (dig "loadAllGroups" false $c) -}}
+{{- $_ := set $cfg "useLoginAsID" (dig "useLoginAsID" false $c) -}}
 {{- else -}}
 {{- fail (printf "auth.dex.connectors[%s]: unsupported type %q" $c.id $c.type) -}}
 {{- end -}}

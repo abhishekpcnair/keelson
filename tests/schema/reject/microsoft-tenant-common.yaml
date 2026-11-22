@@ -1,0 +1,10 @@
+# expect: /auth/dex/connectors/0/tenant
+# A multi-tenant value lets any Microsoft account log in, and Dex reads no groups.
+domain: kubeflow.example.com
+auth:
+  dex:
+    connectors:
+      - type: microsoft
+        id: entra
+        tenant: common
+        secretRef: { name: dex-entra }

@@ -1,0 +1,11 @@
+# expect: additional properties 'enterprise' not allowed
+# GitHub Enterprise Server is not supported yet (#46).
+domain: kubeflow.example.com
+auth:
+  dex:
+    connectors:
+      - type: github
+        id: github
+        secretRef: { name: dex-github }
+        orgs: [{ name: my-org }]
+        enterprise: { hostName: ghe.example.com }
