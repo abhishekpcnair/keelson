@@ -1,0 +1,23 @@
+name: e2e
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [labeled, synchronize, opened]
+  schedule:
+    - cron: "17 2 * * *"   # nightly
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  kind:
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'needs-e2e')
+    runs-on: ubuntu-latest   # full Kubeflow needs ~16 GB RAM; use a larger runner if core alone is not enough
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with: { version: v4.3.2 }
+      - uses: helm/kind-action@v1
+        with: { cluster_name: keelson }
+      - run: tests/e2e/run.sh core

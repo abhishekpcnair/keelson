@@ -1,0 +1,26 @@
+name: Bug
+description: Something is broken
+labels: [type/bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: "Keelson version and upstream ref"
+      placeholder: "v0.1.0 / 26.10.0"
+    validations: { required: true }
+  - type: input
+    id: platform
+    attributes:
+      label: "Platform"
+      placeholder: "Kind 0.x / AKS 1.3x / ..."
+  - type: textarea
+    id: values
+    attributes:
+      label: "Values (secrets removed)"
+      render: "yaml"
+  - type: textarea
+    id: what
+    attributes:
+      label: "What happened"
+      description: "Include `argocd app get` output for failing Applications"
+    validations: { required: true }

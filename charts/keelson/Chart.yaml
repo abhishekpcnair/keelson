@@ -1,0 +1,13 @@
+apiVersion: v2
+name: keelson
+description: GitOps-first Kubeflow distribution. Renders ArgoCD Applications for pinned upstream Kubeflow manifests.
+type: application
+version: 0.0.0
+appVersion: "26.10.0"
+home: https://github.com/abhishekpcnair/keelson
+sources:
+  - https://github.com/abhishekpcnair/keelson
+  - https://github.com/kubeflow/manifests
+keywords: [kubeflow, argocd, gitops, mlops, helm]
+annotations:
+  keelson.io/upstream-manifests-ref: "26.10.0"

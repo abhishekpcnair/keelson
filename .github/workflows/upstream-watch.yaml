@@ -1,0 +1,45 @@
+name: upstream-watch
+on:
+  schedule:
+    - cron: "23 6 * * 1"   # weekly, Monday
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install pyyaml
+      - id: w
+        run: python3 hack/upstream_watch.py --github-output
+      - name: Open upstream-bump issue
+        if: steps.w.outputs.newer == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LATEST: ${{ steps.w.outputs.latest }}
+          CURRENT: ${{ steps.w.outputs.current }}
+        run: |
+          title="Upstream bump: kubeflow/manifests ${LATEST}"
+          if gh issue list --state open --label type/upstream-bump --search "$title in:title" --json number --jq 'length' | grep -q '^0$'; then
+            git clone -q --depth 1 --branch "$LATEST" https://github.com/kubeflow/manifests.git /tmp/up
+            {
+              echo "New upstream release **${LATEST}** (currently pinned: ${CURRENT})."
+              echo
+              echo "### Component versions (upstream README)"
+              sed -n '/^| Component/,/^$/p' /tmp/up/README.md
+              echo
+              echo "### example/kustomization.yaml resources"
+              echo '```'
+              sed -n '/^resources:/,$p' /tmp/up/example/kustomization.yaml | grep -v '^\s*#'
+              echo '```'
+              echo
+              echo "Next: run \`/upstream-bump ${LATEST}\` in a new Claude Code session."
+            } > body.md
+            gh issue create --title "$title" --label type/upstream-bump --label needs-e2e --body-file body.md
+          else
+            echo "Issue already open."
+          fi

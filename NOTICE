@@ -1,0 +1,13 @@
+Keelson
+Copyright 2026 The Keelson Authors
+
+This product is licensed under the Apache License, Version 2.0.
+
+Design ideas, and where noted in file headers, code, are derived from the
+following Apache-2.0 licensed projects:
+  - deployKF (https://github.com/deployKF/deployKF)
+  - treebeardtech/kubeflow-bootstrap (https://github.com/treebeardtech/kubeflow-bootstrap)
+  - TheCodingSheikh/helm-charts (https://github.com/TheCodingSheikh/helm-charts)
+
+Kubeflow is a trademark of The Linux Foundation. Keelson is an independent
+project and is not affiliated with or endorsed by the Kubeflow project.

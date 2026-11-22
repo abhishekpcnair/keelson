@@ -1,0 +1,14 @@
+name: Upstream bump
+description: Track a new kubeflow/manifests release (usually opened by upstream-watch)
+labels: [type/upstream-bump, needs-e2e]
+body:
+  - type: input
+    id: tag
+    attributes:
+      label: "New upstream tag"
+      placeholder: "26.10.1"
+    validations: { required: true }
+  - type: textarea
+    id: notes
+    attributes:
+      label: "Notes / release links"

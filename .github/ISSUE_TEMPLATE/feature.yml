@@ -1,0 +1,26 @@
+name: Feature
+description: A new capability or module
+labels: [type/feature]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: "Problem"
+      description: "What can't users do today?"
+    validations: { required: true }
+  - type: textarea
+    id: proposal
+    attributes:
+      label: "Proposal"
+      description: "What should the values/behaviour look like?"
+  - type: dropdown
+    id: module
+    attributes:
+      label: Module
+      options: [engine, auth, profiles, policy, storage, pipelines, workspaces, kserve, other]
+  - type: checkboxes
+    id: rules
+    attributes:
+      label: Design rules
+      options:
+        - label: This can be done by wrapping upstream (no copied templates, no forked images)

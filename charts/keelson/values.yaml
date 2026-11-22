@@ -1,0 +1,9 @@
+# Keelson values. See docs/design/0001-architecture.md §5.3 for the full planned API.
+# The engine (modules → ArgoCD Applications) is implemented in backlog issue #1.
+upstream:
+  manifestsRepo: https://github.com/kubeflow/manifests
+  manifestsRef: "26.10.0"
+argocd:
+  namespace: argocd
+  project: keelson
+modules: {}
