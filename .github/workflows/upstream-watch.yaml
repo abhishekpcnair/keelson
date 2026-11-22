@@ -43,3 +43,26 @@ jobs:
           else
             echo "Issue already open."
           fi
+      - id: p
+        # Run also when the manifests steps above fail.
+        if: ${{ !cancelled() }}
+        run: python3 hack/upstream_watch.py --tool-pins hack/kind-up.sh --github-output
+      - name: Open kind-up pins issue
+        if: ${{ !cancelled() && steps.p.outputs.pins_newer == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="chore: kind-up pins have newer releases"
+          if gh issue list --state open --label module/e2e --search "$title in:title" --json number --jq 'length' | grep -q '^0$'; then
+            {
+              echo "These \`hack/kind-up.sh\` pins have a newer stable release:"
+              echo
+              cat pins.md
+              echo
+              echo "When you bump a pin, also update its sha256 (\`ARGOCD_INSTALL_SHA256\`, \`METRICS_SERVER_SHA256\`, see #31 and #37)."
+              echo "Goes through the factory: \`/triage\` → \`/plan\` → \`plan-approved\` → \`/implement\` → \`/review\`."
+            } > pins-body.md
+            gh issue create --title "$title" --label type/feature --label module/e2e --body-file pins-body.md
+          else
+            echo "Issue already open."
+          fi
