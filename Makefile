@@ -7,7 +7,7 @@ MODULES      ?= all
 KUBECONFORM_SCHEMAS := -schema-location default \
   -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
 
-.PHONY: help verify lint schema golden golden-check kubeconform rules e2e upstream-cache upstream-watch clean
+.PHONY: help verify lint schema golden golden-check kubeconform rules e2e kind-up kind-down upstream-cache upstream-watch clean
 
 help: ## Show targets
 	@grep -E '^[a-z0-9-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-16s %s\n", $$1, $$2}'
@@ -38,6 +38,12 @@ rules: ## Check design rules on rendered output and patches
 
 e2e: ## Kind + ArgoCD + smoke tests (MODULES=core|all)
 	tests/e2e/run.sh $(MODULES)
+
+kind-up: upstream-cache ## Create Kind cluster 'keelson' (upstream CI shape) and install pinned ArgoCD
+	UPSTREAM_TAG=$(TAG) hack/kind-up.sh
+
+kind-down: ## Delete Kind cluster 'keelson'
+	hack/kind-down.sh
 
 upstream-cache: ## Shallow-clone kubeflow/manifests at TAG into .cache/upstream/TAG
 	@test -d .cache/upstream/$(TAG) || git clone -q --depth 1 --branch $(TAG) https://github.com/kubeflow/manifests.git .cache/upstream/$(TAG)
