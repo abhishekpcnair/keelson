@@ -27,6 +27,17 @@ auth:
     #   issuer: https://idp.example.com
     #   secretRef: { name: dex-corp }   # keys clientID, clientSecret, in namespace auth
     connectors: []
+  # Production secrets. Empty names keep upstream's public literals (Kind and dev only).
+  # With environment=production both names are required. Make the Secrets yourself:
+  # docs/configuration/authentication.md.
+  oidcClient:
+    # Secret in BOTH namespaces auth and oauth2-proxy. Keys: client-id, client-secret.
+    secretRef:
+      name: ""
+  cookie:
+    # Secret in namespace oauth2-proxy. Key: cookie-secret.
+    secretRef:
+      name: ""
 workspaces:
   # WorkspaceKinds to install from upstream's samples: jupyterlab, codeserver, rstudio.
   # [] installs none (bring your own). See docs/modules/workspaces.md.

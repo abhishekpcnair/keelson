@@ -1,0 +1,24 @@
+name: dashboard
+wave: 0
+source:
+  type: kustomize
+  path: applications/dashboard/overlays/istio
+namespace: kubeflow
+namespaces: [kubeflow]
+# oauth2-proxy: the UI is useless without the auth chain, even though Healthy doesn't need it.
+dependsOn: [cert-manager-kubeflow, istio, kubeflow-namespace, kubeflow-roles, kubeflow-istio-resources, oauth2-proxy]
+defaultEnabled: true
+translations: []
+# cert-manager's cainjector fills the webhook caBundle (cert-manager.io/inject-ca-from);
+# upstream ships "". Without this, selfHeal would reset it and block every pod in profile namespaces.
+ignoreDifferences:
+  - group: admissionregistration.k8s.io
+    kind: MutatingWebhookConfiguration
+    name: poddefaults-webhook-mutating-webhook-configuration
+    jqPathExpressions: [".webhooks[].clientConfig.caBundle"]
+  # Aggregated ClusterRoles: upstream ships `rules: []` and the RBAC controller fills .rules at runtime.
+  # Listed by name, so drift on the non-aggregated poddefaults-...-view role still shows.
+  - {group: rbac.authorization.k8s.io, kind: ClusterRole, name: poddefaults-webhook-kubeflow-poddefaults-admin, jsonPointers: [/rules]}
+  - {group: rbac.authorization.k8s.io, kind: ClusterRole, name: poddefaults-webhook-kubeflow-poddefaults-edit, jsonPointers: [/rules]}
+smokeTest: tests/e2e/dashboard.sh
+upstreamHelmChart: applications/dashboard/helm

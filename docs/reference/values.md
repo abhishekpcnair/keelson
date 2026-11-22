@@ -28,6 +28,9 @@ For the full default values, see `charts/keelson/values.yaml`.
 | Key | Type | Default | Allowed | Description |
 |---|---|---|---|---|
 | `auth` | object | — | — | Login settings: the static user and the Dex connectors. See docs/configuration/authentication.md. |
+| `auth.cookie` | object | — | — | The oauth2-proxy session cookie secret. |
+| `auth.cookie.secretRef` | object | — | — | Secret in namespace oauth2-proxy with key cookie-secret. Keelson never creates it. Required with environment production. |
+| `auth.cookie.secretRef.name` | string | — | not matching `^(oauth2-proxy\|dex-oidc-client)$` | Secret name. Not oauth2-proxy and not dex-oidc-client: those names are upstream's generated Secrets. |
 | `auth.dex` | object | — | — | Dex settings. |
 | `auth.dex.connectors` | array | — | — | Identity providers for Dex. Each connector needs domain. Static users off, or environment production, needs at least one. |
 | `auth.dex.connectors[].allowedGroups` | array | — | — | microsoft: only members may log in. |
@@ -51,6 +54,9 @@ For the full default values, see `charts/keelson/values.yaml`.
 | `auth.dex.connectors[].tenant` | string | — | pattern `^([0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}\|[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+)$`; not matching `(?i)^(common\|consumers\|organizations)$` | microsoft: tenant ID or verified domain. A domain is lowercase only. Multi-tenant values accept any account and drop groups. |
 | `auth.dex.connectors[].type` | string, required | — | one of `oidc`, `microsoft`, `github` | Connector type: oidc (any OpenID Connect provider), microsoft (Entra ID) or github. |
 | `auth.dex.connectors[].useLoginAsID` | boolean | false | — | github: use the GitHub login as the user ID, not the numeric ID. |
+| `auth.oidcClient` | object | — | — | The OIDC client that oauth2-proxy uses to log in with Dex. Both components must read the same client ID and secret. |
+| `auth.oidcClient.secretRef` | object | — | — | Secret with keys client-id and client-secret. Create it in both namespaces auth and oauth2-proxy. Keelson never creates it. Required with environment production. |
+| `auth.oidcClient.secretRef.name` | string | — | not matching `^(oauth2-proxy\|dex-oidc-client)$` | Secret name. Not oauth2-proxy and not dex-oidc-client: those names are upstream's generated Secrets. |
 | `auth.staticUsers` | object | — | — | Static user settings. |
 | `auth.staticUsers.enabled` | boolean | — | — | Upstream static user user@example.com. Kind and dev only. |
 
@@ -70,7 +76,7 @@ For the full default values, see `charts/keelson/values.yaml`.
 
 | Key | Type | Default | Allowed | Description |
 |---|---|---|---|---|
-| `environment` | string | "dev" | one of `dev`, `production` | production rejects auth.staticUsers and needs at least one Dex connector. |
+| `environment` | string | "dev" | one of `dev`, `production` | production rejects auth.staticUsers, and needs at least one Dex connector and the secretRefs auth.oidcClient and auth.cookie. |
 
 ## `global`
 
@@ -137,7 +143,7 @@ For the full default values, see `charts/keelson/values.yaml`.
 
 The chart fails to render when one of these rules is broken.
 
-- If `environment` is `production`, then `auth.dex.connectors` has at least 1 item; `auth.staticUsers.enabled` is `false`.
+- If `environment` is `production`, then `auth.cookie.secretRef.name` is not empty; `auth.dex.connectors` has at least 1 item; `auth.oidcClient.secretRef.name` is not empty; `auth.staticUsers.enabled` is `false`.
 - If `auth.staticUsers.enabled` is `false`, then `auth.dex.connectors` has at least 1 item.
 - If `auth.dex.connectors` has at least 1 item, then `domain` is not empty.
 - If `tls.issuer` is `existing`, then `domain` is not empty; `tls.secretRef.name` is not empty.

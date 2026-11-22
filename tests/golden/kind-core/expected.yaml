@@ -422,6 +422,58 @@ spec:
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
+  name: dashboard
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: dashboard
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  destination:
+    namespace: kubeflow
+    server: https://kubernetes.default.svc
+  ignoreDifferences:
+  - group: admissionregistration.k8s.io
+    jqPathExpressions:
+    - .webhooks[].clientConfig.caBundle
+    kind: MutatingWebhookConfiguration
+    name: poddefaults-webhook-mutating-webhook-configuration
+  - group: rbac.authorization.k8s.io
+    jsonPointers:
+    - /rules
+    kind: ClusterRole
+    name: poddefaults-webhook-kubeflow-poddefaults-admin
+  - group: rbac.authorization.k8s.io
+    jsonPointers:
+    - /rules
+    kind: ClusterRole
+    name: poddefaults-webhook-kubeflow-poddefaults-edit
+  project: keelson
+  source:
+    path: applications/dashboard/overlays/istio
+    repoURL: https://github.com/kubeflow/manifests
+    targetRevision: 26.10.0
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+      limit: 10
+    syncOptions:
+    - ServerSideApply=true
+    - CreateNamespace=true
+    - RespectIgnoreDifferences=true
+
+---
+# Source: keelson/templates/applications.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
   name: workspaces
   namespace: argocd
   labels:

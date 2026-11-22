@@ -5,8 +5,8 @@ source:
   path: applications/workspaces/overlays/istio
 namespace: kubeflow-workspaces
 namespaces: [kubeflow-workspaces]
-# `dashboard` (#7) joins this list when that module is on main.
-dependsOn: [cert-manager-kubeflow, istio, kubeflow-istio-resources, kubeflow-roles]
+# dashboard: the menu links to /workspaces/, and its Profile CRD and controller make the profile namespaces.
+dependsOn: [cert-manager-kubeflow, istio, kubeflow-istio-resources, kubeflow-roles, dashboard]
 defaultEnabled: true
 translations: []
 # Aggregated ClusterRoles: upstream ships `rules: []` and the RBAC controller fills .rules at runtime.

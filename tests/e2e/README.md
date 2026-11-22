@@ -42,6 +42,6 @@ Each `MODULES` value installs a golden scenario's `values.yaml`, so e2e installs
 
 Tests run after every Application is Healthy, in module wave order. A path shared by several modules runs once.
 
-Prefer running upstream's own test from `.cache/upstream/<tag>/tests/` over writing a copy. `dex-login.sh` does this with `dex_login_test.py`. It needs something serving `/` behind the gateway, so the dashboard module wires it (#7). Until then, core uses `auth-redirect.sh`.
+Prefer running upstream's own test from `.cache/upstream/<tag>/tests/` over writing a copy. `dex-login.sh` does this with `dex_login_test.py`. It needs something serving `/` behind the gateway, so the dashboard module wires it (#7): `tests/e2e/dashboard.sh` runs it first, then `dashboard.py`. Without the dashboard, core uses `auth-redirect.sh`. With the dashboard, `auth-redirect.sh` also requires oauth2-proxy's sign-in page on `GET /`.
 
 `auth-redirect.sh` applies a test-only route, `tests/e2e/fixtures/protected-route.yaml`, and deletes it at the end. Core has no workload at `/`, and Envoy skips `ext_authz` for a request that matches no route, so the gateway answers `403 RBAC: access denied` there (#106). The route sends `/keelson-e2e/` to the Dex Service. Dex cannot return oauth2-proxy's sign-in form, so the form on that path proves that `ext_authz` answered. That gives a protected path that `ext_authz` checks.
