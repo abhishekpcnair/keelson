@@ -96,7 +96,10 @@ class MainCli(unittest.TestCase):
 
     def run_cli(self, module_text, tool=None):
         module = self.root / "chart/modules/m.yaml"
-        module.write_bytes(module_text) if isinstance(module_text, bytes) else module.write_text(module_text)
+        if isinstance(module_text, bytes):
+            module.write_bytes(module_text)
+        else:
+            module.write_text(module_text)
         env = dict(os.environ)
         env["KUSTOMIZE"] = str(tool or self.stub_tool())
         return subprocess.run(
@@ -147,6 +150,14 @@ class MainCli(unittest.TestCase):
         r = self.run_cli("name: m\nnamespace: x\nsource: {type: kustomize, path: p}\n", tool=self.stub_tool("v0.0.1"))
         self.assertEqual(r.returncode, 2)
         self.assertIn("upstream pins v9.9.9", r.stderr)
+        self.assertNotIn("Traceback", r.stderr)
+
+    def test_missing_kustomize_install_script(self):
+        (self.root / "cache/1.0/tests/kustomize_install.sh").unlink()
+        r = self.run_cli("name: m\nnamespace: x\nsource: {type: kustomize, path: p}\n")
+        self.assertEqual(r.returncode, 2)
+        self.assertIn("cannot read", r.stderr)
+        self.assertIn("kustomize_install.sh", r.stderr)
         self.assertNotIn("Traceback", r.stderr)
 
     def test_missing_kustomize_on_path(self):

@@ -30,13 +30,13 @@ CONTEXTS = {
         "default", "description", "format", "pattern", "minLength", "maxLength", "minItems", "allOf",
         "anyOf", "not", "propertyNames",
     },
-    "branch": {"type", "enum", "const", "maxLength", "minLength", "minItems", "format", "pattern", "not", "propertyNames", "anyOf"},
+    "branch": {"enum", "const", "maxLength", "minLength", "minItems", "format", "pattern", "not", "propertyNames", "anyOf"},
     "not": {"pattern"},
     "pnames": {"pattern", "not"},
     "pnames_not": {"pattern", "enum"},
     "fact": {"required", "const", "minLength", "minItems", "propertyNames", "properties"},
     "fact_pnames": {"not"},
-    "fact_pnames_not": {"enum"},
+    "fact_pnames_not": {"enum", "pattern"},
 }
 
 
@@ -183,6 +183,8 @@ def facts(schema, node, path, acc):
     pn = node.get("propertyNames", {})
     if "not" in pn and "enum" in pn["not"]:
         acc.setdefault(path, []).append("has none of the keys " + ", ".join(code(k) for k in pn["not"]["enum"]))
+    if "not" in pn and "pattern" in pn["not"]:
+        acc.setdefault(path, []).append("has no key matching " + code(pn["not"]["pattern"]))
     for name, sub in node.get("properties", {}).items():
         facts(schema, sub, f"{path}.{name}" if path else name, acc)
 

@@ -44,7 +44,7 @@ The mechanism must:
 6. **Missing CRD modules fail at render time.** `dependsOn` is enforced when the chart renders, as it is for upstream modules. For example, enabling `keelson-profiles` while `dashboard` is disabled is a render-time `fail` naming both modules, not an ArgoCD sync that retries forever. A component whose values are empty (for example `profiles: []`) renders **no Application at all**.
 7. **The self-source is allowlisted and pinned.** `keelson.sourceRepos` adds the self-source to the AppProject. `hack/check_rules.py` R1 and R2 apply to it like any other source.
    - **The default resolves only for a published release.** Every other install must set `keelson.selfSource`, or its component Applications point at a ghcr.io artifact that may not exist, or may differ from what's installed. That covers installs from a git checkout or a fork, mirrored or air-gapped registries, and PR e2e.
-   - An override may pin a chart version or a digest. `.Chart.Version` is a tag, and a digest is the stricter choice for mirrors.
+   - An override pins an exact chart version (SemVer). ArgoCD `v3.6.2` cannot pin a Helm OCI source by digest.
 8. **Repository Secrets are never rendered by the chart.**
    - **Public `ghcr.io`:** no Secret is needed. ArgoCD reads public OCI Helm charts without credentials.
    - **Private or mirrored registries:** the user creates an ArgoCD repository Secret (`type: helm`, `enableOCI: "true"`, plus credentials) themselves, just as for any private Helm repository.
@@ -80,3 +80,8 @@ The mechanism is implemented with its first consumer (#9), or in an engine PR ju
 - Everything stays in one chart, one version and one signed OCI artifact (§13). Air-gapped users mirror the same chart they already install, plus their own repository Secret.
 - PR e2e needs an in-cluster OCI registry. The root-Application e2e mode (#22) reuses it.
 - **Upstream bumps:** a bump doesn't change the mechanism. Component resources follow upstream CRD versions (for example `kubeflow.org/v1` `Profile`, the storage version at 26.10.0), so `/upstream-bump` must check those API versions still exist at the new tag, just as it re-checks module paths.
+
+## Amendments
+- **2026-11-22, #57:** point 7 no longer says "or a digest".
+  - Reason: for the Helm OCI source form that this ADR uses (`repoURL` without `oci://`, `chart`, `targetRevision`), ArgoCD `v3.6.2` accepts only a version or a version constraint. A `sha256:` value fails with `failed to determine semver constraint`. The evidence table is in #57.
+  - A digest pin needs the native OCI source form (`repoURL: oci://…`). Make a new ADR only if mirrors need digest pins.
