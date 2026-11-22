@@ -4,16 +4,26 @@
 # and Healthy, then run each enabled module's smoke test.
 #
 # Usage: tests/e2e/run.sh <core|all> [extra helm args...]
+#
+# docs/quickstart-kind.md documents steps 3 and 4 below (install, wait) with the same commands.
+# If you change them here, change the page too.
 # Environment:
 #   E2E_TIMEOUT  how long to wait for Synced + Healthy (default 30m; s/m/h suffix)
+#   E2E_INSTALL  helm (default): helm upgrade --install. root-app (#22): install through a root
+#                ArgoCD Application that pulls the chart from an in-cluster OCI registry, and
+#                assert that the sync waves order the install. main and nightly use root-app.
 #   KEEP=1       after success, keep a gateway port-forward on localhost:8080 open
 #                (Ctrl-C to stop) so you can look around by hand
 # On failure, diagnostics are written to .cache/e2e/diagnostics/.
 set -euo pipefail
 # shellcheck source=tests/e2e/lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+# shellcheck source=tests/e2e/lib/root-app.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/root-app.sh"
 
 MODULES="${1:-core}"
+E2E_INSTALL="${E2E_INSTALL:-helm}"
+case "$E2E_INSTALL" in helm|root-app) ;; *) fail "unknown E2E_INSTALL '$E2E_INSTALL' (use helm or root-app)" ;; esac
 shift || true
 E2E_TIMEOUT="${E2E_TIMEOUT:-30m}"
 RELEASE=keelson
@@ -85,9 +95,15 @@ on_exit() {
 trap on_exit EXIT
 
 # 3. Install.
-log "Installing Keelson ($MODULES: ${SCENARIO#"$E2E_ROOT"/}) into namespace '$ARGOCD_NS'"
-helm upgrade --install "$RELEASE" "$CHART" -n "$ARGOCD_NS" -f "$SCENARIO" "$@" >/dev/null
-expected="$(helm get manifest "$RELEASE" -n "$ARGOCD_NS" | grep -c '^kind: Application$' || true)"
+if [[ "$E2E_INSTALL" == root-app ]]; then
+  log "Installing Keelson ($MODULES: ${SCENARIO#"$E2E_ROOT"/}) through a root Application (#22)"
+  root_app_install
+  expected="$(helm template "$RELEASE" "$CHART" -n "$ARGOCD_NS" -f "$SCENARIO" "$@" | grep -c '^kind: Application$' || true)"
+else
+  log "Installing Keelson ($MODULES: ${SCENARIO#"$E2E_ROOT"/}) into namespace '$ARGOCD_NS'"
+  helm upgrade --install "$RELEASE" "$CHART" -n "$ARGOCD_NS" -f "$SCENARIO" "$@" >/dev/null
+  expected="$(helm get manifest "$RELEASE" -n "$ARGOCD_NS" | grep -c '^kind: Application$' || true)"
+fi
 (( expected > 0 )) || fail "the release rendered no Applications"
 
 # 4. Wait for every Application to be Synced + Healthy.
@@ -124,6 +140,9 @@ print(len(items), " ".join(not_ready))
   sleep 30
 done
 log "All $expected Applications Synced and Healthy after $(( SECONDS - start ))s"
+if [[ "$E2E_INSTALL" == root-app ]]; then
+  assert_wave_order
+fi
 
 # 5. Smoke tests: the distinct smokeTest paths of the enabled modules, in wave order.
 # Capture the list first. With `done < <(...)`, a failure inside the substitution is silent,
