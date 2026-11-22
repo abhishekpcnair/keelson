@@ -1,5 +1,5 @@
 name: kubeflow-namespace
-wave: -50
+wave: -80
 source:
   type: kustomize
   path: common/kubeflow-namespace/base

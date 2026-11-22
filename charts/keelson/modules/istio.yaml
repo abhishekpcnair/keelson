@@ -5,7 +5,7 @@ source:
   path: common/istio/istio-install/overlays/oauth2-proxy
 namespace: istio-system
 namespaces: [istio-system, kube-system, kubeflow]
-dependsOn: [istio-crds, istio-namespace]
+dependsOn: [istio-crds, istio-namespace, kubeflow-namespace]
 defaultEnabled: true
 translations: []
 smokeTest: none  # e2e harness lands in #4

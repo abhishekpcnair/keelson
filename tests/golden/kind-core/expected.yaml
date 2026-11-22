@@ -7,6 +7,9 @@ metadata:
   namespace: argocd
   labels:
     app.kubernetes.io/part-of: keelson
+  annotations:
+    # Before every module Application (lowest module wave is -100).
+    argocd.argoproj.io/sync-wave: "-1000"
 spec:
   description: Keelson-managed Kubeflow modules (pinned upstream sources only).
   sourceRepos:
@@ -176,6 +179,41 @@ spec:
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
+  name: kubeflow-namespace
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: kubeflow-namespace
+  annotations:
+    argocd.argoproj.io/sync-wave: "-80"
+spec:
+  destination:
+    namespace: kubeflow
+    server: https://kubernetes.default.svc
+  project: keelson
+  source:
+    path: common/kubeflow-namespace/base
+    repoURL: https://github.com/kubeflow/manifests
+    targetRevision: 26.10.0
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+      limit: 10
+    syncOptions:
+    - ServerSideApply=true
+    - CreateNamespace=true
+
+---
+# Source: keelson/templates/applications.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
   name: istio
   namespace: argocd
   labels:
@@ -295,41 +333,6 @@ spec:
   project: keelson
   source:
     path: common/istio/kubeflow-istio-resources/base
-    repoURL: https://github.com/kubeflow/manifests
-    targetRevision: 26.10.0
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
-    retry:
-      backoff:
-        duration: 10s
-        factor: 2
-        maxDuration: 5m
-      limit: 10
-    syncOptions:
-    - ServerSideApply=true
-    - CreateNamespace=true
-
----
-# Source: keelson/templates/applications.yaml
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: kubeflow-namespace
-  namespace: argocd
-  labels:
-    app.kubernetes.io/part-of: keelson
-    keelson.io/module: kubeflow-namespace
-  annotations:
-    argocd.argoproj.io/sync-wave: "-50"
-spec:
-  destination:
-    namespace: kubeflow
-    server: https://kubernetes.default.svc
-  project: keelson
-  source:
-    path: common/kubeflow-namespace/base
     repoURL: https://github.com/kubeflow/manifests
     targetRevision: 26.10.0
   syncPolicy:

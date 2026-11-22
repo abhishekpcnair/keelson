@@ -1,6 +1,7 @@
 {{- range (include "keelson.enabledModules" . | fromYaml).modules }}
 {{- $spec := include "keelson.defaultAppSpec" (dict "root" $ "module" .) | fromYaml }}
 {{- $override := ((($.Values.advanced).modules | default dict) | dig .name "appSpecOverride" dict) }}
+{{- include "keelson.checkOverride" (dict "module" .name "override" $override) }}
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application

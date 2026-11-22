@@ -35,6 +35,13 @@ The default is `generic`.
 - The AppProject `argocd.project`. It allows only `upstream.manifestsRepo` plus `argocd.extraSourceRepos`,
   and only the namespaces that enabled modules write to.
 
+## Turning a module off leaves its resources running
+
+Applications have no `resources-finalizer.argocd.argoproj.io`. When you disable a module,
+ArgoCD deletes the Application but keeps what it deployed. This is on purpose: deleting CRDs
+or namespaces by accident would delete user data. To remove a module's resources, delete them
+yourself.
+
 ## Override an Application spec (unsupported)
 
 `advanced.modules.<name>.appSpecOverride` is deep-merged over the generated `spec`:
@@ -50,6 +57,10 @@ advanced:
 ```
 
 This is an escape hatch. We don't support it, and it may break on upgrade.
+
+You can't override the fields that keep sources pinned and inside the AppProject.
+Rendering fails if an override sets `project`, `sources`, `source.repoURL`,
+`source.targetRevision` or `destination.server`.
 
 ## Add a module
 
