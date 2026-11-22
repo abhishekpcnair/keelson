@@ -20,5 +20,13 @@ spec:
   {{- $_ := set $merged.source "repoURL" $spec.source.repoURL }}
   {{- $_ := set $merged.source "targetRevision" $spec.source.targetRevision }}
   {{- $_ := set $merged.destination "server" $spec.destination.server }}
+  {{- /* Registry ignoreDifferences and RespectIgnoreDifferences survive an override; an override can only add entries. */}}
+  {{- if .ignoreDifferences }}
+  {{- $_ := set $merged "ignoreDifferences" (concat .ignoreDifferences ($override.ignoreDifferences | default list) | uniq) }}
+  {{- $opts := $merged.syncPolicy.syncOptions | default list }}
+  {{- if not (has "RespectIgnoreDifferences=true" $opts) }}
+  {{- $_ := set $merged.syncPolicy "syncOptions" (append $opts "RespectIgnoreDifferences=true") }}
+  {{- end }}
+  {{- end }}
   {{- $merged | toYaml | nindent 2 }}
 {{- end }}

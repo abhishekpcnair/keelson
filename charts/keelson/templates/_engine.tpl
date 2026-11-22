@@ -30,6 +30,9 @@ names, unmet dependsOn, and non-kustomize sources.
 {{- if not (kindIs "map" $m.source) -}}
 {{- fail (printf "%s: source must be a map" $path) -}}
 {{- end -}}
+{{- if and (hasKey $m "ignoreDifferences") (not (kindIs "slice" $m.ignoreDifferences)) -}}
+{{- fail (printf "%s: ignoreDifferences must be a list" $path) -}}
+{{- end -}}
 {{- if not $m.source.path -}}{{- fail (printf "%s: missing required field \"source.path\"" $path) -}}{{- end -}}
 {{- if ne (printf "modules/%s.yaml" $m.name) $path -}}
 {{- fail (printf "%s: name %q must match the file name" $path $m.name) -}}
@@ -130,12 +133,19 @@ syncPolicy:
   syncOptions:
     - ServerSideApply=true
     - CreateNamespace=true
+    {{- if .module.ignoreDifferences }}
+    - RespectIgnoreDifferences=true
+    {{- end }}
   retry:
     limit: 10
     backoff:
       duration: 10s
       factor: 2
       maxDuration: 5m
+{{- with .module.ignoreDifferences }}
+ignoreDifferences:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
 {{- end -}}
 
 

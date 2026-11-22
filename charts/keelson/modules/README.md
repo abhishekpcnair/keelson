@@ -10,5 +10,6 @@ Fields:
 - `namespace`: the Application destination namespace
 - `namespaces`: every namespace the path writes to, which builds the AppProject allowlist (check with `kubectl kustomize`)
 - `translations`, `smokeTest`, `upstreamHelmChart`
+- `ignoreDifferences` (optional): ArgoCD `ignoreDifferences` entries for fields another controller owns, such as a cert-manager-injected `caBundle`. The engine adds `RespectIgnoreDifferences=true`, and overrides can't remove these entries.
 
 User docs: `docs/modules/README.md`.

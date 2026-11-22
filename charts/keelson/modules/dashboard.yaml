@@ -1,0 +1,20 @@
+name: dashboard
+wave: 0
+source:
+  type: kustomize
+  path: applications/dashboard/overlays/istio
+namespace: kubeflow
+namespaces: [kubeflow]
+# oauth2-proxy: the UI is useless without the auth chain, even though Healthy doesn't need it.
+dependsOn: [cert-manager-kubeflow, istio, kubeflow-namespace, kubeflow-roles, kubeflow-istio-resources, oauth2-proxy]
+defaultEnabled: true
+translations: []
+# cert-manager's cainjector fills the webhook caBundle (cert-manager.io/inject-ca-from);
+# upstream ships "". Without this, selfHeal would reset it and block every pod in profile namespaces.
+ignoreDifferences:
+  - group: admissionregistration.k8s.io
+    kind: MutatingWebhookConfiguration
+    name: poddefaults-webhook-mutating-webhook-configuration
+    jqPathExpressions: [".webhooks[].clientConfig.caBundle"]
+smokeTest: tests/e2e/dashboard.py
+upstreamHelmChart: applications/dashboard/helm
