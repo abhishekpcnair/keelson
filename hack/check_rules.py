@@ -130,8 +130,11 @@ def check_symlinks(repo: pathlib.Path, errors):
             ["git", "-C", str(repo), "ls-files", "-s", "-z"],
             capture_output=True, text=True, check=True,
         ).stdout
-    except OSError:
+    except FileNotFoundError:
         print("NOTE R6 skipped: git is not installed")
+        return
+    except OSError as e:
+        errors.append(f"R6 {repo}: git cannot run: {e}")
         return
     except subprocess.CalledProcessError as e:
         errors.append(f"R6 {repo}: git ls-files failed: {(e.stderr or '').strip()}")
