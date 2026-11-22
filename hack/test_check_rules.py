@@ -87,6 +87,7 @@ class CheckSymlinks(unittest.TestCase):
                 contextlib.redirect_stdout(out):
             check_symlinks(pathlib.Path("."), errors)
         self.assertEqual(len(errors), 1)
+        self.assertTrue(errors[0].startswith("R6 "))
         self.assertIn("git cannot run", errors[0])
         self.assertNotIn("NOTE", out.getvalue())
 
@@ -127,6 +128,42 @@ class CheckTemplates(unittest.TestCase):
         self.assertEqual(len(self.run_t1(one_line)), 1)
         self.assertEqual(len(self.run_t1(next_line)), 1)
         self.assertEqual(self.run_t1(one_line.replace("keelson.wrong", "keelson.a")), [])
+
+    def test_indented_comment_above_other_define_fails(self):
+        text = ('  {{/*\n  keelson.a: indented doc.\n  */}}\n'
+                '  {{- define "keelson.b" -}}\n  {{- end -}}\n')
+        errors = self.run_t1(text)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("keelson.a", errors[0])
+
+    def test_indented_comment_above_own_indented_define(self):
+        text = '  {{/* keelson.a: indented. */}}\n  {{- define "keelson.a" -}}\n  {{- end -}}\n'
+        self.assertEqual(self.run_t1(text), [])
+
+    def test_missing_folder_fails(self):
+        errors = []
+        with tempfile.TemporaryDirectory() as d:
+            check_templates(pathlib.Path(d) / "no-such-dir", errors)
+        self.assertEqual(len(errors), 1)
+        self.assertTrue(errors[0].startswith("T1 "))
+        self.assertIn("not a directory", errors[0])
+
+    def test_folder_without_tpl_files_fails(self):
+        errors = []
+        with tempfile.TemporaryDirectory() as d:
+            self.assertEqual(check_templates(pathlib.Path(d), errors), (0, 0))
+        self.assertEqual(len(errors), 1)
+        self.assertTrue(errors[0].startswith("T1 "))
+        self.assertIn("no *.tpl files", errors[0])
+
+    def test_returns_count(self):
+        errors = []
+        with tempfile.TemporaryDirectory() as d:
+            (pathlib.Path(d) / "_x.tpl").write_text(
+                '{{/* keelson.a: one. */}}\n{{- define "keelson.a" -}}\n{{- end -}}\n'
+                '{{/* keelson.b: two. */}}\n{{- define "keelson.b" -}}\n{{- end -}}\n')
+            self.assertEqual(check_templates(pathlib.Path(d), errors), (2, 1))
+        self.assertEqual(errors, [])
 
 
 if __name__ == "__main__":
