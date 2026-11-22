@@ -39,14 +39,15 @@ Application gets `RespectIgnoreDifferences=true`. No upstream manifest is patche
 ## Menu links
 
 The dashboard uses upstream's menu. It links Workspaces, Katib, KServe Endpoints, Model Registry and
-Pipelines. Some of these aren't installed yet (Katib, KServe and Model Registry are v0.2+), so those
-links show an error page until their module exists. Changing the menu would mean copying upstream's
+Pipelines. Some of these aren't installed yet, so those links show an error page until their module
+exists: Pipelines ([#12](https://github.com/abhishekpcnair/keelson/issues/12)) and Workspaces ([#14](https://github.com/abhishekpcnair/keelson/issues/14)) are coming in v0.1, and Katib, KServe and Model Registry
+are v0.2+. Changing the menu would mean copying upstream's
 configuration, so Keelson keeps it as is for v0.1.
 
 ## Users and namespaces
 
 A user who logs in has no namespace until a `Profile` exists for them. Keelson creates profiles from
-`profiles` in values (#9). It doesn't use upstream's `common/user-namespace`.
+`profiles` in values ([#9](https://github.com/abhishekpcnair/keelson/issues/9)). It doesn't use upstream's `common/user-namespace`.
 
 ## Smoke test
 

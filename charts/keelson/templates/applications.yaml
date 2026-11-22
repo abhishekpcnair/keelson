@@ -23,10 +23,9 @@ spec:
   {{- /* Registry ignoreDifferences and RespectIgnoreDifferences survive an override; an override can only add entries. */}}
   {{- if .ignoreDifferences }}
   {{- $_ := set $merged "ignoreDifferences" (concat .ignoreDifferences ($override.ignoreDifferences | default list) | uniq) }}
-  {{- $opts := $merged.syncPolicy.syncOptions | default list }}
-  {{- if not (has "RespectIgnoreDifferences=true" $opts) }}
+  {{- $opts := list }}
+  {{- range ($merged.syncPolicy.syncOptions | default list) }}{{- if not (hasPrefix "RespectIgnoreDifferences=" (toString .)) }}{{- $opts = append $opts . }}{{- end }}{{- end }}
   {{- $_ := set $merged.syncPolicy "syncOptions" (append $opts "RespectIgnoreDifferences=true") }}
-  {{- end }}
   {{- end }}
   {{- $merged | toYaml | nindent 2 }}
 {{- end }}

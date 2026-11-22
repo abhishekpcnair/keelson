@@ -12,8 +12,9 @@ Checks:
   1. GET / returns 200 HTML (the dashboard, reached through oauth2-proxy).
   2. GET /api/workgroup/env-info returns JSON whose `user` is the Dex user, which proves
      the kubeflow-userid header path through Istio.
-  3. The PodDefault webhook caBundle is non-empty, and still non-empty after a hard
-     refresh of the `dashboard` Application and a wait; the Application stays Synced.
+  3. Every PodDefault webhook has a non-empty caBundle, and still has one after a forced
+     sync of the `dashboard` Application (a sync re-applies the upstream caBundle: "", so this
+     is what proves RespectIgnoreDifferences works); the Application stays Synced.
 """
 import importlib.util
 import json
@@ -34,7 +35,7 @@ DEX_USER = os.environ.get("KEELSON_DEX_USER", "user@example.com")      # upstrea
 DEX_PASSWORD = os.environ.get("KEELSON_DEX_PASSWORD", "12341234")      # upstream default; not a Keelson secret
 ARGOCD_NS = os.environ.get("KEELSON_ARGOCD_NAMESPACE", "argocd")
 WEBHOOK = "poddefaults-webhook-mutating-webhook-configuration"
-SETTLE_SECONDS = int(os.environ.get("KEELSON_SETTLE_SECONDS", "60"))
+SYNC_TIMEOUT_SECONDS = int(os.environ.get("KEELSON_SYNC_TIMEOUT_SECONDS", "300"))
 
 
 def load_upstream_dex():
@@ -52,9 +53,28 @@ def kubectl(*args):
 
 
 def ca_bundles():
-    out = kubectl("get", "mutatingwebhookconfiguration", WEBHOOK,
-                  "-o", "jsonpath={range .webhooks[*]}{.clientConfig.caBundle}{'\\n'}{end}")
-    return out.splitlines()
+    """caBundle of every webhook, from -o json so an empty value on any webhook shows up."""
+    cfg = json.loads(kubectl("get", "mutatingwebhookconfiguration", WEBHOOK, "-o", "json"))
+    return [w.get("clientConfig", {}).get("caBundle", "") for w in cfg.get("webhooks", [])]
+
+
+def app(jsonpath):
+    return kubectl("-n", ARGOCD_NS, "get", "application", "dashboard", "-o", f"jsonpath={jsonpath}")
+
+
+def force_sync():
+    """Start a sync of the dashboard Application and wait until it has Succeeded."""
+    before = app("{.status.operationState.startedAt}")
+    kubectl("-n", ARGOCD_NS, "patch", "application", "dashboard", "--type", "merge", "-p",
+            json.dumps({"operation": {"initiatedBy": {"username": "keelson-dashboard-smoke"},
+                                      "sync": {"revision": app("{.spec.source.targetRevision}")}}}))
+    deadline = time.time() + SYNC_TIMEOUT_SECONDS
+    while time.time() < deadline:
+        started, phase = app("{.status.operationState.startedAt}"), app("{.status.operationState.phase}")
+        if started and started != before and phase in ("Succeeded", "Failed", "Error"):
+            return phase
+        time.sleep(5)
+    return "Timeout"
 
 
 def check(ok, msg):
@@ -63,26 +83,34 @@ def check(ok, msg):
         sys.exit(1)
 
 
+def get_json(r):
+    try:
+        return r.json()
+    except ValueError:
+        return {}
+
+
 def main():
     cookies = load_upstream_dex()(ENDPOINT, DEX_USER, DEX_PASSWORD).get_session_cookies()
+    check(bool(cookies), "Dex login returned session cookies")
     headers = {"Cookie": cookies}
 
-    r = requests.get(f"{ENDPOINT}/", headers=headers, timeout=15)
+    # allow_redirects=False: a redirect to the Dex login page would otherwise look like a 200.
+    r = requests.get(f"{ENDPOINT}/", headers=headers, timeout=15, allow_redirects=False)
     check(r.status_code == 200 and "text/html" in r.headers.get("content-type", ""),
           f"GET / -> {r.status_code} {r.headers.get('content-type', '')}")
 
-    r = requests.get(f"{ENDPOINT}/api/workgroup/env-info", headers=headers, timeout=15)
-    user = r.json().get("user") if r.ok else None
+    r = requests.get(f"{ENDPOINT}/api/workgroup/env-info", headers=headers, timeout=15, allow_redirects=False)
+    user = get_json(r).get("user") if r.status_code == 200 else None
     check(user == DEX_USER, f"GET /api/workgroup/env-info -> {r.status_code}, user={user!r}")
 
     bundles = ca_bundles()
-    check(bool(bundles) and all(bundles), "webhook caBundle injected by cert-manager")
-    kubectl("-n", ARGOCD_NS, "annotate", "application", "dashboard",
-            "argocd.argoproj.io/refresh=hard", "--overwrite")
-    time.sleep(SETTLE_SECONDS)
+    check(bool(bundles) and all(bundles), f"caBundle injected by cert-manager on all {len(bundles)} webhook(s)")
+    phase = force_sync()
+    check(phase == "Succeeded", f"forced sync of the dashboard Application: {phase}")
     bundles = ca_bundles()
-    check(bool(bundles) and all(bundles), f"caBundle still set {SETTLE_SECONDS}s after a hard refresh")
-    sync = kubectl("-n", ARGOCD_NS, "get", "application", "dashboard", "-o", "jsonpath={.status.sync.status}")
+    check(bool(bundles) and all(bundles), "caBundle still set on every webhook after the forced sync")
+    sync = app("{.status.sync.status}")
     check(sync == "Synced", f"dashboard Application sync status: {sync}")
     print(json.dumps({"dashboard-smoke": "passed"}))
 
