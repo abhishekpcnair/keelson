@@ -76,14 +76,18 @@ def check_dex_config(where, base: str, patched: str, errors):
             errors.append(f"{where}: Dex config key '{k}' differs from upstream (update keelson.dex.upstreamConfig)")
 
 
+class VersionError(Exception):
+    """The kustomize version check failed. The message has no prefix; each caller adds its own."""
+
+
 def check_version(upstream: pathlib.Path):
     m = re.search(r'KUSTOMIZE_VERSION="(v[0-9.]+)"', (upstream / "tests/kustomize_install.sh").read_text())
     if not m:
-        sys.exit(f"kustomize_check: no KUSTOMIZE_VERSION in {upstream}/tests/kustomize_install.sh")
+        raise VersionError(f"no KUSTOMIZE_VERSION in {upstream}/tests/kustomize_install.sh")
     want = m.group(1)
     got = subprocess.run([KUSTOMIZE, "version"], capture_output=True, text=True).stdout.strip()
     if got != want:
-        sys.exit(f"kustomize_check: {KUSTOMIZE} is {got or 'missing'}, upstream pins {want}")
+        raise VersionError(f"{KUSTOMIZE} is {got or 'missing'}, upstream pins {want}")
 
 
 def main():
@@ -99,7 +103,10 @@ def main():
                 upstream = a.cache / tag
                 if not upstream.is_dir():
                     sys.exit(f"kustomize_check: {upstream} missing; run 'make upstream-cache TAG={tag}'")
-                check_version(upstream)
+                try:
+                    check_version(upstream)
+                except VersionError as e:
+                    sys.exit(f"kustomize_check: {e}")
                 trees[tag] = pathlib.Path(tmp) / tag
                 shutil.copytree(upstream, trees[tag], ignore=shutil.ignore_patterns(".git"))
             tree = trees[tag]
