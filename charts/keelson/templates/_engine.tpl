@@ -189,6 +189,32 @@ ignoreDifferences:
 
 
 {{/*
+keelson.checkIgnoreDifference: one ignoreDifferences entry, from the registry or from an
+appSpecOverride. It must be a map with a kind, and name at least one field to ignore
+(jsonPointers, jqPathExpressions or managedFieldsManagers) as a non-empty list.
+Call with (dict "where" "<location>" "entry" $d).
+*/}}
+{{- define "keelson.checkIgnoreDifference" -}}
+{{- $d := .entry -}}
+{{- $where := .where -}}
+{{- if not (and (kindIs "map" $d) (kindIs "string" $d.kind) $d.kind) -}}
+{{- fail (printf "%s: must be a map with a kind" $where) -}}
+{{- end -}}
+{{- $named := false -}}
+{{- range $f := list "jsonPointers" "jqPathExpressions" "managedFieldsManagers" -}}
+{{- if hasKey $d $f -}}
+{{- $v := get $d $f -}}
+{{- if not (kindIs "slice" $v) -}}{{- fail (printf "%s.%s: must be a list" $where $f) -}}{{- end -}}
+{{- if gt (len $v) 0 -}}{{- $named = true -}}{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- if not $named -}}
+{{- fail (printf "%s: must name jsonPointers, jqPathExpressions or managedFieldsManagers" $where) -}}
+{{- end -}}
+{{- end -}}
+
+
+{{/*
 keelson.checkOverride: appSpecOverride is an allow-list at every level, so new
 ArgoCD or Kustomize fields (sourceHydrator, kustomize.components, ...) are
 rejected by default and sources stay pinned (hard rule 3).
@@ -199,26 +225,6 @@ rejected by default and sources stay pinned (hard rule 3).
 Allowed keys may not be null. A patch may not touch an image (hard rule 2).
 Call with (dict "module" $name "override" $o).
 */}}
-{{- /*
-One ignoreDifferences entry, from the registry or from an appSpecOverride.
-It must be a map with a kind, and name at least one field to ignore, as a non-empty list.
-Call with (dict "where" "<location>" "entry" $d).
-*/}}
-{{- define "keelson.checkIgnoreDifference" -}}
-{{- $d := .entry -}}
-{{- if not (and (kindIs "map" $d) (kindIs "string" $d.kind) $d.kind) -}}
-{{- fail (printf "%s: must be a map with a kind" .where) -}}
-{{- end -}}
-{{- $named := false -}}
-{{- range $f := list "jsonPointers" "jqPathExpressions" "managedFieldsManagers" -}}
-{{- $v := get $d $f -}}
-{{- if and (kindIs "slice" $v) (gt (len $v) 0) -}}{{- $named = true -}}{{- end -}}
-{{- end -}}
-{{- if not $named -}}
-{{- fail (printf "%s: must name jsonPointers, jqPathExpressions or managedFieldsManagers" .where) -}}
-{{- end -}}
-{{- end -}}
-
 {{- define "keelson.checkOverride" -}}
 {{- $where := printf "advanced.modules.%s.appSpecOverride" .module -}}
 {{- include "keelson.checkKeys" (dict "where" $where "obj" .override "allowed" (list "syncPolicy" "ignoreDifferences" "info" "revisionHistoryLimit" "source")) -}}
