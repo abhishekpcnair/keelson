@@ -2,6 +2,8 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "required": ["upstream", "argocd"],
+  "$comment": "Unknown top-level keys are rejected. A new top-level values key must be declared here.",
+  "additionalProperties": false,
   "allOf": [
     {
       "if": { "required": ["tls"], "properties": { "tls": { "required": ["issuer"], "properties": { "issuer": { "const": "existing" } } } } },
@@ -19,6 +21,12 @@
     }
   ],
   "properties": {
+    "global": { "type": "object", "description": "Helm global values. Allowed so parent charts and --set global.* keep working." },
+    "auth": { "type": "object", "description": "Placeholder; defined by #6 and #27" },
+    "profiles": { "type": "array", "description": "Placeholder; defined by #9" },
+    "storage": { "type": "object", "description": "Placeholder; defined by #12 and #38" },
+    "database": { "type": "object", "description": "Placeholder; defined by #12 and #39" },
+    "policy": { "type": "object", "description": "Placeholder; defined by #11" },
     "upstream": {
       "type": "object",
       "required": ["manifestsRepo", "manifestsRef"],

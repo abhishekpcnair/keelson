@@ -1,0 +1,3 @@
+# expect: additional properties 'platfrom' not allowed
+# A typo of `platform`. It must fail, not fall back to the default.
+platfrom: kind
