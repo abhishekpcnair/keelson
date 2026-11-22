@@ -10,3 +10,6 @@ defaultEnabled: true
 translations: [domain]
 smokeTest: none  # e2e harness lands in #4
 upstreamHelmChart: common/istio/helm
+# Aggregated ClusterRole: the RBAC controller fills in .rules at runtime.
+ignoreDifferences:
+  - {group: rbac.authorization.k8s.io, kind: ClusterRole, name: kubeflow-istio-admin, jsonPointers: [/rules]}
