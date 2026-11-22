@@ -306,6 +306,16 @@
       "enum": ["", "profiles"],
       "description": "Internal. Only the engine sets it, in component Applications (ADR 0004)."
     },
+    "profileNamespaceLabels": {
+      "type": "object",
+      "description": "Extra labels on every profile namespace. Pod Security and upstream label keys are rejected. An empty value removes the label.",
+      "propertyNames": {
+        "maxLength": 317,
+        "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?[A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?$",
+        "not": { "pattern": "^pod-security\\.kubernetes\\.io/" }
+      },
+      "additionalProperties": { "type": "string", "maxLength": 63, "pattern": "^([A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?)?$" }
+    },
     "modules": {
       "type": "object",
       "propertyNames": { "pattern": "^[a-z0-9-]+$" },

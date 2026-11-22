@@ -451,6 +451,25 @@ spec:
     name: poddefaults-webhook-kubeflow-poddefaults-edit
   project: keelson
   source:
+    kustomize:
+      patches:
+      - patch: |-
+          # purpose: add profileNamespaceLabels to every profile namespace
+          # upstream: none
+          # remove-when: never (Keelson intent: profileNamespaceLabels)
+          - op: replace
+            path: /data/namespace-labels.yaml
+            value: |
+              app.kubernetes.io/part-of: "kubeflow-profile"
+              katib.kubeflow.org/metrics-collector-injection: "enabled"
+              keelson.io/e2e: "true"
+              pipelines.kubeflow.org/enabled: "true"
+              pod-security.kubernetes.io/enforce: "baseline"
+              serving.kubeflow.org/inferenceservice: "enabled"
+        target:
+          kind: ConfigMap
+          name: profiles-namespace-labels-data
+          version: v1
     path: applications/dashboard/overlays/istio
     repoURL: https://github.com/kubeflow/manifests
     targetRevision: 26.10.0
