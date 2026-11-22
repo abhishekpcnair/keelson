@@ -9,7 +9,7 @@
 #   common/user-namespace/base                           the test Profile, when the Profile CRD exists
 #
 # Environment: KEELSON_ARGOCD_NAMESPACE (argocd), KEELSON_WORKSPACE_TIMEOUT (900s),
-#              KEELSON_SYNC_TIMEOUT (300s).
+#              KEELSON_WORKSPACE_ERROR_GRACE (180s), KEELSON_SYNC_TIMEOUT (300s).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 TAG="$(awk '/^upstream:/{u=1; next} /^[^[:space:]#]/{u=0} u && $1=="manifestsRef:"{gsub(/"/,"",$2); print $2; exit}' "$ROOT/charts/keelson/values.yaml")"
@@ -17,6 +17,7 @@ UP="$ROOT/.cache/upstream/$TAG"
 PROFILE="kubeflow-user-example-com"
 ARGOCD_NS="${KEELSON_ARGOCD_NAMESPACE:-argocd}"
 WS_TIMEOUT="${KEELSON_WORKSPACE_TIMEOUT:-900}"
+ERR_GRACE="${KEELSON_WORKSPACE_ERROR_GRACE:-180}"
 SYNC_TIMEOUT="${KEELSON_SYNC_TIMEOUT:-300}"
 FIXTURE="$UP/tests/workspace.test.kubeflow-user-example-com.yaml"
 WEBHOOK="workspaces-validating-webhook-configuration"
@@ -59,14 +60,26 @@ kubectl get workspacekind jupyterlab >/dev/null 2>&1 && ok "WorkspaceKind jupyte
 # 3. Start a Workspace and wait for Running (the #2 health mapping uses the same field).
 trap 'kubectl delete -f "$FIXTURE" --ignore-not-found --wait=false >/dev/null 2>&1 || true' EXIT
 kubectl apply -f "$FIXTURE" >/dev/null
-start=$(date +%s); state=""
+# The controller sets state Error on any Warning event of the Workspace Pod. A normal start has one:
+# the readiness probe fails (HTTP 500) until the server is up. So Error is final only if it lasts
+# longer than ERR_GRACE seconds (the state flips back to Running when the probe passes).
+start=$(date +%s); state=""; last="-"; err_since=0
 while (( $(date +%s) - start < WS_TIMEOUT )); do
   state="$(kubectl -n "$PROFILE" get workspace test -o jsonpath='{.status.state}' 2>/dev/null || true)"
-  [[ "$state" == Running || "$state" == Error ]] && break
+  now=$(date +%s)
+  if [[ "$state" != "$last" ]]; then log "Workspace test state: ${state:-<none>} (after $(( now - start ))s)"; last="$state"; fi
+  [[ "$state" == Running ]] && break
+  if [[ "$state" == Error ]]; then
+    (( err_since == 0 )) && err_since=$now
+    (( now - err_since >= ERR_GRACE )) && break
+  else
+    err_since=0
+  fi
   sleep 10
 done
-[[ "$state" == Running ]] && ok "Workspace test is Running after $(( $(date +%s) - start ))s" \
-  || fail "Workspace test state '${state:-<none>}' after ${WS_TIMEOUT}s: $(kubectl -n "$PROFILE" get workspace test -o jsonpath='{.status.stateMessage}' 2>/dev/null)"
+elapsed=$(( $(date +%s) - start ))
+[[ "$state" == Running ]] && ok "Workspace test is Running after ${elapsed}s" \
+  || fail "Workspace test state '${state:-<none>}' after ${elapsed}s (timeout ${WS_TIMEOUT}s, Error grace ${ERR_GRACE}s): $(kubectl -n "$PROFILE" get workspace test -o jsonpath='{.status.stateMessage}' 2>/dev/null)"
 
 # 4. Upstream's API authorization test. It calls localhost:8080, so forward the gateway first.
 [[ "$GATEWAY_PORT" == 8080 ]] || fail "upstream's workspaces_test.sh uses localhost:8080; unset GATEWAY_PORT"
