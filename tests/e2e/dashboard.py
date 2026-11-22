@@ -74,6 +74,8 @@ def force_sync():
     deadline = time.time() + SYNC_TIMEOUT_SECONDS
     while app("{.status.operationState.phase}") == "Running" and time.time() < deadline:
         time.sleep(5)
+    if app("{.status.operationState.phase}") == "Running":
+        return "Blocked: an earlier ArgoCD operation was still running after the timeout"
     before = app("{.status.operationState.startedAt}")
     kubectl("-n", ARGOCD_NS, "patch", "application", "dashboard", "--type", "merge", "-p",
             json.dumps({"operation": {"initiatedBy": {"username": SMOKE_USER},
