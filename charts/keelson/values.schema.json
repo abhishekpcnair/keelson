@@ -47,8 +47,8 @@
     },
     "domain": {
       "type": "string",
-      "anyOf": [{ "maxLength": 0 }, { "maxLength": 253, "pattern": "^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$" }],
-      "description": "Hostname for Kubeflow, no scheme (e.g. kubeflow.example.com). Empty keeps the upstream default: Gateway hosts \"*\", HTTP."
+      "anyOf": [{ "maxLength": 0 }, { "maxLength": 253, "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$" }],
+      "description": "Hostname for Kubeflow, no scheme, lowercase only (e.g. kubeflow.example.com). Empty keeps the upstream default: Gateway hosts \"*\", HTTP."
     },
     "tls": {
       "type": "object",
