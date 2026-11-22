@@ -16,9 +16,10 @@ You need these tools on your `PATH`:
 |---|---|
 | Docker (or Podman) | Running. For Podman, set `KIND_EXPERIMENTAL_PROVIDER=podman`. |
 | `kind` | v0.33.0 or newer |
-| `kubectl` | Any recent version |
+| `kubectl` | v1.37.0 is the version CI uses. Stay within one minor version of it. |
 | `helm` | v4.x |
-| `git`, `make`, `curl`, `python3` | Any recent version |
+| `git`, `make`, `curl` | Any recent version |
+| `python3` | Any recent version, with the `venv` module (Debian and Ubuntu: `python3-venv`) and network access for `pip`. `make e2e` makes a virtual environment. |
 
 The scripts never download tools and never use `sudo`.
 
@@ -42,6 +43,11 @@ make kind-up
 This creates a Kind cluster named `keelson` with 1 control-plane node and 2 workers.
 It installs ArgoCD `v3.6.2`, metrics-server, and the ArgoCD health checks that Keelson needs.
 The kubectl context is `kind-keelson`.
+When the cluster already exists, `make kind-up` does not switch the context. Switch it yourself, so that the next steps use this cluster:
+
+```sh
+kubectl config use-context kind-keelson
+```
 
 The first run fetches the upstream Kubeflow manifests into `.cache/upstream/`. You can run the command again safely.
 
@@ -99,7 +105,11 @@ Steps 3 and 4 have a shortcut. This command installs Keelson, waits for the Appl
 make e2e MODULES=core
 ```
 
-It runs the same commands as steps 3 and 4. Add `KEEP=1` to keep the gateway port-forward open after the checks pass:
+It runs the same commands as steps 3 and 4. It also forwards the gateway to port 8080 for its smoke tests.
+Stop the port-forward from step 5 first (press Ctrl-C), or the command fails with "port-forward exited".
+You can also set another port: `GATEWAY_PORT=8081 make e2e MODULES=core`.
+
+Add `KEEP=1` to keep the gateway port-forward open after the checks pass:
 
 ```sh
 KEEP=1 make e2e MODULES=core
