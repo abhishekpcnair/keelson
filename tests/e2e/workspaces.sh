@@ -31,6 +31,26 @@ fail() { echo "FAIL $*"; exit 1; }
 
 app() { kubectl -n "$ARGOCD_NS" get application "$1" -o "jsonpath=$2"; }
 
+# On a Workspace failure, print what decides the result into the job log: the namespace labels (sidecar
+# injection), the Istio policies, the Pod's probes (Istio rewrites them), its events and its logs.
+dump_ws_diag() {
+  echo "--- diagnostics for namespace $PROFILE"
+  echo "namespace labels:"; kubectl get namespace "$PROFILE" --show-labels 2>&1 | sed 's/^/  /' || true
+  echo "AuthorizationPolicies and PeerAuthentications:"
+  kubectl -n "$PROFILE" get authorizationpolicies.security.istio.io,peerauthentications.security.istio.io 2>&1 | sed 's/^/  /' || true
+  echo "workspace:"; kubectl -n "$PROFILE" get workspace test -o jsonpath='{.status}' 2>&1 | sed 's/^/  /' || true; echo
+  echo "pods:"; kubectl -n "$PROFILE" get pods -o wide 2>&1 | sed 's/^/  /' || true
+  echo "readiness probes per container (after Istio's rewrite):"
+  kubectl -n "$PROFILE" get pods -o jsonpath='{range .items[*].spec.containers[*]}{.name}{"\t"}{.readinessProbe}{"\n"}{end}' 2>&1 | sed 's/^/  /' || true
+  echo "pod events:"; kubectl -n "$PROFILE" get events --sort-by=.lastTimestamp 2>&1 | tail -15 | sed 's/^/  /' || true
+  pod="$(kubectl -n "$PROFILE" get pods -o name 2>/dev/null | head -n1)"
+  if [[ -n "$pod" ]]; then
+    echo "logs of $pod (last 25 lines per container):"
+    kubectl -n "$PROFILE" logs "$pod" --all-containers --tail=25 2>&1 | sed 's/^/  /' || true
+  fi
+  echo "--- end diagnostics"
+}
+
 # 1. The test profile namespace with a default-editor ServiceAccount bound to kubeflow-edit.
 #    With the Profile CRD (dashboard module) use upstream's test Profile; the profile controller
 #    makes the rest. Without it, make the same three objects the controller makes.
@@ -78,6 +98,7 @@ while (( $(date +%s) - start < WS_TIMEOUT )); do
   sleep 10
 done
 elapsed=$(( $(date +%s) - start ))
+[[ "$state" == Running ]] || dump_ws_diag
 [[ "$state" == Running ]] && ok "Workspace test is Running after ${elapsed}s" \
   || fail "Workspace test state '${state:-<none>}' after ${elapsed}s (timeout ${WS_TIMEOUT}s, Error grace ${ERR_GRACE}s): $(kubectl -n "$PROFILE" get workspace test -o jsonpath='{.status.stateMessage}' 2>/dev/null)"
 
