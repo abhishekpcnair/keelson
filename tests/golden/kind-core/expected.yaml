@@ -8,7 +8,6 @@ metadata:
   labels:
     app.kubernetes.io/part-of: keelson
   annotations:
-    # Before every module Application (lowest module wave is -100).
     argocd.argoproj.io/sync-wave: "-1000"
 spec:
   description: Keelson-managed Kubeflow modules (pinned upstream sources only).

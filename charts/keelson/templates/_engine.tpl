@@ -18,6 +18,15 @@ names, unmet dependsOn, and non-kustomize sources.
 {{- range $f := list "name" "wave" "namespace" "source" -}}
 {{- if not (hasKey $m $f) -}}{{- fail (printf "%s: missing required field %q" $path $f) -}}{{- end -}}
 {{- end -}}
+{{- if not (or (kindIs "float64" $m.wave) (kindIs "int64" $m.wave)) -}}
+{{- fail (printf "%s: wave must be a number" $path) -}}
+{{- end -}}
+{{- if not (and (kindIs "string" $m.namespace) $m.namespace) -}}
+{{- fail (printf "%s: namespace must be a non-empty string" $path) -}}
+{{- end -}}
+{{- if not (kindIs "map" $m.source) -}}
+{{- fail (printf "%s: source must be a map" $path) -}}
+{{- end -}}
 {{- if not $m.source.path -}}{{- fail (printf "%s: missing required field \"source.path\"" $path) -}}{{- end -}}
 {{- if ne (printf "modules/%s.yaml" $m.name) $path -}}
 {{- fail (printf "%s: name %q must match the file name" $path $m.name) -}}
@@ -128,17 +137,42 @@ syncPolicy:
 
 
 {{/*
-keelson.checkOverride: fail if an appSpecOverride touches a field that the
-hard rules and the AppProject allowlist depend on. Call with (dict "module" $name "override" $o).
+keelson.checkOverride: appSpecOverride is an allow-list, so new ArgoCD spec
+fields (for example sourceHydrator) are rejected by default.
+Top level: syncPolicy, ignoreDifferences, info, revisionHistoryLimit, source.
+Inside source: path, kustomize, directory. kustomize.images and inline patches
+that set an image are rejected (hard rule 2). Call with (dict "module" $name "override" $o).
 */}}
 {{- define "keelson.checkOverride" -}}
 {{- $o := .override -}}
 {{- $where := printf "advanced.modules.%s.appSpecOverride" .module -}}
-{{- range $f := list "project" "sources" -}}
-{{- if hasKey $o $f -}}{{- fail (printf "%s.%s: not allowed (pinned source and AppProject are fixed)" $where $f) -}}{{- end -}}
+{{- $top := list "syncPolicy" "ignoreDifferences" "info" "revisionHistoryLimit" "source" -}}
+{{- range $k := keys $o | sortAlpha -}}
+{{- if not (has $k $top) -}}
+{{- fail (printf "%s.%s: not allowed (allowed: %s)" $where $k (join ", " $top)) -}}
 {{- end -}}
-{{- range $f := list "repoURL" "targetRevision" -}}
-{{- if hasKey ($o.source | default dict) $f -}}{{- fail (printf "%s.source.%s: not allowed (pinned source and AppProject are fixed)" $where $f) -}}{{- end -}}
 {{- end -}}
-{{- if hasKey ($o.destination | default dict) "server" -}}{{- fail (printf "%s.destination.server: not allowed (use argocd.destinationServer)" $where) -}}{{- end -}}
+{{- if hasKey $o "source" -}}
+{{- if not (kindIs "map" $o.source) -}}
+{{- fail (printf "%s.source: must be a map" $where) -}}
+{{- end -}}
+{{- $src := list "path" "kustomize" "directory" -}}
+{{- range $k := keys $o.source | sortAlpha -}}
+{{- if not (has $k $src) -}}
+{{- fail (printf "%s.source.%s: not allowed (allowed: %s)" $where $k (join ", " $src)) -}}
+{{- end -}}
+{{- end -}}
+{{- $kz := $o.source.kustomize -}}
+{{- if and (hasKey $o.source "kustomize") (not (kindIs "map" $kz)) -}}
+{{- fail (printf "%s.source.kustomize: must be a map" $where) -}}
+{{- end -}}
+{{- if hasKey ($kz | default dict) "images" -}}
+{{- fail (printf "%s.source.kustomize.images: not allowed (no image overrides, hard rule 2)" $where) -}}
+{{- end -}}
+{{- range ($kz | default dict).patches -}}
+{{- if and (kindIs "map" .) (contains "image:" (toString .patch)) -}}
+{{- fail (printf "%s.source.kustomize.patches: a patch may not set an image (hard rule 2)" $where) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
 {{- end -}}

@@ -58,9 +58,14 @@ advanced:
 
 This is an escape hatch. We don't support it, and it may break on upgrade.
 
-You can't override the fields that keep sources pinned and inside the AppProject.
-Rendering fails if an override sets `project`, `sources`, `source.repoURL`,
-`source.targetRevision` or `destination.server`.
+The override is an allow-list, so sources stay pinned and inside the AppProject:
+- At the top level you may set only `syncPolicy`, `ignoreDifferences`, `info`,
+  `revisionHistoryLimit` and `source`.
+- Inside `source` you may set only `path`, `kustomize` and `directory`.
+- `source.kustomize.images` and patches that set an `image:` are rejected (no forked images).
+
+Anything else fails at render time, including newer ArgoCD fields such as `sourceHydrator`.
+`project`, `source.repoURL`, `source.targetRevision` and `destination.server` always come from values.
 
 ## Add a module
 
