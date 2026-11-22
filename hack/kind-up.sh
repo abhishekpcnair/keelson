@@ -19,6 +19,9 @@ ARGOCD_VERSION="v3.6.2"
 #   curl -fsSL https://raw.githubusercontent.com/argoproj/argo-cd/<version>/manifests/install.yaml | sha256sum
 ARGOCD_INSTALL_SHA256="c948064d38294d857712ef78444768749a14293613098932f8533e37d067a2a2"
 METRICS_SERVER_VERSION="v0.9.1"
+# sha256 of the components.yaml release asset at METRICS_SERVER_VERSION. Bump both together; get the hash from
+#   curl -fsSL https://github.com/kubernetes-sigs/metrics-server/releases/download/<version>/components.yaml | sha256sum
+METRICS_SERVER_SHA256="3c7f57cdbee0f57fb0259a150e8f6d6cb4f29d72d1aa5dce8803151dd6d4c2a1"
 CLUSTER_NAME="${CLUSTER_NAME:-keelson}"
 CONTEXT="kind-${CLUSTER_NAME}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -143,8 +146,10 @@ fi
 # 4. ArgoCD, pinned. Server-side apply because the CRDs exceed the client-side annotation limit.
 log "Installing ArgoCD $ARGOCD_VERSION"
 k create namespace argocd --dry-run=client -o yaml | k apply -f - >/dev/null
-argocd_tmp="$(mktemp)"
-trap 'rm -f "$argocd_tmp"' EXIT
+# One temp dir for every verified download, so one EXIT trap removes all of them.
+tmp_dir="$(mktemp -d)"
+trap 'rm -rf "$tmp_dir"' EXIT
+argocd_tmp="$tmp_dir/argocd-install.yaml"
 curl -fsSL "https://raw.githubusercontent.com/argoproj/argo-cd/${ARGOCD_VERSION}/manifests/install.yaml" -o "$argocd_tmp"
 got="$(sha256 "$argocd_tmp")"
 [[ "$got" == "$ARGOCD_INSTALL_SHA256" ]] \
@@ -164,8 +169,12 @@ if [[ "$(ms_get '{.spec.template.spec.containers[0].image}')" == *":${METRICS_SE
   log "metrics-server $METRICS_SERVER_VERSION already installed; skipping apply"
 else
   log "Installing metrics-server $METRICS_SERVER_VERSION"
-  k apply --server-side --force-conflicts \
-    -f "https://github.com/kubernetes-sigs/metrics-server/releases/download/${METRICS_SERVER_VERSION}/components.yaml" >/dev/null
+  ms_tmp="$tmp_dir/metrics-server.yaml"
+  curl -fsSL "https://github.com/kubernetes-sigs/metrics-server/releases/download/${METRICS_SERVER_VERSION}/components.yaml" -o "$ms_tmp"
+  got="$(sha256 "$ms_tmp")"
+  [[ "$got" == "$METRICS_SERVER_SHA256" ]] \
+    || die "metrics-server $METRICS_SERVER_VERSION components.yaml sha256 is $got, expected $METRICS_SERVER_SHA256. The release asset may have changed, or METRICS_SERVER_SHA256 wasn't bumped with METRICS_SERVER_VERSION."
+  k apply --server-side --force-conflicts -f "$ms_tmp" >/dev/null
 fi
 # purpose: Kind kubelets serve self-signed certs, so metrics-server must skip kubelet TLS verification.
 # upstream: none
