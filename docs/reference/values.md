@@ -32,7 +32,7 @@ For the full default values, see `charts/keelson/values.yaml`.
 | `auth.dex.connectors` | array | — | — | Identity providers for Dex. Each connector needs domain. Static users off, or environment production, needs at least one. |
 | `auth.dex.connectors[].allowedGroups` | array | — | — | microsoft: only members may log in. |
 | `auth.dex.connectors[].emailToLowercase` | boolean | true | — | microsoft: Kubeflow compares user emails case-sensitively. |
-| `auth.dex.connectors[].extraConfig` | object | — | names not matching `(?i)secret\|password\|token\|key` | Unsupported. Merged last into the connector config. No secret-like keys. |
+| `auth.dex.connectors[].extraConfig` | object | — | names match `^[A-Za-z0-9_]+$`; names not matching `(?i)secret\|password\|token\|key` | Unsupported. Merged last into the connector config. No secret-like keys. ASCII letters, digits and _ only. |
 | `auth.dex.connectors[].groupNameFormat` | string | "name" | one of `name`, `id` | microsoft: return groups as names or as object IDs. |
 | `auth.dex.connectors[].groupsClaim` | string | "groups" | min length 1 | oidc: claim that Dex reads groups from. |
 | `auth.dex.connectors[].id` | string, required | — | max length 63; pattern `^[a-z0-9-]+$` | Unique. Also names the Dex env vars. |
