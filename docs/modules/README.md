@@ -72,6 +72,16 @@ Anything else fails at render time. That includes newer ArgoCD fields such as `s
 and Kustomize fields that load remote content, such as `components`.
 `project`, `source.repoURL`, `source.targetRevision` and `destination.server` always come from values.
 
+## Smoke tests
+
+Each module file has a `smokeTest` field. It is either a script path or `none` with a comment that gives the reason:
+
+```yaml
+smokeTest: tests/e2e/auth-redirect.sh
+```
+
+`make e2e` runs the smoke tests of the enabled modules after every Application is Healthy. Scripts can use the helpers in `tests/e2e/lib.sh`. See [tests/e2e/README.md](../../tests/e2e/README.md).
+
 ## Add a module
 
 1. Find the path in `.cache/upstream/<tag>` (`make upstream-cache`).

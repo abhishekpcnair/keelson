@@ -8,5 +8,5 @@ namespaces: [cert-manager]
 dependsOn: [cert-manager]
 defaultEnabled: true
 translations: []
-smokeTest: none  # e2e harness lands in #4
+smokeTest: none  # Healthy is the check: no user-facing endpoint
 upstreamHelmChart: common/cert-manager/helm

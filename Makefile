@@ -36,7 +36,7 @@ kubeconform: ## Validate rendered manifests
 rules: ## Check design rules on rendered output and patches
 	python3 hack/check_rules.py --rendered $(RENDER_DIR) --patches $(CHART)/patches
 
-e2e: ## Kind + ArgoCD + smoke tests (MODULES=core|all)
+e2e: upstream-cache ## Install Keelson, wait for Healthy, run smoke tests (MODULES=core|all; needs make kind-up)
 	tests/e2e/run.sh $(MODULES)
 
 kind-up: upstream-cache ## Create Kind cluster 'keelson' (upstream CI shape) and install pinned ArgoCD
