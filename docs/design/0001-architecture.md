@@ -83,7 +83,7 @@ These are binding rules, and the factory enforces them (see `docs/development-fa
 
 ### 5.2 Layer 2: translation
 Helpers in `templates/_translate_*.tpl` turn intent into inline `spec.source.kustomize.patches` (for Kustomize sources) or `helm.valuesObject` (for Helm sources). Examples:
-- `domain` → Istio Gateway hosts, oauth2-proxy redirect URL, Dex issuer
+- `domain` + `tls` → Istio Gateway hosts and HTTPS server, oauth2-proxy secure cookies, Dex connector `redirectURI`s (#6). The Dex issuer stays in-cluster (#5).
 - `auth.connectors[]` → Dex `config.yaml` connectors
 - `profiles[]` → `Profile` resources plus contributor RoleBindings (rendered into a `keelson-profiles` Application)
 - `storage.external.s3` → Pipelines object-store config and the secret reference
@@ -98,7 +98,8 @@ upstream:
 domain: kubeflow.example.com
 platform: generic                  # generic | kind; selects platform-specific upstream overlays
 tls:
-  issuer: selfsigned                # selfsigned | letsencrypt | existing
+  issuer: existing                  # none | existing | external (selfsigned, letsencrypt: #23)
+  secretRef: { name: kubeflow-tls } # issuer=existing: kubernetes.io/tls Secret in istio-system
 auth:
   dex:
     connectors:

@@ -27,5 +27,11 @@ spec:
   {{- range ($merged.syncPolicy.syncOptions | default list) }}{{- if not (hasPrefix "RespectIgnoreDifferences=" (toString .)) }}{{- $opts = append $opts . }}{{- end }}{{- end }}
   {{- $_ := set $merged.syncPolicy "syncOptions" (append $opts "RespectIgnoreDifferences=true") }}
   {{- end }}
+  {{- /* Override patches add to translation patches; they don't replace them. */}}
+  {{- $gen := dig "source" "kustomize" "patches" list $spec }}
+  {{- $extra := dig "source" "kustomize" "patches" list $override }}
+  {{- if and $gen $extra }}
+  {{- $_ := set $merged.source.kustomize "patches" (concat $gen $extra) }}
+  {{- end }}
   {{- $merged | toYaml | nindent 2 }}
 {{- end }}

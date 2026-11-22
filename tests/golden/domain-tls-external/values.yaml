@@ -1,0 +1,4 @@
+# domain-tls-external: own hostname, TLS terminated in front of the cluster (cloud LB).
+domain: kubeflow.example.com
+tls:
+  issuer: external

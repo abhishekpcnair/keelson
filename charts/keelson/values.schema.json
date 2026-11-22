@@ -2,7 +2,31 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "required": ["upstream", "argocd"],
+  "$comment": "Unknown top-level keys are rejected. A new top-level values key must be declared here.",
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": { "required": ["tls"], "properties": { "tls": { "required": ["issuer"], "properties": { "issuer": { "const": "existing" } } } } },
+      "then": {
+        "required": ["domain"],
+        "properties": {
+          "domain": { "minLength": 1 },
+          "tls": { "required": ["secretRef"], "properties": { "secretRef": { "required": ["name"], "properties": { "name": { "minLength": 1 } } } } }
+        }
+      }
+    },
+    {
+      "if": { "required": ["tls"], "properties": { "tls": { "required": ["issuer"], "properties": { "issuer": { "const": "external" } } } } },
+      "then": { "required": ["domain"], "properties": { "domain": { "minLength": 1 } } }
+    }
+  ],
   "properties": {
+    "global": { "type": "object", "description": "Helm global values. Allowed so parent charts and --set global.* keep working." },
+    "auth": { "type": "object", "description": "Placeholder; defined by #6 and #27" },
+    "profiles": { "type": "array", "description": "Placeholder; defined by #9" },
+    "storage": { "type": "object", "description": "Placeholder; defined by #12 and #38" },
+    "database": { "type": "object", "description": "Placeholder; defined by #12 and #39" },
+    "policy": { "type": "object", "description": "Placeholder; defined by #11" },
     "upstream": {
       "type": "object",
       "required": ["manifestsRepo", "manifestsRef"],
@@ -20,6 +44,30 @@
       "enum": ["generic", "kind"],
       "default": "generic",
       "description": "Cluster type. Selects platform-specific upstream overlays (source.platformPaths)."
+    },
+    "domain": {
+      "type": "string",
+      "anyOf": [{ "maxLength": 0 }, { "maxLength": 253, "pattern": "^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$" }],
+      "description": "Hostname for Kubeflow, no scheme (e.g. kubeflow.example.com). Empty keeps the upstream default: Gateway hosts \"*\", HTTP."
+    },
+    "tls": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "issuer": {
+          "type": "string",
+          "enum": ["none", "existing", "external"],
+          "default": "none",
+          "description": "none: HTTP. existing: Istio terminates TLS with secretRef. external: TLS ends in front of the cluster; cookies are secure."
+        },
+        "secretRef": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "name": { "type": "string", "description": "kubernetes.io/tls Secret in istio-system (issuer=existing). A name only, never key material." }
+          }
+        }
+      }
     },
     "argocd": {
       "type": "object",

@@ -64,7 +64,8 @@ The override is an allow-list, so sources stay pinned and inside the AppProject:
 - Inside `source` you may set only `path` and `kustomize`.
 - Inside `source.kustomize` you may set only `patches`, `commonLabels`, `commonAnnotations`,
   `namePrefix`, `nameSuffix` and `replicas`. Each patch takes `patch` (an inline string),
-  `target` and `options`.
+  `target` and `options`. Your patches are added after the patches Keelson generates from
+  `domain` and `tls`; they don't replace them.
 - A patch may not change an image, in YAML, JSON or JSON6902 form (no forked images).
 - Allowed keys may not be `null`. For example, `syncPolicy: null` would turn off automated sync.
 

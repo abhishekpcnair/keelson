@@ -118,6 +118,25 @@ names, unmet dependsOn, and non-kustomize sources.
 {{- end -}}
 
 {{/*
+keelson.translations: run every helper in the module's `translations` list
+(design 0001 §5.2) and collect its patches. Each name maps to a
+`keelson.translate.<name>` helper. Call with (dict "root" $ "module" $m).
+Returns YAML `{patches: [...]}`.
+*/}}
+{{- define "keelson.translations" -}}
+{{- $known := list "domain" -}}
+{{- $patches := list -}}
+{{- range .module.translations -}}
+{{- if not (has . $known) -}}
+{{- fail (printf "module %s: unknown translation %q (known: %s)" $.module.name . (join ", " $known)) -}}
+{{- end -}}
+{{- $out := include (printf "keelson.translate.%s" .) $ | fromYaml -}}
+{{- $patches = concat $patches ($out.patches | default list) -}}
+{{- end -}}
+{{- dict "patches" $patches | toYaml -}}
+{{- end -}}
+
+{{/*
 keelson.defaultAppSpec: the shared Application spec for one module.
 Call with (dict "root" $ "module" $m).
 */}}
@@ -131,6 +150,11 @@ source:
   repoURL: {{ $v.upstream.manifestsRepo }}
   targetRevision: {{ $v.upstream.manifestsRef | quote }}
   path: {{ .module.resolvedPath }}
+  {{- with include "keelson.translations" . | fromYaml | dig "patches" list }}
+  kustomize:
+    patches:
+      {{- toYaml . | nindent 6 }}
+  {{- end }}
 syncPolicy:
   automated:
     prune: true

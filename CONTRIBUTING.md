@@ -17,7 +17,7 @@ These come from [`CLAUDE.md`](CLAUDE.md) and are checked by `hack/check_rules.py
 5. No inline secrets. Use `secretRef`.
 
 ## Local setup
-You need `helm`, `kubeconform`, `python3` with `pyyaml`, and (for e2e) `kind`, `kubectl` and Docker.
+You need `helm`, `kubeconform`, `kubectl` (for `make verify` and e2e), `python3` with `pyyaml`, and (for e2e) `kind` and Docker.
 
 ```sh
 make upstream-cache      # clone the pinned kubeflow/manifests into .cache/upstream/

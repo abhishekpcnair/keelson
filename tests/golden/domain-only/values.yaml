@@ -1,0 +1,2 @@
+# domain-only: own hostname over plain HTTP (tls.issuer: none). Only the Gateway hosts change.
+domain: kubeflow.internal.example.com
