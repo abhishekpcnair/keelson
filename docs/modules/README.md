@@ -80,7 +80,7 @@ syncOptions: [CreateNamespace=false, PruneLast=true]
 ```
 
 You can't remove a default option. Set the opposite value instead, for example `CreateNamespace=false`.
-`RespectIgnoreDifferences=true` stays on for modules with `ignoreDifferences`.
+`RespectIgnoreDifferences=true` stays on for modules with `ignoreDifferences`, from the module file or from your override.
 
 The override is an allow-list, so sources stay pinned and inside the AppProject:
 - At the top level you may set only `syncPolicy`, `ignoreDifferences`, `info`,

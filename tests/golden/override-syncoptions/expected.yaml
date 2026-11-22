@@ -84,6 +84,10 @@ spec:
   destination:
     namespace: cert-manager
     server: https://kubernetes.default.svc
+  ignoreDifferences:
+  - jsonPointers:
+    - /spec/replicas
+    kind: Deployment
   project: keelson
   source:
     path: common/cert-manager/overlays/kubeflow
@@ -102,6 +106,7 @@ spec:
     syncOptions:
     - ServerSideApply=true
     - CreateNamespace=true
+    - RespectIgnoreDifferences=true
 
 ---
 # Source: keelson/templates/applications.yaml
