@@ -17,6 +17,6 @@ Alternatives we rejected:
 
 ## Consequences (including the effect on upstream bumps)
 - This does not conflict with the "installing without ArgoCD" non-goal. The chart still never installs ArgoCD.
-- The ArgoCD pin lives in `hack/kind-up.sh` (`ARGOCD_VERSION`). Any CI `argocd` CLI must use the same version.
+- The ArgoCD pin lives in `hack/kind-up.sh` (`ARGOCD_VERSION`), with the sha256 of its `install.yaml` (`ARGOCD_INSTALL_SHA256`) next to it. Bump both together. Any CI `argocd` CLI must use the same version.
 - The 3-node shape plus a full install needs about 16 GB of RAM. We keep upstream parity over a smaller footprint.
 - Upstream can move or reformat its Kind test script. The script then fails with an override hint (`KIND_NODE_IMAGE`), and `/upstream-bump` checks the file on every bump.
