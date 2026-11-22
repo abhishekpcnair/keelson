@@ -28,4 +28,13 @@ jobs:
       - uses: azure/setup-kubectl@v5
         # make namespaces runs kubectl kustomize; keep in step with kubectl_version in e2e.yaml.
         with: { version: v1.37.0 }
+      - name: Install argocd CLI (pinned, checksum-verified)
+        env:
+          # Must match ARGOCD_VERSION in hack/kind-up.sh. Bump both together.
+          ARGOCD_VERSION: v3.6.2
+          ARGOCD_SHA256: 80cc51ce8eb39d5601d54fd14225ed15a04ccf4baa3427f5c1e72a4e342aa0b2
+        run: |
+          curl -fsSLo argocd "https://github.com/argoproj/argo-cd/releases/download/${ARGOCD_VERSION}/argocd-linux-amd64"
+          echo "${ARGOCD_SHA256}  argocd" | sha256sum -c -
+          sudo install -m 0755 argocd /usr/local/bin/argocd && rm argocd
       - run: make verify
