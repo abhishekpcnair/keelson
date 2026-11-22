@@ -10,6 +10,21 @@ GATEWAY_PORT="${GATEWAY_PORT:-8080}"
 log()  { printf '==> %s\n' "$*"; }
 fail() { printf 'e2e: FAIL: %s\n' "$*" >&2; exit 1; }
 
+# on_exit <command>: run <command> when the script exits, after the commands added before it.
+# Each call adds to one list, so several cleanups don't replace each other's EXIT trap (#109).
+# Commands run in reverse order, and each one runs with `|| true`. Expansion happens at exit.
+E2E_ON_EXIT=()
+on_exit() {
+  E2E_ON_EXIT+=("$1")
+  if (( ${#E2E_ON_EXIT[@]} == 1 )); then trap '_e2e_run_on_exit' EXIT; fi
+}
+_e2e_run_on_exit() {
+  local i
+  for (( i=${#E2E_ON_EXIT[@]}-1; i>=0; i-- )); do
+    eval "${E2E_ON_EXIT[$i]}" || true
+  done
+}
+
 # Python with PyYAML and requests, from the harness venv when run.sh created it.
 py() {
   if [[ -x "$E2E_VENV/bin/python" ]]; then "$E2E_VENV/bin/python" "$@"; else python3 "$@"; fi
@@ -34,7 +49,8 @@ port_forward_gateway() {
   mkdir -p "$E2E_CACHE"
   kubectl port-forward -n istio-system "svc/$svc" "$GATEWAY_PORT:80" >"$E2E_CACHE/port-forward.log" 2>&1 &
   E2E_PF_PID=$!
-  trap 'kill "$E2E_PF_PID" 2>/dev/null || true' EXIT
+  # shellcheck disable=SC2016  # expanded at exit, on purpose
+  on_exit 'kill "${E2E_PF_PID:-}" 2>/dev/null'
   for i in $(seq 1 30); do
     if curl -s -o /dev/null "http://localhost:$GATEWAY_PORT/"; then return 0; fi
     kill -0 "$E2E_PF_PID" 2>/dev/null || fail "port-forward exited: $(cat "$E2E_CACHE/port-forward.log")"

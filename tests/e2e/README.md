@@ -14,6 +14,10 @@ make kind-down
 
 A full Kubeflow install needs about 16 GB of RAM. On a smaller machine, run only `MODULES=core`, and use CI for anything heavier: add the `needs-e2e` label to the PR, or run `gh workflow run e2e.yaml --ref <branch>`.
 
+## Cleanup helper
+
+Scripts that create state in the cluster or start a process register the cleanup with `on_exit <command>` (from `lib.sh`). Each call adds to one list, and all the commands run in reverse order when the script exits, even on failure. Example: `on_exit 'kubectl delete -f "$fixture" --ignore-not-found'` before the `apply`.
+
 ## Environment variables
 
 | Variable | Default | Meaning |
