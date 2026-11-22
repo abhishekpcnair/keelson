@@ -133,7 +133,8 @@ done
 health="$ROOT/hack/argocd/argocd-cm-health.yaml"
 if [[ -f "$health" ]]; then
   log "Applying $health"
-  k apply --server-side --force-conflicts -n argocd -f "$health"
+  # Own field manager, so re-applying ArgoCD install.yaml (default manager) doesn't remove these keys.
+  k apply --server-side --force-conflicts --field-manager=keelson-kind-up-health -n argocd -f "$health"
 else
   log "No hack/argocd/argocd-cm-health.yaml yet (issue #2); skipping health customisations"
 fi
