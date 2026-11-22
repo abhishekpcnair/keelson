@@ -28,6 +28,8 @@ spec:
     - server: https://kubernetes.default.svc
       namespace: kubeflow-system
     - server: https://kubernetes.default.svc
+      namespace: kubeflow-user-example-com
+    - server: https://kubernetes.default.svc
       namespace: oauth2-proxy
   # Upstream ships CRDs, ClusterRoles, webhooks and Namespaces.
   clusterResourceWhitelist:
@@ -491,7 +493,9 @@ spec:
       valuesObject:
         component: profiles
         profiles:
-        - name: kubeflow-user-example-com
+        - contributors:
+          - bob@example.com
+          name: kubeflow-user-example-com
           owner: user@example.com
     repoURL: ghcr.io/abhishekpcnair/charts
     targetRevision: 0.0.0
