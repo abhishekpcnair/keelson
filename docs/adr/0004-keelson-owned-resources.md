@@ -1,6 +1,6 @@
 # ADR 0004: Ship Keelson-owned resources through the chart's component mode
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-11-22
 
 ## Context
