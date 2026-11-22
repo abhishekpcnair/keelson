@@ -17,6 +17,7 @@ After every release:
 
 ## Minor and major releases
 
+- [ ] The `sbom` job of the `release` workflow is green. `sbom.tar.gz` is attached to the release. Run `cosign verify-attestation --type cyclonedx` on one image's SBOM (see the README)
 - [ ] `main` CI green: verify, e2e (nightly), upstream-watch shows no pending bump older than four weeks
 - [ ] AKS manual test with the `aks-entra-external` scenario:
   - [ ] Fresh AKS cluster, existing ArgoCD, `helm install` from the release candidate

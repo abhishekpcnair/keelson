@@ -30,7 +30,32 @@ spec:
 """
 
 
+WORKSPACEKIND = """
+apiVersion: kubeflow.org/v1beta1
+kind: WorkspaceKind
+spec:
+  podTemplate:
+    options:
+      imageConfig:
+        spawner: {default: jupyter-scipy}
+        values:
+          - id: jupyter-scipy
+            spec: {image: "ghcr.io/kubeflow/kubeflow/notebook-servers/jupyter-scipy:v1.9.2", imagePullPolicy: IfNotPresent}
+          - id: broken
+            spec: {imagePullPolicy: Always}
+"""
+
+
 class ImagesIn(unittest.TestCase):
+    def test_collects_workspacekind_image_options(self):
+        self.assertEqual(
+            list_images.images_in(WORKSPACEKIND),
+            {"ghcr.io/kubeflow/kubeflow/notebook-servers/jupyter-scipy:v1.9.2"},
+        )
+
+    def test_workspacekind_without_image_config_has_no_images(self):
+        self.assertEqual(list_images.images_in("kind: WorkspaceKind\nspec: {podTemplate: {}}\n"), set())
+
     def test_collects_containers_and_init_containers_once_each(self):
         self.assertEqual(
             list_images.images_in(DEPLOYMENT),
