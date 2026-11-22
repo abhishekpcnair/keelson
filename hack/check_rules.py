@@ -2,19 +2,23 @@
 """Machine-check Keelson's hard rules (CLAUDE.md) on rendered chart output and patch files.
 
 Usage:
-  hack/check_rules.py --rendered <file-or-dir> [--patches <dir>] [--allow-repo URL ...]
+  hack/check_rules.py --rendered <file-or-dir> [--patches <dir>] [--repo <dir>] [--allow-repo URL ...]
 
 Checks:
   R1  Every ArgoCD Application source points to an allowed repo.
   R2  No floating revisions (HEAD, master, main, latest, empty) in Applications.
   R3  Every Application has an argocd.argoproj.io/sync-wave annotation.
-  R4  Every patch file starts with purpose/upstream/remove-when header lines.
+  R4  Every patch file and inline kustomize patch starts with purpose/upstream/
+      remove-when header lines.
   R5  No image references outside the upstream images pulled by Kubeflow
       (Keelson must not set images; any `image:` key in inline patches fails).
+  R6  No tracked symlinks in the git repo given by --repo (a symlinked .cache
+      once leaked a local path). Skipped with a note if git is unavailable.
 Exit code 1 if any rule fails.
 """
 import argparse
 import pathlib
+import subprocess
 import sys
 
 import yaml
@@ -59,6 +63,8 @@ def check_app(f, app, allowed, errors):
         rev = str(s.get("targetRevision", "")).strip()
         if rev.lower() in FLOATING:
             errors.append(f"R2 {where}: floating targetRevision '{rev}'")
+        for i, p in enumerate((s.get("kustomize") or {}).get("patches") or []):
+            check_header(f"{where}:patches[{i}]", str((p or {}).get("patch", "")), errors)
         for k, v in walk(s.get("kustomize", {})):
             if k == "patch" and isinstance(v, str) and "image:" in v:
                 errors.append(f"R5 {where}: inline patch sets an image")
@@ -66,20 +72,40 @@ def check_app(f, app, allowed, errors):
                 errors.append(f"R5 {where}: kustomize.images override is not allowed")
 
 
+def check_header(where, text, errors):
+    head = text.splitlines()[:6]
+    for key in HEADER_KEYS:
+        if not any(line.strip().lower().startswith(key) for line in head):
+            errors.append(f"R4 {where}: missing header line '{key}'")
+
+
 def check_patches(pdir: pathlib.Path, errors):
     for f in sorted(pdir.rglob("*.yaml")):
-        head = f.read_text().splitlines()[:6]
-        for key in HEADER_KEYS:
-            if not any(line.strip().lower().startswith(key) for line in head):
-                errors.append(f"R4 {f}: missing header line '{key}'")
+        check_header(f, f.read_text(), errors)
         if "image:" in f.read_text():
             errors.append(f"R5 {f}: patch sets an image")
+
+
+def check_symlinks(repo: pathlib.Path, errors):
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(repo), "ls-files", "-s", "-z"],
+            capture_output=True, text=True, check=True,
+        ).stdout
+    except (OSError, subprocess.CalledProcessError):
+        print(f"NOTE R6 skipped: git ls-files unavailable in {repo}")
+        return
+    for entry in filter(None, out.split("\0")):
+        meta, _, path = entry.partition("\t")
+        if meta.split()[0] == "120000":
+            errors.append(f"R6 {path}: tracked symlink")
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--rendered", type=pathlib.Path)
     ap.add_argument("--patches", type=pathlib.Path)
+    ap.add_argument("--repo", type=pathlib.Path)
     ap.add_argument("--allow-repo", action="append", default=[])
     a = ap.parse_args()
     allowed = DEFAULT_ALLOWED + a.allow_repo
@@ -91,6 +117,8 @@ def main():
                 check_app(f, doc, allowed, errors)
     if a.patches and a.patches.exists():
         check_patches(a.patches, errors)
+    if a.repo:
+        check_symlinks(a.repo, errors)
     for e in errors:
         print(f"FAIL {e}")
     print(f"check_rules: {apps} Applications checked, {len(errors)} problem(s)")

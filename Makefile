@@ -7,15 +7,25 @@ MODULES      ?= all
 KUBECONFORM_SCHEMAS := -schema-location default \
   -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
 
-.PHONY: help verify lint schema golden golden-check kubeconform rules e2e kind-up kind-down upstream-cache upstream-watch clean
+.PHONY: help verify lint schema golden golden-check kubeconform rules kustomize-check e2e kind-up kind-down upstream-cache upstream-watch clean
 
 help: ## Show targets
 	@grep -E '^[a-z0-9-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-16s %s\n", $$1, $$2}'
 
-verify: lint golden-check kubeconform rules ## All local gates (required before a PR)
+verify: lint schema golden-check kubeconform rules kustomize-check ## All local gates (required before a PR)
 
 lint: ## helm lint
 	helm lint $(CHART)
+
+# Each tests/schema/reject/<name>.yaml must fail to render, with its "# expect: <text>" in the error.
+schema: ## Check that the schema rejects bad values
+	@fail=0; for f in tests/schema/reject/*.yaml; do \
+	  want=$$(sed -n 's/^# expect: //p' $$f | head -n1); \
+	  if [ -z "$$want" ]; then echo "schema: $$f has no '# expect:' line"; fail=1; \
+	  elif out=$$(helm template keelson $(CHART) -f $$f 2>&1); then echo "schema: $$f rendered but should fail"; fail=1; \
+	  elif echo "$$out" | grep -qF -- "$$want"; then echo "schema: $$f rejected"; \
+	  else echo "schema: $$f failed without '$$want':"; echo "$$out"; fail=1; fi; \
+	done; exit $$fail
 
 # Each scenario: tests/golden/<name>/values.yaml → expected.yaml
 golden: ## Regenerate golden snapshots (review the diff!)
@@ -34,7 +44,10 @@ kubeconform: ## Validate rendered manifests
 	kubeconform -strict -summary $(KUBECONFORM_SCHEMAS) $(RENDER_DIR)/*.yaml
 
 rules: ## Check design rules on rendered output and patches
-	python3 hack/check_rules.py --rendered $(RENDER_DIR) --patches $(CHART)/patches
+	python3 hack/check_rules.py --rendered $(RENDER_DIR) --patches $(CHART)/patches --repo .
+
+kustomize-check: upstream-cache ## Build patched modules against .cache/upstream (needs pinned kustomize)
+	python3 hack/kustomize_check.py --rendered $(RENDER_DIR)
 
 e2e: upstream-cache ## Install Keelson, wait for Healthy, run smoke tests (MODULES=core|all; needs make kind-up)
 	tests/e2e/run.sh $(MODULES)

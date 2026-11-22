@@ -7,6 +7,6 @@ namespace: kubeflow
 namespaces: [kubeflow]
 dependsOn: [istio, kubeflow-namespace]
 defaultEnabled: true
-translations: []
+translations: [domain]
 smokeTest: none  # Healthy is the check: no user-facing endpoint
 upstreamHelmChart: common/istio/helm
