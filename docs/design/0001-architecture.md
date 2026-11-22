@@ -32,7 +32,7 @@ Keelson combines the engine from the third project, the phasing from the second 
 2. The config surface is one `values.yaml`, validated by `values.schema.json`.
 3. Identity uses Dex and oauth2-proxy, with connectors for Entra ID, generic OIDC, GitHub and static test users. Group claims map to profiles.
 4. Profiles, and who belongs to them, are declared in values.
-5. Kyverno is optional. It handles secret distribution and a Pod Security baseline, and is tested on two current minor versions.
+5. Profile namespaces get a Pod Security baseline and default labels from upstream's profile controller; `profileNamespaceLabels` adds labels. Kyverno is optional and, if needed, handles secret distribution only (decided after the #12 external-storage spike).
 6. Core modules: dashboard and profiles, Pipelines, Workspaces (Notebooks v2), plus their dependencies (cert-manager, Istio, Knative only if needed).
 7. Storage and database can be bundled (upstream defaults) or bring-your-own (S3-compatible storage, MySQL). MySQL in v0.1. PostgreSQL when upstream ships a cert-manager overlay (#40).
 8. Every upstream release triggers an automated bump PR with a rendered diff and an e2e run.
@@ -191,10 +191,9 @@ A module is accepted only if it has a golden test scenario, a smoke test (or a d
 
 ## 9. Policy (Kyverno)
 
-- Optional, and can use an existing Kyverno install (`policy.kyverno.install: false`).
-- It is used for exactly three things in v0.1: (1) copying the object-store and database secrets into profile namespaces, (2) a Pod Security baseline for notebook and pipeline pods, (3) default labels on profile namespaces.
-- CI tests against two current Kyverno minor versions. Each policy is individually switchable.
-- Kubernetes `ValidatingAdmissionPolicy` is kept under consideration as a no-dependency alternative for the Pod Security policies (open question Q3).
+- **Pod Security baseline:** no policy engine. Upstream's `kubeflow-pss` overlay (dashboard module) labels every profile namespace `pod-security.kubernetes.io/enforce: baseline`, and Kubernetes Pod Security Admission enforces it. `tests/e2e/pss.sh` proves it. Values can't lower it.
+- **Default labels:** upstream's profile controller sets them. `profileNamespaceLabels` adds labels through a patch on its `profiles-namespace-labels-data` ConfigMap (#11).
+- **Secret copy:** KFP's profile controller already creates a per-namespace object-store Secret through the store's IAM API. Kyverno is needed only for external stores without an IAM API, if at all. That is decided after the #12 external-storage spike. If Kyverno is kept, it is optional, can use an existing install (`policy.kyverno.install: false`), and CI tests two current minor versions.
 
 ## 10. Storage and database
 - **Bundled:** whatever upstream 26.10 bundles for Pipelines (SeaweedFS for objects, plus the bundled database). Clearly labelled not-for-production.
@@ -254,7 +253,7 @@ A module is accepted only if it has a golden test scenario, a smoke test (or a d
 ## 18. Open questions
 - **Q1** Final project name (check GitHub org, domain, ArtifactHub and trademarks).
 - ~~**Q2** ArgoCD: should v0.1 ship a bootstrap script that installs ArgoCD, or only document "bring your own ArgoCD"?~~ **Resolved:** a bootstrap script installs ArgoCD for Kind, dev and CI only; everywhere else is bring-your-own ArgoCD. See [ADR 0003](../adr/0003-kind-bootstrap-installs-argocd.md).
-- **Q3** Kyverno vs `ValidatingAdmissionPolicy` for the Pod Security baseline.
+- ~~**Q3** Kyverno vs `ValidatingAdmissionPolicy` for the Pod Security baseline.~~ **Resolved for v0.1:** neither. Pod Security Admission, through upstream's labels (#11).
 - **Q4** Production object store on Azure (which S3-compatible option to document).
 - **Q5** Should notebooks-v1 be offered at all in v0.1, given upstream's EOL notice and that Workspaces is the default in 26.10?
 

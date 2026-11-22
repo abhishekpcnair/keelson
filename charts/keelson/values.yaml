@@ -33,6 +33,10 @@ argocd:
   destinationServer: https://kubernetes.default.svc
   # Extra repos the AppProject may pull from (for example, your own patch repo).
   extraSourceRepos: []
+# Extra labels on every profile namespace, e.g. {cost-center: ml}. Upstream's
+# labels (including the Pod Security baseline) always stay. "" removes a label.
+# See docs/configuration/profile-namespaces.md.
+profileNamespaceLabels: {}
 # Turn modules on or off by name: `modules.<name>.enabled`. Defaults come from
 # charts/keelson/modules/<name>.yaml (defaultEnabled). See docs/modules/README.md.
 modules: {}

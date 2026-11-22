@@ -1,2 +1,5 @@
 # kind-core: core dependencies on a Kind cluster, all module defaults.
 platform: kind
+# Exercise profileNamespaceLabels; tests/e2e/pss.sh checks the label on the profile namespace.
+profileNamespaceLabels:
+  keelson.io/e2e: "true"

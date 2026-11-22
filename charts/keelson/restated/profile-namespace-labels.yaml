@@ -1,0 +1,10 @@
+# purpose: upstream's profile namespace labels, re-stated so profileNamespaceLabels can add to them
+# upstream: none (the ConfigMap comes from a configMapGenerator with behavior: replace, so a patch replaces the whole file)
+# remove-when: upstream lets an overlay add labels without replacing the file
+# source: applications/dashboard/upstream/profile-controller/overlays/kubeflow-pss/namespace-labels-kubeflow-pss.yaml
+# Must equal that file at upstream.manifestsRef. make verify (kustomize-check) fails on drift.
+app.kubernetes.io/part-of: "kubeflow-profile"
+katib.kubeflow.org/metrics-collector-injection: "enabled"
+pipelines.kubeflow.org/enabled: "true"
+serving.kubeflow.org/inferenceservice: "enabled"
+pod-security.kubernetes.io/enforce: "baseline"

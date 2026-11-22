@@ -55,6 +55,7 @@ namespaces: upstream-cache ## Check module namespaces: lists against upstream ku
 	python3 hack/check_namespaces.py
 
 kustomize-check: upstream-cache ## Build patched modules against .cache/upstream (needs pinned kustomize)
+	python3 -m unittest hack/test_kustomize_check.py
 	python3 hack/kustomize_check.py --rendered $(RENDER_DIR)
 
 values-ref: ## Regenerate docs/reference/values.md from the schema

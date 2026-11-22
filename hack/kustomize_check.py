@@ -10,6 +10,9 @@ Dex drift guard: when a patch replaces the Dex config.yaml, every key except
 DEX_MANAGED (and staticPasswords, when kept) must equal upstream's at the tag, so an upstream
 bump that changes them fails here instead of being silently overwritten.
 
+Also checks every restated upstream file (charts/keelson/restated/, see
+RESTATED) against the upstream file at upstream.manifestsRef. Drift fails.
+
 Usage:
   hack/kustomize_check.py --rendered <file-or-dir> [--cache .cache/upstream]
 The kustomize binary ($KUSTOMIZE, default `kustomize`) must match the version
@@ -29,6 +32,28 @@ import yaml
 KUSTOMIZE = os.environ.get("KUSTOMIZE", "kustomize")
 KFILES = ("kustomization.yaml", "kustomization.yml", "Kustomization")
 DEX_MANAGED = {"connectors", "enablePasswordDB", "staticPasswords"}  # keys Keelson may change
+
+# Chart data file → the upstream file it restates. Both must parse to the same YAML.
+RESTATED = {
+    "restated/profile-namespace-labels.yaml":
+        "applications/dashboard/upstream/profile-controller/overlays/kubeflow-pss/namespace-labels-kubeflow-pss.yaml",
+}
+
+
+def check_restated(chart: pathlib.Path, upstream: pathlib.Path):
+    """Errors for each restated file that differs from upstream at the pinned tag."""
+    errors = []
+    for ours, theirs in RESTATED.items():
+        want = upstream / theirs
+        if not want.is_file():
+            errors.append(f"{chart / ours}: upstream file {theirs} is missing at {upstream.name}")
+            continue
+        a = yaml.safe_load((chart / ours).read_text())
+        b = yaml.safe_load(want.read_text())
+        if a != b:
+            diff = sorted(set((a or {}).items()) ^ set((b or {}).items()))
+            errors.append(f"{chart / ours}: drift from upstream {theirs} at {upstream.name}: {diff}")
+    return errors
 
 
 def patched_apps(rendered: pathlib.Path):
@@ -94,8 +119,13 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--rendered", type=pathlib.Path, required=True)
     ap.add_argument("--cache", type=pathlib.Path, default=pathlib.Path(".cache/upstream"))
+    ap.add_argument("--chart", type=pathlib.Path, default=pathlib.Path("charts/keelson"))
     a = ap.parse_args()
     errors, checked, trees = [], 0, {}
+    tag = str(yaml.safe_load((a.chart / "values.yaml").read_text())["upstream"]["manifestsRef"])
+    if not (a.cache / tag).is_dir():
+        sys.exit(f"kustomize_check: {a.cache / tag} missing; run 'make upstream-cache TAG={tag}'")
+    errors += check_restated(a.chart, a.cache / tag)
     with tempfile.TemporaryDirectory() as tmp:
         for where, src, patches in patched_apps(a.rendered):
             tag = str(src["targetRevision"])
