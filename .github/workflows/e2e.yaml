@@ -16,7 +16,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
-      - uses: azure/setup-helm@v4
+      - uses: azure/setup-helm@v5
         with: { version: v4.3.2 }
       - uses: helm/kind-action@v1
         with: { cluster_name: keelson }
