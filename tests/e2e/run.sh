@@ -87,12 +87,12 @@ collect_diagnostics() {
   kd -n "$ARGOCD_NS" logs statefulset/argocd-application-controller --tail=500 >"$DIAG/argocd-application-controller.log" 2>&1 || true
   sed 's/^/  /' "$DIAG/applications.txt" >&2 || true
 }
-on_exit() {
+run_exit_diagnostics() {
   local rc=$?
   if (( rc != 0 )); then collect_diagnostics; fi
   exit "$rc"
 }
-trap on_exit EXIT
+trap run_exit_diagnostics EXIT
 
 # 3. Install.
 if [[ "$E2E_INSTALL" == root-app ]]; then

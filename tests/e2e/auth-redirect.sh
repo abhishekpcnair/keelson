@@ -36,6 +36,7 @@ show_body() { log "  body (first 200 bytes): $(head -c 200 "$1" | tr '\n' ' ')";
 # the gateway answers "RBAC: access denied". Retry only for that answer.
 deadline=$((SECONDS + ${AUTH_REDIRECT_WAIT:-60}))
 while :; do
+  : > "$body"
   read -r code1 loc1 <<<"$(curl -s -o "$body" --max-time 15 -w '%{http_code} %{redirect_url}' "$protected")" || true
   log "GET /keelson-e2e/ -> ${code1:-none} ${loc1:-} (after ${SECONDS}s)"
   if ! grep -q 'RBAC: access denied' "$body" || (( SECONDS >= deadline )); then break; fi
@@ -54,12 +55,14 @@ case "${code1:-none}" in
     fail "an unauthenticated GET /keelson-e2e/ must get oauth2-proxy's sign-in page or a redirect to /oauth2/start (got '${code1:-none}')" ;;
 esac
 
+: > "$body"
 read -r code2 loc2 <<<"$(curl -s -o "$body" --max-time 15 -w '%{http_code} %{redirect_url}' "$base/oauth2/start?rd=/keelson-e2e/")" || true
 log "GET /oauth2/start -> ${code2:-none} ${loc2:-}"
 show_body "$body"
 [[ "$code2" == 302 && "$loc2" == */dex/auth* ]] \
   || fail "/oauth2/start should redirect to /dex/auth (got '${code2:-none}' '${loc2:-}')"
 
+: > "$body"
 code3="$(curl -s -o "$body" --max-time 15 -w '%{http_code}' -L "$loc2")"
 log "GET /dex/auth (following redirects) -> $code3"
 show_body "$body"
