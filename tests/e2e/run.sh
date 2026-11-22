@@ -3,7 +3,9 @@
 # for example from `make kind-up`), wait until every Keelson Application is Synced
 # and Healthy, then run each enabled module's smoke test.
 #
-# Usage: tests/e2e/run.sh <core|all> [extra helm args...]
+# Usage: tests/e2e/run.sh <core|profiles|all> [extra helm args...]
+#   profiles: the profiles golden scenario. Component Applications pull the chart under test from an
+#   in-cluster OCI registry (see lib.sh), so keelson.selfSource is overridden here and only here.
 # Environment:
 #   E2E_TIMEOUT  how long to wait for Synced + Healthy (default 30m; s/m/h suffix)
 #   KEEP=1       after success, keep a gateway port-forward on localhost:8080 open
@@ -22,8 +24,9 @@ CHART="$E2E_ROOT/charts/keelson"
 # 2. Scenario: e2e installs exactly what the golden snapshot shows.
 case "$MODULES" in
   core) SCENARIO="$E2E_ROOT/tests/golden/kind-core/values.yaml" ;;
+  profiles) SCENARIO="$E2E_ROOT/tests/golden/profiles/values.yaml" ;;
   all)  fail "MODULES=all has no scenario yet; it maps to a broader golden scenario once one exists" ;;
-  *)    fail "unknown MODULES '$MODULES' (use core or all)" ;;
+  *)    fail "unknown MODULES '$MODULES' (use core, profiles or all)" ;;
 esac
 
 to_seconds() {
@@ -84,9 +87,19 @@ on_exit() {
 }
 trap on_exit EXIT
 
+# 2b. Component Applications (profiles) pull this chart from keelson.selfSource. Serve the chart
+# under test from an in-cluster registry and point selfSource at it. Explicit e2e override only.
+SELF_SOURCE_ARGS=()
+if [[ "$MODULES" == profiles ]]; then
+  start_e2e_registry
+  push_e2e_chart
+  register_e2e_registry "$ARGOCD_NS"
+  SELF_SOURCE_ARGS=(--set "keelson.selfSource.repoURL=$E2E_REGISTRY_REPO" --set "keelson.selfSource.targetRevision=$E2E_CHART_VERSION")
+fi
+
 # 3. Install.
 log "Installing Keelson ($MODULES: ${SCENARIO#"$E2E_ROOT"/}) into namespace '$ARGOCD_NS'"
-helm upgrade --install "$RELEASE" "$CHART" -n "$ARGOCD_NS" -f "$SCENARIO" "$@" >/dev/null
+helm upgrade --install "$RELEASE" "$CHART" -n "$ARGOCD_NS" -f "$SCENARIO" ${SELF_SOURCE_ARGS[@]+"${SELF_SOURCE_ARGS[@]}"} "$@" >/dev/null
 expected="$(helm get manifest "$RELEASE" -n "$ARGOCD_NS" | grep -c '^kind: Application$' || true)"
 (( expected > 0 )) || fail "the release rendered no Applications"
 

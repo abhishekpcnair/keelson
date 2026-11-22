@@ -45,3 +45,17 @@ Tests run after every Application is Healthy, in module wave order. A path share
 Prefer running upstream's own test from `.cache/upstream/<tag>/tests/` over writing a copy. `dex-login.sh` does this with `dex_login_test.py`. It needs something serving `/` behind the gateway, so the dashboard module wires it (#7): `tests/e2e/dashboard.sh` runs it first, then `dashboard.py`. Without the dashboard, core uses `auth-redirect.sh`. With the dashboard, `auth-redirect.sh` also requires oauth2-proxy's sign-in page on `GET /`.
 
 `auth-redirect.sh` applies a test-only route, `tests/e2e/fixtures/protected-route.yaml`, and deletes it at the end. Core has no workload at `/`, and Envoy skips `ext_authz` for a request that matches no route, so the gateway answers `403 RBAC: access denied` there (#106). The route sends `/keelson-e2e/` to the Dex Service. Dex cannot return oauth2-proxy's sign-in form, so the form on that path proves that `ext_authz` answered. That gives a protected path that `ext_authz` checks.
+
+## Scenarios: `core` and `profiles`
+
+`make e2e MODULES=core` installs `tests/golden/kind-core/values.yaml`. `make e2e MODULES=profiles` installs `tests/golden/profiles/values.yaml`. It is a superset of `core` that adds a `keelson-profiles` component Application (ADR 0004).
+
+A component Application pulls this chart from `keelson.selfSource`. The chart under test is not published, so `MODULES=profiles` does four things (`lib.sh`):
+1. Starts a registry in the cluster (namespace `keelson-e2e`, upstream `registry` image at an exact version and digest).
+2. Packages the chart at an exact pre-release version (`0.0.0-e2e.<run id>`) and pushes it.
+3. Creates an ArgoCD repository Secret for the registry (`type: helm`, `enableOCI`, `insecureOCIForceHttp`). Only the harness makes this Secret. The chart never renders it.
+4. Passes `--set keelson.selfSource.repoURL=… --set keelson.selfSource.targetRevision=…` to `helm`.
+
+The override exists only in the harness. The chart defaults and the golden scenarios stay as they are, and `check_rules.py` is unchanged.
+
+CI runs `profiles` on `main`, nightly, on manual runs, and on PRs that change the profiles component, the component engine (`source.type: keelson`), the e2e harness or its workflow. Other PRs run `core`.
