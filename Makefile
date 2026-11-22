@@ -7,12 +7,12 @@ MODULES      ?= all
 KUBECONFORM_SCHEMAS := -schema-location default \
   -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
 
-.PHONY: help verify lint schema golden golden-check kubeconform rules e2e kind-up kind-down upstream-cache upstream-watch clean
+.PHONY: help verify lint schema golden golden-check kubeconform rules kustomize-check e2e kind-up kind-down upstream-cache upstream-watch clean
 
 help: ## Show targets
 	@grep -E '^[a-z0-9-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-16s %s\n", $$1, $$2}'
 
-verify: lint golden-check kubeconform rules ## All local gates (required before a PR)
+verify: lint golden-check kubeconform rules kustomize-check ## All local gates (required before a PR)
 
 lint: ## helm lint
 	helm lint $(CHART)
@@ -35,6 +35,9 @@ kubeconform: ## Validate rendered manifests
 
 rules: ## Check design rules on rendered output and patches
 	python3 hack/check_rules.py --rendered $(RENDER_DIR) --patches $(CHART)/patches --repo .
+
+kustomize-check: upstream-cache ## Build patched modules against .cache/upstream (needs pinned kustomize)
+	python3 hack/kustomize_check.py --rendered $(RENDER_DIR)
 
 e2e: ## Kind + ArgoCD + smoke tests (MODULES=core|all)
 	tests/e2e/run.sh $(MODULES)
