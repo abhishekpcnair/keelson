@@ -1,5 +1,7 @@
 """Unit tests for hack/check_namespaces.py with a stub kubectl. Run: python3 -m unittest hack/test_check_namespaces.py"""
+import os
 import pathlib
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -68,6 +70,53 @@ class CheckModule(unittest.TestCase):
         p = self.path("a", "")
         with self.assertRaises(check_namespaces.MissingTool):
             check_namespaces.check_module(self.mod("x", ["x"], p), self.root / "up")
+
+
+class MainCli(unittest.TestCase):
+    """Run the script on a temp chart: exit codes, FAIL lines, stderr."""
+    SCRIPT = pathlib.Path(__file__).resolve().parent / "check_namespaces.py"
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = pathlib.Path(self.tmp.name)
+        (self.root / "chart/modules").mkdir(parents=True)
+        (self.root / "chart/values.yaml").write_text("upstream: {manifestsRef: '1.0'}\n")
+        (self.root / "cache/1.0").mkdir(parents=True)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def run_cli(self, module_text, kubectl=None):
+        (self.root / "chart/modules/m.yaml").write_text(module_text)
+        env = dict(os.environ)
+        if kubectl:
+            env["KUBECTL"] = kubectl
+        return subprocess.run(
+            [sys.executable, str(self.SCRIPT), "--chart", str(self.root / "chart"), "--cache", str(self.root / "cache")],
+            capture_output=True, text=True, env=env)
+
+    def test_empty_module_file(self):
+        r = self.run_cli("")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("FAIL N0", r.stdout)
+        self.assertIn("missing required field name", r.stdout)
+        self.assertNotIn("Traceback", r.stderr)
+
+    def test_missing_source_path(self):
+        r = self.run_cli("name: m\nsource: {type: kustomize}\n")
+        self.assertEqual(r.returncode, 1)
+        self.assertEqual(r.stdout.count("FAIL N0"), 1)
+        self.assertIn("missing required field source.path", r.stdout)
+
+    def test_tool_cannot_run(self):
+        tool = self.root / "kubectl"
+        tool.write_text("#!/bin/sh\n")
+        tool.chmod(0o644)
+        r = self.run_cli("name: m\nnamespace: x\nsource: {type: kustomize, path: p}\n", kubectl=str(tool))
+        self.assertEqual(r.returncode, 2)
+        self.assertIn("cannot run", r.stderr)
+        self.assertNotIn("Traceback", r.stderr)
+        self.assertNotIn("cannot run", r.stdout)
 
 
 if __name__ == "__main__":

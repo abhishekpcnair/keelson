@@ -39,7 +39,7 @@ This is how work moves from an idea to a release in this repo. Two kinds of work
 - The change must include: code, a schema update, a golden scenario or an update to one, docs, and a `changes/<issue>.md` fragment.
 
 ### 4. Verify: `/verify`
-- Runs `make verify`: `helm lint`, schema validation, the golden diff, `kubeconform`, `hack/check_rules.py`.
+- Runs `make verify`: `lint` (`helm lint`), `schema` (reject cases), `golden-check` (the golden diff), `kubeconform`, `rules` (`hack/check_rules.py`), `kustomize-check`, `namespaces` (`hack/check_namespaces.py`) and `health-check`.
 - Optionally runs `make e2e`: Kind plus ArgoCD sync plus smoke tests. This is required for module, auth or upstream-bump changes.
 - **Gate:** every check is green locally before a PR is opened.
 

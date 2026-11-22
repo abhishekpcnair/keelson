@@ -27,7 +27,7 @@ Download it from the `v3.6.2` release on GitHub and check it against the release
 
 ```sh
 make upstream-cache      # clone the pinned kubeflow/manifests into .cache/upstream/
-make verify              # lint, golden diff, kubeconform, rules (must pass)
+make verify              # lint, schema, golden-check, kubeconform, rules, kustomize-check, namespaces, health-check (must pass)
 make e2e MODULES=core    # Kind + ArgoCD smoke test
 ```
 
