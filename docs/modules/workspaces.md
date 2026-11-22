@@ -19,6 +19,8 @@ workspaces:
 ```
 
 - `kinds: []` installs no kinds and renders no `workspace-kinds` Application. Use this to bring your own kinds.
+- `kinds: null` is the same as `[]`. You get no warning.
+- If you remove a kind from `kinds`, ArgoCD prunes that WorkspaceKind. Delete or move the Workspaces that use it first.
 - The samples path also has two PVCs, a Secret, a ConfigMap and a sample Workspace. Keelson deletes them with inline patches. They are not part of an install.
 - `make kustomize-check` fails if upstream adds a new object to that path.
 
@@ -34,6 +36,10 @@ modules:
 
 `workspace-kinds` depends on `workspaces`. If you disable only `workspaces`, the render fails.
 
+## Dashboard menu
+
+The central dashboard menu links to `/workspaces/`. The link works when both the `dashboard` module ([#7](https://github.com/abhishekpcnair/keelson/issues/7)) and `workspaces` are on.
+
 ## Webhook CA
 
 The validating webhook has no `caBundle` field in the upstream manifest. cert-manager injects it. ArgoCD does not own the field, so the module needs no `ignoreDifferences`. The smoke test checks this after a forced sync.
@@ -45,7 +51,9 @@ Keelson does not offer notebooks-v1. Upstream removes it in Kubeflow 27.03. See 
 ## Smoke test
 
 `tests/e2e/workspaces.sh`:
-1. Make sure the `kubeflow-user-example-com` profile exists. Until profiles ([#9](https://github.com/abhishekpcnair/keelson/issues/9)), it applies upstream's `common/user-namespace/base`.
+1. Make sure the `kubeflow-user-example-com` namespace has a `default-editor` ServiceAccount bound to `kubeflow-edit`.
+   - With the Profile CRD (dashboard module), it applies upstream's `common/user-namespace/base`.
+   - Without it, it makes the namespace, the ServiceAccount and the RoleBinding, as the profile controller does. Profiles ([#9](https://github.com/abhishekpcnair/keelson/issues/9)) replace this.
 2. Start upstream's test Workspace on `jupyterlab`. Wait for `Running`.
 3. Run upstream's `tests/workspaces_test.sh` (200 for `default-editor`, 403 otherwise).
 4. Force a sync of `workspaces`. Check the webhook CA and `Synced`.

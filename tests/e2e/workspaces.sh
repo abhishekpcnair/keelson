@@ -6,7 +6,7 @@
 # Uses only upstream test content from .cache/upstream/<tag> (wrap, don't copy):
 #   tests/workspace.test.kubeflow-user-example-com.yaml  a PVC + a jupyterlab Workspace
 #   tests/workspaces_test.sh                             API authz: 200 for default-editor, 403 otherwise
-#   common/user-namespace/base                           the test Profile, until profiles (#9) create it
+#   common/user-namespace/base                           the test Profile, when the Profile CRD exists
 #
 # Environment: KEELSON_ARGOCD_NAMESPACE (argocd), KEELSON_WORKSPACE_TIMEOUT (900s),
 #              KEELSON_SYNC_TIMEOUT (300s).
@@ -27,12 +27,23 @@ fail() { echo "FAIL $*"; exit 1; }
 
 app() { kubectl -n "$ARGOCD_NS" get application "$1" -o "jsonpath=$2"; }
 
-# 1. The test profile namespace (from profiles once #9 lands; upstream's test Profile until then).
+# 1. The test profile namespace with a default-editor ServiceAccount bound to kubeflow-edit.
+#    With the Profile CRD (dashboard module) use upstream's test Profile; the profile controller
+#    makes the rest. Without it, make the same three objects the controller makes.
 if ! kubectl get namespace "$PROFILE" >/dev/null 2>&1; then
-  kubectl apply -k "$UP/common/user-namespace/base" >/dev/null
-  for _ in $(seq 60); do kubectl get namespace "$PROFILE" >/dev/null 2>&1 && break; sleep 5; done
+  if kubectl get crd profiles.kubeflow.org >/dev/null 2>&1; then
+    kubectl apply -k "$UP/common/user-namespace/base" >/dev/null || fail "could not apply upstream test Profile"
+  else
+    kubectl create namespace "$PROFILE" >/dev/null || fail "could not create namespace $PROFILE"
+    kubectl label namespace "$PROFILE" app.kubernetes.io/part-of=kubeflow-profile >/dev/null
+    kubectl -n "$PROFILE" create serviceaccount default-editor >/dev/null
+    kubectl -n "$PROFILE" create rolebinding default-editor --clusterrole=kubeflow-edit \
+      --serviceaccount="$PROFILE:default-editor" >/dev/null
+  fi
 fi
-kubectl get namespace "$PROFILE" >/dev/null 2>&1 && ok "profile namespace $PROFILE" || fail "no namespace $PROFILE"
+for _ in $(seq 60); do kubectl -n "$PROFILE" get serviceaccount default-editor >/dev/null 2>&1 && break; sleep 5; done
+kubectl -n "$PROFILE" get serviceaccount default-editor >/dev/null 2>&1 \
+  && ok "profile namespace $PROFILE with default-editor" || fail "no default-editor ServiceAccount in $PROFILE"
 
 # 2. The jupyterlab WorkspaceKind from the workspace-kinds module.
 kubectl get workspacekind jupyterlab >/dev/null 2>&1 && ok "WorkspaceKind jupyterlab installed" \

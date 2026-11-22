@@ -27,6 +27,22 @@ KFILES = ("kustomization.yaml", "kustomization.yml", "Kustomization")
 # Modules that wrap an upstream path with extra objects and delete the rest:
 # after all patches, only these kinds may remain (#14). Catches new upstream objects at bump time.
 ONLY_KINDS = {"workspace-kinds": {"WorkspaceKind"}}
+# The values.schema.json enum for workspaces.kinds must name exactly the WorkspaceKinds upstream ships.
+SCHEMA = pathlib.Path(__file__).resolve().parents[1] / "charts/keelson/values.schema.json"
+
+
+TEMPLATE = SCHEMA.parent / "templates/_translate_workspaceKinds.tpl"
+
+
+def schema_kinds():
+    import json
+    return set(json.loads(SCHEMA.read_text())["properties"]["workspaces"]["properties"]["kinds"]["items"]["enum"])
+
+
+def template_kinds():
+    """Names in the keelson.workspaceKinds.all define (Helm can't read the schema, so it keeps a copy)."""
+    m = re.search(r'define "keelson\.workspaceKinds\.all" -}}\n(.*?)\{\{- end', TEMPLATE.read_text(), re.S)
+    return {line.strip()[2:] for line in m.group(1).splitlines() if line.strip().startswith("- ")} if m else set()
 
 
 def patched_apps(rendered: pathlib.Path):
@@ -88,6 +104,15 @@ def main():
             if rc:
                 errors.append(f"{where}: unpatched build fails: {base.strip()}")
                 continue
+            if where.split(":")[-1] == "workspace-kinds":
+                shipped = {d["metadata"]["name"] for d in yaml.safe_load_all(base)
+                           if isinstance(d, dict) and d.get("kind") == "WorkspaceKind"}
+                if shipped != schema_kinds():
+                    errors.append(f"{where}: upstream ships WorkspaceKinds {sorted(shipped)}, "
+                                  f"values.schema.json lists {sorted(schema_kinds())}")
+                if template_kinds() != schema_kinds():
+                    errors.append(f"{where}: {TEMPLATE.name} lists {sorted(template_kinds())}, "
+                                  f"values.schema.json lists {sorted(schema_kinds())}")
             for i, p in enumerate(patches):
                 rc, out = build(tree, src["path"], [p])
                 if rc:
