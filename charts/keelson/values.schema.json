@@ -31,7 +31,7 @@
           "type": "string",
           "pattern": "^([0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}|[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+)$",
           "not": { "pattern": "(?i)^(common|consumers|organizations)$" },
-          "description": "microsoft: tenant ID or verified domain. Multi-tenant values accept any account and drop groups."
+          "description": "microsoft: tenant ID or verified domain. A domain is lowercase only. Multi-tenant values accept any account and drop groups."
         },
         "allowedGroups": { "type": "array", "items": { "type": "string", "minLength": 1 }, "description": "microsoft: only members may log in." },
         "onlySecurityGroups": { "type": "boolean", "default": false, "description": "microsoft: return security groups only, no Microsoft 365 groups." },
@@ -70,7 +70,7 @@
           "then": {
             "required": ["tenant"],
             "propertyNames": { "not": { "enum": ["issuer", "scopes", "groupsClaim", "orgs", "teamNameField", "loadAllGroups", "useLoginAsID"] } },
-            "properties": { "extraConfig": { "propertyNames": { "not": { "enum": ["tenant", "groups", "useGroupsAsWhitelist"] } } } }
+            "properties": { "extraConfig": { "propertyNames": { "not": { "pattern": "(?i)^(tenant|groups|useGroupsAsWhitelist)$" } } } }
           }
         },
         {
@@ -78,7 +78,7 @@
           "then": {
             "required": ["orgs"],
             "propertyNames": { "not": { "enum": ["issuer", "scopes", "groupsClaim", "tenant", "allowedGroups", "onlySecurityGroups", "groupNameFormat", "emailToLowercase"] } },
-            "properties": { "extraConfig": { "propertyNames": { "not": { "enum": ["orgs", "org", "hostName", "rootCA"] } } } }
+            "properties": { "extraConfig": { "propertyNames": { "not": { "pattern": "(?i)^(orgs?|hostName|rootCA)$" } } } }
           }
         }
       ]

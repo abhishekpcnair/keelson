@@ -1,0 +1,11 @@
+# expect: invalid propertyName 'HostName'
+# Dex reads config keys in any letter case. HostName must not turn on GitHub Enterprise.
+domain: kubeflow.example.com
+auth:
+  dex:
+    connectors:
+      - type: github
+        id: github
+        secretRef: { name: dex-github }
+        orgs: [{ name: my-org }]
+        extraConfig: { HostName: ghe.example.com }
