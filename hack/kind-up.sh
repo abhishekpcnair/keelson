@@ -199,12 +199,12 @@ else
   log "No hack/argocd/argocd-cm-health.yaml found; skipping health customisations"
 fi
 
-# 6. Next steps.
+# 6. Next steps. Keep the install command in step with tests/e2e/run.sh and docs/quickstart-kind.md step 3.
 cat <<EOF
 
 Kind cluster '$CLUSTER_NAME' is ready with ArgoCD $ARGOCD_VERSION and metrics-server $METRICS_SERVER_VERSION.
   kubectl context:  $CONTEXT
-  install Keelson:  helm install keelson charts/keelson --kube-context $CONTEXT
+  install Keelson:  helm upgrade --install keelson charts/keelson -n argocd --kube-context $CONTEXT -f tests/golden/kind-core/values.yaml
   e2e smoke tests:  make e2e MODULES=core
   delete cluster:   make kind-down
 EOF
