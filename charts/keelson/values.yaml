@@ -1,9 +1,19 @@
 # Keelson values. See docs/design/0001-architecture.md §5.3 for the full planned API.
-# The engine (modules → ArgoCD Applications) is implemented in backlog issue #1.
 upstream:
   manifestsRepo: https://github.com/kubeflow/manifests
   manifestsRef: "26.10.0"
+# Cluster type: generic | kind. Selects platform-specific upstream overlays.
+platform: generic
 argocd:
   namespace: argocd
   project: keelson
+  destinationServer: https://kubernetes.default.svc
+  # Extra repos the AppProject may pull from (for example, your own patch repo).
+  extraSourceRepos: []
+# Turn modules on or off by name: `modules.<name>.enabled`. Defaults come from
+# charts/keelson/modules/<name>.yaml (defaultEnabled). See docs/modules/README.md.
 modules: {}
+advanced:
+  # Unsupported escape hatch: `modules.<name>.appSpecOverride` is deep-merged over
+  # the generated Application spec.
+  modules: {}

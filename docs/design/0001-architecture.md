@@ -164,6 +164,9 @@ source:
   type: kustomize                 # kustomize | helm
   path: applications/pipeline/overlays
   # helm: { repo: ..., chart: ..., version: ... }  # when type=helm
+  # platformPaths: { kind: <path> }  # optional; chosen by values `platform`
+namespace: kubeflow               # Application destination namespace
+namespaces: [kubeflow]            # every namespace the path writes to (AppProject allowlist)
 dependsOn: [dashboard, istio]
 defaultEnabled: true
 translations: [domain, storage, database]   # which translation helpers apply

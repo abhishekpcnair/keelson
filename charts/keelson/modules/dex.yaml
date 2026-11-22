@@ -1,0 +1,12 @@
+name: dex
+wave: -60
+source:
+  type: kustomize
+  path: common/dex/overlays/oauth2-proxy
+namespace: auth
+namespaces: [auth]
+dependsOn: [istio]
+defaultEnabled: true
+translations: []
+smokeTest: none  # e2e harness lands in #4
+upstreamHelmChart: common/dex/helm

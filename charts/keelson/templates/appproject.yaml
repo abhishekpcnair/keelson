@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: {{ .Values.argocd.project }}
+  namespace: {{ .Values.argocd.namespace }}
+  labels:
+    app.kubernetes.io/part-of: keelson
+spec:
+  description: Keelson-managed Kubeflow modules (pinned upstream sources only).
+  sourceRepos:
+    {{- include "keelson.sourceRepos" . | nindent 4 }}
+  destinations:
+    {{- range (include "keelson.destinationNamespaces" . | fromYamlArray) }}
+    - server: {{ $.Values.argocd.destinationServer }}
+      namespace: {{ . }}
+    {{- end }}
+  # Upstream ships CRDs, ClusterRoles, webhooks and Namespaces.
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"

@@ -1,0 +1,17 @@
+{{- range (include "keelson.enabledModules" . | fromYaml).modules }}
+{{- $spec := include "keelson.defaultAppSpec" (dict "root" $ "module" .) | fromYaml }}
+{{- $override := ((($.Values.advanced).modules | default dict) | dig .name "appSpecOverride" dict) }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Values.argocd.namespace }}
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: {{ .name }}
+  annotations:
+    argocd.argoproj.io/sync-wave: {{ .wave | quote }}
+spec:
+  {{- mustMergeOverwrite $spec $override | toYaml | nindent 2 }}
+{{- end }}
