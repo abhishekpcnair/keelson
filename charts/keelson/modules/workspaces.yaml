@@ -9,5 +9,11 @@ namespaces: [kubeflow-workspaces]
 dependsOn: [cert-manager-kubeflow, istio, kubeflow-istio-resources, kubeflow-roles]
 defaultEnabled: true
 translations: []
+# Aggregated ClusterRoles: upstream ships `rules: []` and the RBAC controller fills .rules at runtime.
+# Listed by name, so drift on the other (plain) roles still shows.
+ignoreDifferences:
+  - {group: rbac.authorization.k8s.io, kind: ClusterRole, name: kubeflow-workspaces-admin, jsonPointers: [/rules]}
+  - {group: rbac.authorization.k8s.io, kind: ClusterRole, name: kubeflow-workspaces-edit, jsonPointers: [/rules]}
+  - {group: rbac.authorization.k8s.io, kind: ClusterRole, name: kubeflow-workspaces-view, jsonPointers: [/rules]}
 smokeTest: tests/e2e/workspaces.sh
 upstreamHelmChart: applications/workspaces/helm

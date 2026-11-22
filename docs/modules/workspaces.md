@@ -40,9 +40,13 @@ modules:
 
 The central dashboard menu links to `/workspaces/`. The link works when both the `dashboard` module ([#7](https://github.com/abhishekpcnair/keelson/issues/7)) and `workspaces` are on.
 
+## Aggregated ClusterRoles
+
+`kubeflow-workspaces-admin`, `-edit` and `-view` ship with `aggregationRule` and `rules: []`. Kubernetes fills `rules` at runtime. Without help, the `workspaces` Application stays `OutOfSync` for ever. The module ignores `/rules` on these three roles. It lists them by name, so drift on the other roles still shows.
+
 ## Webhook CA
 
-The validating webhook has no `caBundle` field in the upstream manifest. cert-manager injects it. ArgoCD does not own the field, so the module needs no `ignoreDifferences`. The smoke test checks this after a forced sync.
+The validating webhook has no `caBundle` field in the upstream manifest. cert-manager injects it. ArgoCD does not own the field, so the module needs no `ignoreDifferences` for the webhook. The smoke test checks this after a forced sync.
 
 ## Notebooks v1
 

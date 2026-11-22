@@ -439,6 +439,22 @@ spec:
   destination:
     namespace: kubeflow-workspaces
     server: https://kubernetes.default.svc
+  ignoreDifferences:
+  - group: rbac.authorization.k8s.io
+    jsonPointers:
+    - /rules
+    kind: ClusterRole
+    name: kubeflow-workspaces-admin
+  - group: rbac.authorization.k8s.io
+    jsonPointers:
+    - /rules
+    kind: ClusterRole
+    name: kubeflow-workspaces-edit
+  - group: rbac.authorization.k8s.io
+    jsonPointers:
+    - /rules
+    kind: ClusterRole
+    name: kubeflow-workspaces-view
   project: keelson
   source:
     path: applications/workspaces/overlays/istio
@@ -457,6 +473,7 @@ spec:
     syncOptions:
     - ServerSideApply=true
     - CreateNamespace=true
+    - RespectIgnoreDifferences=true
 
 ---
 # Source: keelson/templates/applications.yaml
