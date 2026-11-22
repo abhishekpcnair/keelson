@@ -93,10 +93,10 @@ The override is an allow-list, so sources stay pinned and inside the AppProject:
 - A patch may not change an image, in YAML, JSON or JSON6902 form (no forked images).
 - Allowed keys may not be `null`. For example, `syncPolicy: null` would turn off automated sync.
 
-The engine checks every override, also the override of a disabled module.
 Anything else fails at render time. That includes newer ArgoCD fields such as `sourceHydrator`,
 and Kustomize fields that load remote content, such as `components`.
 `project`, `source.repoURL`, `source.targetRevision` and `destination.server` always come from values.
+The engine checks every override, also the override of a disabled module.
 
 ## Add a module
 

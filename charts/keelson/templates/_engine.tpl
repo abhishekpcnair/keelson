@@ -6,8 +6,9 @@ Module files live in modules/*.yaml and hold data only (contract: §7).
 {{/*
 keelson.modules: every registry module with `enabled` and `resolvedPath` set.
 Returns YAML `{modules: [...]}`; use with fromYaml. Fails on unknown module
-names, unmet dependsOn, a wave not above its dependencies' waves, and
-non-kustomize sources.
+names, unmet dependsOn, a wave not above its dependencies' waves,
+non-kustomize sources, and a bad appSpecOverride (checked for every module in
+advanced.modules, also a disabled one).
 */}}
 {{- define "keelson.modules" -}}
 {{- $registry := dict -}}
@@ -218,6 +219,7 @@ Call with (dict "base" list "override" list "force" list). Returns YAML {items: 
 keelson.checkIgnoreDifference: one ignoreDifferences entry, from the registry or from an
 appSpecOverride. It must be a map with a kind, and name at least one field to ignore
 (jsonPointers, jqPathExpressions or managedFieldsManagers) as a non-empty list.
+Each list item must be a non-empty string.
 Call with (dict "where" "<location>" "entry" $d).
 */}}
 {{- define "keelson.checkIgnoreDifference" -}}
