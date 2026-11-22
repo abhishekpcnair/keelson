@@ -7,11 +7,11 @@ For every charts/keelson/modules/*.yaml with source.type kustomize, run
   declared = namespace + namespaces
   N1 FAIL  a path writes to a namespace outside declared: the AppProject would block a sync.
   N1 WARN  declared - {namespace} has a namespace that no path of the module writes to.
+  N0 FAIL  a module file is empty, not valid YAML, not a mapping, or has no name or source.path.
 
 Usage:
   hack/check_namespaces.py [--chart charts/keelson] [--cache .cache/upstream]
 The tag comes from upstream.manifestsRef in values.yaml. $KUBECTL overrides `kubectl`.
-  N0 FAIL  a module file has no name or source.path (or is empty).
 Exit 1 on any FAIL, 2 if the upstream cache is missing or kubectl cannot run.
 """
 import argparse
@@ -86,7 +86,16 @@ def main():
         sys.exit(2)
     fails, modules = 0, 0
     for f in sorted((a.chart / "modules").glob("*.yaml")):
-        m = yaml.safe_load(f.read_text()) or {}
+        try:
+            m = yaml.safe_load(f.read_text()) or {}
+        except yaml.YAMLError as e:
+            print(f"FAIL N0 {f}: not valid YAML: {str(e).splitlines()[0]}")
+            fails += 1
+            continue
+        if not isinstance(m, dict) or not isinstance(m.get("source", {}), dict):
+            print(f"FAIL N0 {f}: not a mapping (the file and its source: must be maps)")
+            fails += 1
+            continue
         missing = [k for k, ok in (("name", m.get("name")), ("source.path", (m.get("source") or {}).get("path"))) if not ok]
         if missing:
             for k in missing:

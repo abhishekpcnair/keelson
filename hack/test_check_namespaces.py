@@ -108,6 +108,20 @@ class MainCli(unittest.TestCase):
         self.assertEqual(r.stdout.count("FAIL N0"), 1)
         self.assertIn("missing required field source.path", r.stdout)
 
+    def test_not_a_mapping(self):
+        for text in ("- a\n", "name: m\nsource: p\n"):
+            with self.subTest(text):
+                r = self.run_cli(text)
+                self.assertEqual(r.returncode, 1)
+                self.assertIn("not a mapping", r.stdout)
+                self.assertNotIn("Traceback", r.stderr)
+
+    def test_invalid_yaml(self):
+        r = self.run_cli("name: [unclosed\n")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("not valid YAML", r.stdout)
+        self.assertNotIn("Traceback", r.stderr)
+
     def test_tool_cannot_run(self):
         tool = self.root / "kubectl"
         tool.write_text("#!/bin/sh\n")
