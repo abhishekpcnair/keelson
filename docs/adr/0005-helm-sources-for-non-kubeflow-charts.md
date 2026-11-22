@@ -32,7 +32,7 @@ Keelson allows `source.type: helm` for **upstream charts that are not Kubeflow c
      helm: { repo: https://kyverno.github.io/kyverno, chart: kyverno, version: 3.9.2 }
    ```
    A module may add a static `values` map. The engine renders it as `helm.valuesObject`. A `helm` module has no `upstreamHelmChart` field. That field is for Kubeflow modules.
-3. **Exact stable version.** `version` is an exact SemVer version. It has no range, no `*`, and no prerelease suffix (for example `-rc.1`). `check_rules.py` R2 must check this for chart sources (hard rule 3). The code comes with #9 or with #67.
+3. **Exact stable version.** `version` is an exact SemVer version. It has no range, no `*`, and no prerelease suffix (for example `-rc.1`). `check_rules.py` R2 must check this for a `helm` source (hard rule 3). The code comes with #9 or with #67. A `keelson` source (ADR 0004) is different: its version may be a prerelease, because the alpha release is `0.1.0-alpha.1` and e2e pushes `0.0.0-e2e.<run>`.
 4. **Allowlisted repo.** `hack/check_rules.py` gets a constant list of chart repos for R1. A module file cannot add a repo. A new repo needs a change to that constant, and a new row in the table below. The engine adds a repo to the AppProject `sourceRepos` only when a module that uses it is enabled.
 
    | Repo | Chart | First use |
@@ -45,7 +45,7 @@ Keelson allows `source.type: helm` for **upstream charts that are not Kubeflow c
 ### Relation to earlier decisions
 - **ADR 0002** applies to Kubeflow modules. Its text "every v0.1 module" means every Kubeflow module. This ADR adds a line to ADR 0002 that points here.
 - **ADR 0001 and design principle 1** do not change. Hard rule 1 already allows upstream Helm charts at pinned versions.
-- **ADR 0004** adds a different source type, `keelson`, for Keelson-authored resources. A `helm` source and a `keelson` source both render an ArgoCD Helm source. R1, R2 and R5 must check both in the same way.
+- **ADR 0004** adds a different source type, `keelson`, for Keelson-authored resources. A `helm` source and a `keelson` source both render an ArgoCD Helm source. R1 and R5 must check both in the same way. R2 needs an exact SemVer version for both. A `helm` source must also be a stable version (no prerelease). A `keelson` source may be a prerelease.
 
 ### Alternatives considered
 - **B. Kustomize from the Kyverno git repository.** Rejected: hard rule 1 allows Kubeflow manifests or upstream Helm charts. A git path of another project is neither. It also adds a git repo to the allowlist.
