@@ -1,0 +1,11 @@
+# expect: invalid propertyName 'orgſ'
+# U+017F (long s). Unicode case folding in Go encoding/json might match orgs.
+domain: kubeflow.example.com
+auth:
+  dex:
+    connectors:
+      - type: github
+        id: github
+        secretRef: { name: dex-github }
+        orgs: [{ name: my-org }]
+        extraConfig: { "orgſ": [] }

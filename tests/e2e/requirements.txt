@@ -1,0 +1,4 @@
+# e2e harness and upstream's tests/dex_login_test.py. Installed by run.sh into .cache/e2e/venv.
+PyYAML==6.0.4
+requests==2.34.2
+urllib3==2.8.0

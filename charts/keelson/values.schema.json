@@ -55,8 +55,8 @@
         "useLoginAsID": { "type": "boolean", "default": false, "description": "github: use the GitHub login as the user ID, not the numeric ID." },
         "extraConfig": {
           "type": "object",
-          "propertyNames": { "not": { "pattern": "(?i)secret|password|token|key" } },
-          "description": "Unsupported. Merged last into the connector config. No secret-like keys."
+          "propertyNames": { "pattern": "^[A-Za-z0-9_]+$", "not": { "pattern": "(?i)secret|password|token|key" } },
+          "description": "Unsupported. Merged last into the connector config. No secret-like keys. ASCII letters, digits and _ only."
         }
       },
       "allOf": [
