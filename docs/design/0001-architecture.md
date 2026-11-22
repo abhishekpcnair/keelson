@@ -100,15 +100,16 @@ platform: generic                  # generic | kind; selects platform-specific u
 tls:
   issuer: existing                  # none | existing | external (selfsigned, letsencrypt: #23)
   secretRef: { name: kubeflow-tls } # issuer=existing: kubernetes.io/tls Secret in istio-system
+environment: production            # dev | production
 auth:
   dex:
     connectors:
-      - type: microsoft             # Entra ID
-        id: entra
-        tenant: "<tenant-id>"
-        clientIdSecretRef: { name: dex-entra, key: clientId }
-        groupsClaim: groups
-  staticUsers:                       # Kind/testing only; schema forbids it when env=production
+      - type: oidc                  # oidc (microsoft, github: #26)
+        id: corp
+        issuer: https://idp.example.com
+        secretRef: { name: dex-corp, clientIDKey: clientID, clientSecretKey: clientSecret }
+        groupsClaim: groups         # oidc only
+  staticUsers:                       # Kind/testing only; schema forbids it when environment=production
     enabled: false
 profiles:
   - name: team-vision
@@ -184,7 +185,8 @@ A module is accepted only if it has a golden test scenario, a smoke test (or a d
 - The default is oauth2-proxy with Dex, because upstream tests that combination. Dex brokers to the user's IdP and is not used as a user database.
 - Connectors come from values: Entra ID (`microsoft`), generic OIDC, GitHub, Google, LDAP. Client secrets are referenced through `secretRef` and never inlined.
 - Group claims are mapped to profiles through `profiles[].groups` (a Keelson-generated RoleBinding per group).
-- Static users exist for Kind/CI only. The schema rejects them when `environment: production`.
+- Static users exist for Kind/CI only. The schema rejects them when `environment: production`, which also requires a connector.
+- Connectors are added by replacing upstream's Dex `config.yaml` (the upstream-documented way). The re-stated upstream keys are checked against the pinned tag by `make kustomize-check`. The issuer stays in-cluster.
 - A user-management GUI (Keycloak/Authentik) is an **optional future module** that sits behind Dex as one more connector. It is never the default.
 
 ## 9. Policy (Kyverno)

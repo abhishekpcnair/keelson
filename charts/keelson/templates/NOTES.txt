@@ -1,0 +1,7 @@
+Keelson {{ .Chart.Version }}: ArgoCD Applications for Kubeflow {{ .Values.upstream.manifestsRef }} in namespace {{ .Values.argocd.namespace }}.
+{{- if dig "staticUsers" "enabled" true (.Values.auth | default dict) }}
+
+WARNING: the upstream static user is on (user@example.com, password 12341234).
+Use it on Kind or for dev only. For anything else, set auth.staticUsers.enabled=false,
+add a Dex connector and set environment=production. See docs/configuration/authentication.md.
+{{- end }}

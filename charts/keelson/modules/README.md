@@ -11,7 +11,7 @@ Fields:
 - `namespaces`: every namespace the path writes to, which builds the AppProject allowlist (checked by `make namespaces`)
 - `translations`: names of translation helpers (`templates/_translate_<name>.tpl`). The engine calls
   `keelson.translate.<name>` for each and appends the returned patches to `spec.source.kustomize.patches`.
-  Unknown names fail the render. Known: `domain`.
+  Unknown names fail the render. Known: `domain`, `auth`.
 - `smokeTest`, `upstreamHelmChart`
 - `ignoreDifferences` (optional): ArgoCD `ignoreDifferences` entries for fields another controller owns, such as a cert-manager-injected `caBundle`. The engine adds `RespectIgnoreDifferences=true`, and overrides can't remove these entries.
 

@@ -135,7 +135,7 @@ keelson.translations: run every helper in the module's `translations` list
 Returns YAML `{patches: [...]}`.
 */}}
 {{- define "keelson.translations" -}}
-{{- $known := list "domain" -}}
+{{- $known := list "domain" "auth" -}}
 {{- $patches := list -}}
 {{- range .module.translations -}}
 {{- if not (has . $known) -}}
