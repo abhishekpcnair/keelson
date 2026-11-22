@@ -115,4 +115,4 @@ smokeTest: tests/e2e/auth-redirect.sh
    List every namespace the path writes to in `namespaces`. Use `make namespaces` to check.
 3. Add or update a golden scenario, a smoke test, and a docs page.
 
-Core modules are described in [core.md](core.md). The dashboard is described in [dashboard.md](dashboard.md).
+Core modules are described in [core.md](core.md). The dashboard is described in [dashboard.md](dashboard.md). Pipelines is described in [pipelines.md](pipelines.md).

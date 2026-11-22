@@ -1,0 +1,16 @@
+name: pipelines
+wave: 20
+source:
+  type: kustomize
+  path: applications/pipeline/overlays   # multi-user KFP, bundled SeaweedFS + MySQL (not for production)
+namespace: kubeflow
+namespaces: [kubeflow]
+dependsOn: [dashboard, cert-manager-kubeflow, istio, kubeflow-istio-resources, kubeflow-roles]
+defaultEnabled: true
+# The VirtualService binds to kubeflow-gateway, so `domain`/TLS (#5) apply with no patch here.
+# Storage and database translations: #12b, #12c.
+translations: []
+# No ignoreDifferences: upstream omits caBundle on cache-webhook-kubeflow (cainjector fills it),
+# and ArgoCD does not compare fields the desired manifest omits.
+smokeTest: tests/e2e/pipelines.sh
+upstreamHelmChart: applications/pipeline/helm   # Draft; ADR 0002
