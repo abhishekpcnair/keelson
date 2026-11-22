@@ -7,8 +7,11 @@
 E2E_REG_PORT="${E2E_REG_PORT:-5555}"
 E2E_REG_REPO="registry.e2e-registry.svc:5000/charts"
 
-# root_app_install: push the chart under test, register the registry with ArgoCD, apply the root.
-root_app_install() {
+# e2e_registry_push: start the registry, push the chart under test, register the registry with
+# ArgoCD. Sets E2E_CHART_VERSION. Also used by the helm mode when the scenario has a component
+# Application (MODULES=profiles, ADR 0004): component Applications pull this chart from
+# keelson.selfSource, and the chart under test is not published (#129).
+e2e_registry_push() {
   kubectl apply -f "$E2E_ROOT/tests/e2e/registry.yaml" >/dev/null || fail "could not apply tests/e2e/registry.yaml"
   kubectl -n e2e-registry rollout status deployment/registry --timeout=180s >/dev/null \
     || fail "the e2e registry did not roll out"
@@ -35,6 +38,7 @@ root_app_install() {
   fi
   kill "$pf" 2>/dev/null || true
   log "Pushed keelson $ver to the e2e registry"
+  E2E_CHART_VERSION="$ver"
 
   # Test-only repository Secret: ArgoCD reads the in-cluster registry over plain HTTP.
   kubectl apply -f - >/dev/null <<EOS || fail "could not create the e2e registry repository Secret"
@@ -52,12 +56,27 @@ stringData:
   enableOCI: "true"
   insecureOCIForceHttp: "true"
 EOS
+}
+
+# e2e_self_source_args: helm args that point keelson.selfSource at the e2e registry. An explicit
+# e2e override only: chart defaults and golden scenarios are unchanged (#129).
+e2e_self_source_args() {
+  printf '%s\n' --set "keelson.selfSource.repoURL=$E2E_REG_REPO" --set "keelson.selfSource.targetRevision=$E2E_CHART_VERSION"
+}
+
+# root_app_install: push the chart under test, register the registry with ArgoCD, apply the root.
+root_app_install() {
+  e2e_registry_push
+  local ver="$E2E_CHART_VERSION"
 
   # The root Application renders the chart under test with the same values as the helm mode.
   py - "$SCENARIO" "$ARGOCD_NS" "$ver" <<'PYEOF' | kubectl apply -f - >/dev/null || fail "could not apply the root Application"
 import json, sys, yaml
 scenario, ns, ver = sys.argv[1], sys.argv[2], sys.argv[3]
 values = yaml.safe_load(open(scenario)) or {}
+# Component Applications (ADR 0004) pull the chart from the same registry (#129).
+values.setdefault("keelson", {}).setdefault("selfSource", {}).update(
+    {"repoURL": "registry.e2e-registry.svc:5000/charts", "targetRevision": ver})
 root = {
     "apiVersion": "argoproj.io/v1alpha1",
     "kind": "Application",
