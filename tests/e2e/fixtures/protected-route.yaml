@@ -1,0 +1,26 @@
+# Test-only route for tests/e2e/auth-redirect.sh (#106). Not part of the chart.
+# Core has no workload at "/" (the dashboard module adds it), and Envoy skips ext_authz for a
+# request that matches no route. This routes /keelson-e2e/ to the existing Dex Service.
+# The result is a routed path that the gateway protects, with no new workload.
+# The backend is Dex on purpose. Dex cannot return oauth2-proxy's sign-in form, so an unauthenticated
+# request that gets the sign-in form got it from ext_authz (oauth2-proxy), not from the backend.
+# The script applies this file and deletes it when it ends.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: keelson-e2e-protected
+  namespace: istio-system
+spec:
+  gateways:
+  - kubeflow/kubeflow-gateway
+  hosts:
+  - '*'
+  http:
+  - match:
+    - uri:
+        prefix: /keelson-e2e/
+    route:
+    - destination:
+        host: dex.auth.svc.cluster.local
+        port:
+          number: 5556
