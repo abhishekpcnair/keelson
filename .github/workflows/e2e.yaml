@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest   # full Kubeflow needs ~16 GB RAM; use a larger runner if core alone is not enough
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: azure/setup-helm@v5
         with: { version: v4.3.2 }
       - uses: helm/kind-action@v1
