@@ -1,0 +1,4 @@
+# expect: value must be one of 'codeserver', 'jupyterlab', 'rstudio'
+# Only upstream's sample WorkspaceKinds can be selected.
+workspaces:
+  kinds: [vscode]

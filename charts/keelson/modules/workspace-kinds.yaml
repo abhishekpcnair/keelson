@@ -1,0 +1,13 @@
+name: workspace-kinds
+wave: 25
+source:
+  type: kustomize
+  # Upstream ships no installable WorkspaceKinds; wrap the samples and delete what isn't one (#14).
+  path: applications/workspaces/upstream/controller/samples
+namespace: kubeflow-workspaces
+namespaces: []
+dependsOn: [workspaces]
+defaultEnabled: true
+translations: [workspaceKinds]
+smokeTest: none  # covered by tests/e2e/workspaces.sh
+upstreamHelmChart: applications/workspaces/helm

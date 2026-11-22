@@ -69,6 +69,19 @@
         }
       }
     },
+    "workspaces": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kinds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "enum": ["codeserver", "jupyterlab", "rstudio"] },
+          "default": ["jupyterlab"],
+          "description": "Upstream sample WorkspaceKinds to install (workspace-kinds module). [] installs none."
+        }
+      }
+    },
     "argocd": {
       "type": "object",
       "required": ["namespace", "project", "destinationServer"],

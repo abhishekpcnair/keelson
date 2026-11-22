@@ -24,6 +24,9 @@ import yaml
 
 KUSTOMIZE = os.environ.get("KUSTOMIZE", "kustomize")
 KFILES = ("kustomization.yaml", "kustomization.yml", "Kustomization")
+# Modules that wrap an upstream path with extra objects and delete the rest:
+# after all patches, only these kinds may remain (#14). Catches new upstream objects at bump time.
+ONLY_KINDS = {"workspace-kinds": {"WorkspaceKind"}}
 
 
 def patched_apps(rendered: pathlib.Path):
@@ -94,6 +97,11 @@ def main():
             rc, out = build(tree, src["path"], patches)
             if rc:
                 errors.append(f"{where}: patches together fail: {out.strip()}")
+            elif (allowed := ONLY_KINDS.get(where.split(":")[-1])) is not None:
+                left = sorted({f"{d.get('kind')}/{d.get('metadata', {}).get('name')}"
+                               for d in yaml.safe_load_all(out) if isinstance(d, dict) and d.get("kind") not in allowed})
+                if left:
+                    errors.append(f"{where}: only {sorted(allowed)} may remain after patches, found {left}")
             checked += 1
     for e in errors:
         print(f"FAIL {e}")

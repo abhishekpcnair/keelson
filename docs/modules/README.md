@@ -80,4 +80,4 @@ and Kustomize fields that load remote content, such as `components`.
    List every namespace the path writes to in `namespaces`. Use `kubectl kustomize <path>` to check.
 3. Add or update a golden scenario, a smoke test, and a docs page.
 
-Core modules are described in [core.md](core.md).
+Core modules are described in [core.md](core.md). Workspaces are described in [workspaces.md](workspaces.md).

@@ -81,10 +81,10 @@ names, unmet dependsOn, and non-kustomize sources.
 {{/* keelson.enabledModules: enabled modules, sorted by wave then name. */}}
 {{- define "keelson.enabledModules" -}}
 {{- $byKey := dict -}}
-{{- range (include "keelson.modules" . | fromYaml).modules -}}
-{{- if .enabled -}}
+{{- range $m := (include "keelson.modules" . | fromYaml).modules -}}
+{{- if and $m.enabled (not (include "keelson.translations" (dict "root" $ "module" $m) | fromYaml).skip) -}}
 {{- /* Sort key "<wave+100000 zero-padded>-<name>": string sort == numeric wave order, then name. Valid for waves > -100000. */ -}}
-{{- $_ := set $byKey (printf "%06d-%s" (add (int .wave) 100000) .name) . -}}
+{{- $_ := set $byKey (printf "%06d-%s" (add (int $m.wave) 100000) $m.name) $m -}}
 {{- end -}}
 {{- end -}}
 {{- $out := list -}}
@@ -113,10 +113,12 @@ names, unmet dependsOn, and non-kustomize sources.
 keelson.translations: run every helper in the module's `translations` list
 (design 0001 §5.2) and collect its patches. Each name maps to a
 `keelson.translate.<name>` helper. Call with (dict "root" $ "module" $m).
-Returns YAML `{patches: [...]}`.
+Returns YAML `{patches: [...], skip: bool}`. A helper returns `skip: true` when its
+intent leaves the module with nothing to install (for example workspaces.kinds: []).
 */}}
 {{- define "keelson.translations" -}}
-{{- $known := list "domain" -}}
+{{- $skip := false -}}
+{{- $known := list "domain" "workspaceKinds" -}}
 {{- $patches := list -}}
 {{- range .module.translations -}}
 {{- if not (has . $known) -}}
@@ -124,8 +126,9 @@ Returns YAML `{patches: [...]}`.
 {{- end -}}
 {{- $out := include (printf "keelson.translate.%s" .) $ | fromYaml -}}
 {{- $patches = concat $patches ($out.patches | default list) -}}
+{{- if $out.skip -}}{{- $skip = true -}}{{- end -}}
 {{- end -}}
-{{- dict "patches" $patches | toYaml -}}
+{{- dict "patches" $patches "skip" $skip | toYaml -}}
 {{- end -}}
 
 {{/*

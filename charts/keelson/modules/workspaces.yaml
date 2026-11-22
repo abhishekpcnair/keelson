@@ -1,0 +1,13 @@
+name: workspaces
+wave: 20
+source:
+  type: kustomize
+  path: applications/workspaces/overlays/istio
+namespace: kubeflow-workspaces
+namespaces: [kubeflow-workspaces]
+# `dashboard` (#7) joins this list when that module is on main.
+dependsOn: [cert-manager-kubeflow, istio, kubeflow-istio-resources, kubeflow-roles]
+defaultEnabled: true
+translations: []
+smokeTest: tests/e2e/workspaces.sh
+upstreamHelmChart: applications/workspaces/helm
