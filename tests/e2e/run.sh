@@ -126,8 +126,9 @@ done
 log "All $expected Applications Synced and Healthy after $(( SECONDS - start ))s"
 
 # 5. Smoke tests: the distinct smokeTest paths of the enabled modules, in wave order.
-smoke_tests=()
-while IFS= read -r t; do [[ -n "$t" ]] && smoke_tests+=("$t"); done < <(kubectl -n "$ARGOCD_NS" get applications -l app.kubernetes.io/part-of=keelson \
+# Capture the list first. With `done < <(...)`, a failure inside the substitution is silent,
+# and the run would pass with no smoke tests.
+smoke_list="$(kd -n "$ARGOCD_NS" get applications -l app.kubernetes.io/part-of=keelson \
   -o jsonpath='{range .items[*]}{.metadata.labels.keelson\.io/module}{"\n"}{end}' \
   | py -c '
 import sys, yaml, pathlib
@@ -141,7 +142,9 @@ for _, _, t in sorted(mods):
     if t != "none" and t not in seen:
         seen.append(t)
 print("\n".join(seen))
-' "$E2E_ROOT")
+' "$E2E_ROOT")" || fail "could not list the smoke tests of the enabled modules"
+smoke_tests=()
+while IFS= read -r t; do [[ -n "$t" ]] && smoke_tests+=("$t"); done <<<"$smoke_list"
 if (( ${#smoke_tests[@]} == 0 )); then
   log "No smoke tests for the enabled modules; Healthy is the check"
 fi
