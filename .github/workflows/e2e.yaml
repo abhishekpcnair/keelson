@@ -11,7 +11,16 @@ permissions:
   contents: read
 jobs:
   kind:
-    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'needs-e2e')
+    # On a labeled event, run only when the label just added is needs-e2e.
+    if: >-
+      github.event_name != 'pull_request' ||
+      (contains(github.event.pull_request.labels.*.name, 'needs-e2e') &&
+       (github.event.action != 'labeled' || github.event.label.name == 'needs-e2e'))
+    # Job-level, so a skipped run can't cancel a real one. Only PR runs share a group;
+    # main, schedule and dispatch runs get a unique group and are never cancelled.
+    concurrency:
+      group: ${{ github.event_name == 'pull_request' && format('e2e-pr-{0}', github.event.pull_request.number) || format('e2e-run-{0}', github.run_id) }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest   # full Kubeflow needs ~16 GB RAM; use a larger runner if core alone is not enough
     timeout-minutes: 90
     steps:
