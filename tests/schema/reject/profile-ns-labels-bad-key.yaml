@@ -1,0 +1,4 @@
+# expect: invalid propertyName 'bad key'
+# A key that is not a valid Kubernetes label key.
+profileNamespaceLabels:
+  "bad key": x

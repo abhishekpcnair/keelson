@@ -18,6 +18,7 @@ profileNamespaceLabels:
 
 ## Change or remove a label
 The profile controller adds a label only when the namespace doesn't have it. It never changes an existing value, and it doesn't remove a label whose key you delete.
+These rules are upstream's own. They are in the header of `namespace-labels-kubeflow-pss.yaml` at `26.10.0` (lines 4 and 5: add with `key: "value"`, remove with `key: ""`; line 8: "The controller will NOT overwrite a label if one with same key already exists"; lines 9 to 13: remove the label, apply, add it again, apply).
 - **To remove a label:** set its value to `""`. The controller removes it.
 - **To change a value:**
   1. Set the value to `""` and sync.

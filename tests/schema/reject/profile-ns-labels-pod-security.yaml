@@ -1,0 +1,4 @@
+# expect: invalid propertyName 'pod-security.kubernetes.io/enforce'
+# A Pod Security label. Lowering it is a silent security change, so the schema rejects every pod-security.kubernetes.io/ key.
+profileNamespaceLabels:
+  pod-security.kubernetes.io/enforce: privileged

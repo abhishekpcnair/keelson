@@ -1,0 +1,4 @@
+# expect: upstream already sets this label
+# A label that upstream already sets. It cannot be overridden.
+profileNamespaceLabels:
+  app.kubernetes.io/part-of: x
