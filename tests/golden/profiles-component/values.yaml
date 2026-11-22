@@ -10,3 +10,5 @@ profiles:
     owner: alice@example.com
     contributors: [Carol.Smith+ml@Example.com]
     viewers: [dave@example.com]
+  - name: "123"            # all digits: the Profile name must stay a string
+    owner: numeric@example.com

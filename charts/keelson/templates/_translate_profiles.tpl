@@ -43,7 +43,9 @@ modes, so a bad profile fails at `helm install`, not at sync time.
 */}}
 {{- define "keelson.profiles.check" -}}
 {{- $seen := dict -}}
-{{- $reserved := list "kubeflow" "istio-system" "auth" "oauth2-proxy" "cert-manager" .Values.argocd.namespace -}}
+{{- /* argocd.namespace is a parent-only value: the component render sees the default, so the parent render checks it. */ -}}
+{{- $reserved := list "kubeflow" "istio-system" "auth" "oauth2-proxy" "cert-manager" -}}
+{{- if not .Values.component -}}{{- $reserved = append $reserved .Values.argocd.namespace -}}{{- end -}}
 {{- range $i, $p := .Values.profiles -}}
 {{- $w := printf "profiles[%d]" $i -}}
 {{- if hasKey $p "groups" -}}
@@ -80,7 +82,7 @@ modes, so a bad profile fails at `helm install`, not at sync time.
 apiVersion: kubeflow.org/v1
 kind: Profile
 metadata:
-  name: {{ .name }}
+  name: {{ .name | quote }}
   labels:
     app.kubernetes.io/part-of: keelson
     keelson.io/module: keelson-profiles
@@ -101,7 +103,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: {{ $n }}
-  namespace: {{ $ns }}
+  namespace: {{ $ns | quote }}
   labels:
     app.kubernetes.io/part-of: keelson
     keelson.io/module: keelson-profiles
@@ -124,7 +126,7 @@ kind: AuthorizationPolicy
 metadata:
   # KFAM deletes by name: same name as the RoleBinding.
   name: {{ $n }}
-  namespace: {{ $ns }}
+  namespace: {{ $ns | quote }}
   labels:
     app.kubernetes.io/part-of: keelson
     keelson.io/module: keelson-profiles

@@ -4,7 +4,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: user-bob-example-com-clusterrole-edit
-  namespace: kubeflow-user-example-com
+  namespace: "kubeflow-user-example-com"
   labels:
     app.kubernetes.io/part-of: keelson
     keelson.io/module: keelson-profiles
@@ -28,7 +28,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: user-carol-smith-ml-example-com-clusterrole-edit
-  namespace: team-vision
+  namespace: "team-vision"
   labels:
     app.kubernetes.io/part-of: keelson
     keelson.io/module: keelson-profiles
@@ -52,7 +52,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: user-dave-example-com-clusterrole-view
-  namespace: team-vision
+  namespace: "team-vision"
   labels:
     app.kubernetes.io/part-of: keelson
     keelson.io/module: keelson-profiles
@@ -77,7 +77,7 @@ kind: AuthorizationPolicy
 metadata:
   # KFAM deletes by name: same name as the RoleBinding.
   name: user-bob-example-com-clusterrole-edit
-  namespace: kubeflow-user-example-com
+  namespace: "kubeflow-user-example-com"
   labels:
     app.kubernetes.io/part-of: keelson
     keelson.io/module: keelson-profiles
@@ -104,7 +104,7 @@ kind: AuthorizationPolicy
 metadata:
   # KFAM deletes by name: same name as the RoleBinding.
   name: user-carol-smith-ml-example-com-clusterrole-edit
-  namespace: team-vision
+  namespace: "team-vision"
   labels:
     app.kubernetes.io/part-of: keelson
     keelson.io/module: keelson-profiles
@@ -131,7 +131,7 @@ kind: AuthorizationPolicy
 metadata:
   # KFAM deletes by name: same name as the RoleBinding.
   name: user-dave-example-com-clusterrole-view
-  namespace: team-vision
+  namespace: "team-vision"
   labels:
     app.kubernetes.io/part-of: keelson
     keelson.io/module: keelson-profiles
@@ -156,7 +156,7 @@ spec:
 apiVersion: kubeflow.org/v1
 kind: Profile
 metadata:
-  name: kubeflow-user-example-com
+  name: "kubeflow-user-example-com"
   labels:
     app.kubernetes.io/part-of: keelson
     keelson.io/module: keelson-profiles
@@ -174,7 +174,7 @@ spec:
 apiVersion: kubeflow.org/v1
 kind: Profile
 metadata:
-  name: team-vision
+  name: "team-vision"
   labels:
     app.kubernetes.io/part-of: keelson
     keelson.io/module: keelson-profiles
@@ -186,3 +186,21 @@ spec:
   owner:
     kind: User
     name: "alice@example.com"
+
+---
+# Source: keelson/templates/components/profiles.yaml
+apiVersion: kubeflow.org/v1
+kind: Profile
+metadata:
+  name: "123"
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: keelson-profiles
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+    # Removing a profile from values must never delete its namespace or data.
+    argocd.argoproj.io/sync-options: Prune=false
+spec:
+  owner:
+    kind: User
+    name: "numeric@example.com"
