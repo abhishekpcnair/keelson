@@ -1,0 +1,3 @@
+# expect: 'Kubeflow.Example.com' does not match pattern
+# Uppercase letters in domain. The Gateway hosts, cookie and redirect URLs must use one form.
+domain: Kubeflow.Example.com

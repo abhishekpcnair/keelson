@@ -9,6 +9,7 @@ Set `domain` to the hostname users open Kubeflow on. Set `tls.issuer` to say whe
 | `external` | TLS ends in front of the cluster (cloud load balancer, Azure Application Gateway). The Gateway stays HTTP. Cookies are secure. |
 
 `domain` is a hostname without a scheme: `kubeflow.example.com`, not `https://kubeflow.example.com`.
+Use lowercase letters only. `Kubeflow.Example.com` fails the render.
 
 ## Port-forward and health probes
 
