@@ -62,16 +62,27 @@ def app(jsonpath):
     return kubectl("-n", ARGOCD_NS, "get", "application", "dashboard", "-o", f"jsonpath={jsonpath}")
 
 
+SMOKE_USER = "keelson-dashboard-smoke"
+
+
 def force_sync():
-    """Start a sync of the dashboard Application and wait until it has Succeeded."""
+    """Start a sync of the dashboard Application and wait until that sync has finished.
+
+    Wait first until no operation runs (ArgoCD refuses a new operation while one is in progress).
+    Then find our own operation by initiatedBy.username and a new start time.
+    """
+    deadline = time.time() + SYNC_TIMEOUT_SECONDS
+    while app("{.status.operationState.phase}") == "Running" and time.time() < deadline:
+        time.sleep(5)
     before = app("{.status.operationState.startedAt}")
     kubectl("-n", ARGOCD_NS, "patch", "application", "dashboard", "--type", "merge", "-p",
-            json.dumps({"operation": {"initiatedBy": {"username": "keelson-dashboard-smoke"},
+            json.dumps({"operation": {"initiatedBy": {"username": SMOKE_USER},
                                       "sync": {"revision": app("{.spec.source.targetRevision}")}}}))
-    deadline = time.time() + SYNC_TIMEOUT_SECONDS
     while time.time() < deadline:
-        started, phase = app("{.status.operationState.startedAt}"), app("{.status.operationState.phase}")
-        if started and started != before and phase in ("Succeeded", "Failed", "Error"):
+        user = app("{.status.operationState.operation.initiatedBy.username}")
+        phase, started = app("{.status.operationState.phase}"), app("{.status.operationState.startedAt}")
+        # A new start time too: an operation left by an earlier smoke run has our username already.
+        if user == SMOKE_USER and started != before and phase in ("Succeeded", "Failed", "Error"):
             return phase
         time.sleep(5)
     return "Timeout"
