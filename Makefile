@@ -34,7 +34,7 @@ kubeconform: ## Validate rendered manifests
 	kubeconform -strict -summary $(KUBECONFORM_SCHEMAS) $(RENDER_DIR)/*.yaml
 
 rules: ## Check design rules on rendered output and patches
-	python3 hack/check_rules.py --rendered $(RENDER_DIR) --patches $(CHART)/patches
+	python3 hack/check_rules.py --rendered $(RENDER_DIR) --patches $(CHART)/patches --repo .
 
 e2e: ## Kind + ArgoCD + smoke tests (MODULES=core|all)
 	tests/e2e/run.sh $(MODULES)
