@@ -124,9 +124,11 @@ For the full default values, see `charts/keelson/values.yaml`.
 | Key | Type | Default | Allowed | Description |
 |---|---|---|---|---|
 | `profiles` | array | — | — | Kubeflow profiles as code. Names must be unique (checked at render time). |
+| `profiles[].contributors` | array | — | — | Emails with edit access (ClusterRole kubeflow-edit), as the dashboard's Manage contributors adds them. |
 | `profiles[].groups` |  | — | — | Not supported yet. Rejected at render time; see issue #28. |
 | `profiles[].name` | string, required | — | max length 63; pattern `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$` | Profile and namespace name (DNS-1123 label). |
 | `profiles[].owner` | string, required | — | pattern `^[^@\s]+@[^@\s]+\.[^@\s]+$` | Owner email: the kubeflow-userid header value. |
+| `profiles[].viewers` | array | — | — | Emails with view access (ClusterRole kubeflow-view). |
 
 ## `storage`
 
