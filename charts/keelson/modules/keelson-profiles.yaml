@@ -11,5 +11,5 @@ namespaces: [kubeflow]
 dependsOn: [dashboard]
 defaultEnabled: true
 translations: []
-smokeTest: tests/e2e/profiles.py
+smokeTest: tests/e2e/profiles.sh
 upstreamHelmChart: none  # Keelson-owned; no upstream chart
