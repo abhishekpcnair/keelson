@@ -104,11 +104,10 @@ environment: production            # dev | production
 auth:
   dex:
     connectors:
-      - type: oidc                  # oidc (microsoft, github: #26)
-        id: corp
-        issuer: https://idp.example.com
-        secretRef: { name: dex-corp, clientIDKey: clientID, clientSecretKey: clientSecret }
-        groupsClaim: groups         # oidc only
+      - type: microsoft             # oidc | microsoft | github
+        id: entra
+        tenant: "<tenant-id>"       # microsoft; oidc takes issuer + groupsClaim, github takes orgs[]
+        secretRef: { name: dex-entra, clientIDKey: clientID, clientSecretKey: clientSecret }
   staticUsers:                       # Kind/testing only; schema forbids it when environment=production
     enabled: false
 profiles:

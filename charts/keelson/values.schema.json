@@ -10,7 +10,7 @@
       "additionalProperties": false,
       "required": ["type", "id", "secretRef"],
       "properties": {
-        "type": { "type": "string", "enum": ["oidc"] },
+        "type": { "type": "string", "enum": ["oidc", "microsoft", "github"] },
         "id": { "type": "string", "pattern": "^[a-z0-9-]+$", "maxLength": 63, "description": "Unique. Also names the Dex env vars." },
         "name": { "type": "string", "minLength": 1, "description": "Login button text. Default: id." },
         "secretRef": {
@@ -26,13 +26,58 @@
         "issuer": { "type": "string", "pattern": "^https?://[^\\s]+$" },
         "scopes": { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1 },
         "groupsClaim": { "type": "string", "minLength": 1, "default": "groups" },
+        "tenant": {
+          "type": "string",
+          "pattern": "^([0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}|[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+)$",
+          "not": { "pattern": "(?i)^(common|consumers|organizations)$" },
+          "description": "microsoft: tenant ID or verified domain. Multi-tenant values accept any account and drop groups."
+        },
+        "allowedGroups": { "type": "array", "items": { "type": "string", "minLength": 1 }, "description": "microsoft: only members may log in." },
+        "onlySecurityGroups": { "type": "boolean", "default": false },
+        "groupNameFormat": { "type": "string", "enum": ["name", "id"], "default": "name" },
+        "emailToLowercase": { "type": "boolean", "default": true, "description": "microsoft: Kubeflow compares user emails case-sensitively." },
+        "orgs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name"],
+            "properties": { "name": { "type": "string", "minLength": 1 }, "teams": { "type": "array", "items": { "type": "string", "minLength": 1 } } }
+          },
+          "description": "github: required, so arbitrary GitHub users can't log in."
+        },
+        "teamNameField": { "type": "string", "enum": ["name", "slug", "both"], "default": "slug" },
+        "loadAllGroups": { "type": "boolean", "default": false },
+        "useLoginAsID": { "type": "boolean", "default": false },
         "extraConfig": {
           "type": "object",
           "propertyNames": { "not": { "pattern": "(?i)secret|password|token|key" } },
           "description": "Unsupported. Merged last into the connector config. No secret-like keys."
         }
       },
-      "allOf": [{ "if": { "properties": { "type": { "const": "oidc" } } }, "then": { "required": ["issuer"] } }]
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "oidc" } } },
+          "then": { "required": ["issuer"], "propertyNames": { "not": { "enum": ["tenant", "allowedGroups", "onlySecurityGroups", "groupNameFormat", "emailToLowercase", "orgs", "teamNameField", "loadAllGroups", "useLoginAsID"] } } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "microsoft" } } },
+          "then": {
+            "required": ["tenant"],
+            "propertyNames": { "not": { "enum": ["issuer", "scopes", "groupsClaim", "orgs", "teamNameField", "loadAllGroups", "useLoginAsID"] } },
+            "properties": { "extraConfig": { "propertyNames": { "not": { "enum": ["tenant", "groups", "useGroupsAsWhitelist"] } } } }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "github" } } },
+          "then": {
+            "required": ["orgs"],
+            "propertyNames": { "not": { "enum": ["issuer", "scopes", "groupsClaim", "tenant", "allowedGroups", "onlySecurityGroups", "groupNameFormat", "emailToLowercase"] } },
+            "properties": { "extraConfig": { "propertyNames": { "not": { "enum": ["orgs", "org", "hostName", "rootCA"] } } } }
+          }
+        }
+      ]
     }
   },
   "allOf": [
