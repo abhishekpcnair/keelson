@@ -5,6 +5,7 @@
 # The backend is Dex on purpose. Dex cannot return oauth2-proxy's sign-in form, so an unauthenticated
 # request that gets the sign-in form got it from ext_authz (oauth2-proxy), not from the backend.
 # The script applies this file and deletes it when it ends.
+# Remove this file and the route step in auth-redirect.sh when #7 serves `/`.
 apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:

@@ -18,15 +18,19 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 fixture="$E2E_ROOT/tests/e2e/fixtures/protected-route.yaml"
+# Register the route cleanup before the apply, so a failed apply or forward still deletes the route.
+# shellcheck disable=SC2016  # expanded at exit, on purpose
+on_exit 'kubectl delete -f "$fixture" --ignore-not-found >/dev/null 2>&1'
 kubectl apply -f "$fixture" >/dev/null || fail "could not apply $fixture"
 port_forward_gateway
-# port_forward_gateway set an EXIT trap that stops the forward. Keep that, and delete the route too.
-trap 'kubectl delete -f "$fixture" --ignore-not-found >/dev/null 2>&1 || true; kill "$E2E_PF_PID" 2>/dev/null || true' EXIT
 
 base="http://localhost:$GATEWAY_PORT"
 protected="$base/keelson-e2e/"
 body="$E2E_CACHE/auth-redirect.body"
 mkdir -p "$E2E_CACHE"
+
+# show_body <file>: log the first 200 bytes of a response body, so every hop shows what came back.
+show_body() { log "  body (first 200 bytes): $(head -c 200 "$1" | tr '\n' ' ')"; }
 
 # istiod pushes the new route to the gateway in a few seconds. Until then the path has no route, and
 # the gateway answers "RBAC: access denied". Retry only for that answer.
@@ -37,7 +41,7 @@ while :; do
   if ! grep -q 'RBAC: access denied' "$body" || (( SECONDS >= deadline )); then break; fi
   sleep 3
 done
-log "  body (first 200 bytes): $(head -c 200 "$body" | tr '\n' ' ')"
+show_body "$body"
 case "${code1:-none}" in
   302)
     [[ "$loc1" == */oauth2/start* ]] || fail "GET /keelson-e2e/ redirected to '$loc1', expected /oauth2/start" ;;
@@ -50,21 +54,25 @@ case "${code1:-none}" in
     fail "an unauthenticated GET /keelson-e2e/ must get oauth2-proxy's sign-in page or a redirect to /oauth2/start (got '${code1:-none}')" ;;
 esac
 
-read -r code2 loc2 <<<"$(curl -s -o /dev/null --max-time 15 -w '%{http_code} %{redirect_url}' "$base/oauth2/start?rd=/keelson-e2e/")" || true
+read -r code2 loc2 <<<"$(curl -s -o "$body" --max-time 15 -w '%{http_code} %{redirect_url}' "$base/oauth2/start?rd=/keelson-e2e/")" || true
 log "GET /oauth2/start -> ${code2:-none} ${loc2:-}"
+show_body "$body"
 [[ "$code2" == 302 && "$loc2" == */dex/auth* ]] \
   || fail "/oauth2/start should redirect to /dex/auth (got '${code2:-none}' '${loc2:-}')"
 
-code3="$(curl -s -o /dev/null --max-time 15 -w '%{http_code}' -L "$loc2")"
+code3="$(curl -s -o "$body" --max-time 15 -w '%{http_code}' -L "$loc2")"
 log "GET /dex/auth (following redirects) -> $code3"
+show_body "$body"
 [[ "$code3" == 200 ]] || fail "Dex login page should answer 200 (got $code3)"
 
 # GET /. Without the dashboard module, nothing serves "/": the gateway denies (403 RBAC), which is
 # fail-closed. Only 302, 401 or 403 pass; any other answer (200, 404, 5xx) means "/" was served, or the
 # gateway failed. With the dashboard module (#7), "/" has a route, so ext_authz must answer, and the
 # check is strict: oauth2-proxy's sign-in form or a redirect to /oauth2/start.
+: > "$body"
 read -r code4 loc4 <<<"$(curl -s -o "$body" --max-time 15 -w '%{http_code} %{redirect_url}' "$base/")" || true
 log "GET / -> ${code4:-none} ${loc4:-}"
+show_body "$body"
 if kubectl get applications.argoproj.io -A -l keelson.io/module=dashboard -o name 2>/dev/null | grep -q .; then
   # The dashboard module serves "/", so Envoy runs ext_authz and oauth2-proxy answers: a redirect to
   # /oauth2/start, or its sign-in page. "RBAC: access denied" would mean the route or ext_authz is broken (#106).
