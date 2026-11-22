@@ -67,7 +67,6 @@ staticClients:
 {{- else if eq $c.type "github" -}}
 {{- $_ := set $cfg "orgs" $c.orgs -}}
 {{- $_ := set $cfg "teamNameField" ($c.teamNameField | default "slug") -}}
-{{- $_ := set $cfg "loadAllGroups" (dig "loadAllGroups" false $c) -}}
 {{- $_ := set $cfg "useLoginAsID" (dig "useLoginAsID" false $c) -}}
 {{- else -}}
 {{- fail (printf "auth.dex.connectors[%s]: unsupported type %q" $c.id $c.type) -}}

@@ -1,0 +1,11 @@
+# expect: additional properties 'loadAllGroups' not allowed
+# Dex ignores loadAllGroups while orgs is set, and Keelson requires orgs. The key has no effect.
+domain: kubeflow.example.com
+auth:
+  dex:
+    connectors:
+      - type: github
+        id: github
+        secretRef: { name: dex-github }
+        orgs: [{ name: my-org }]
+        loadAllGroups: true
