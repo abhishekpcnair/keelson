@@ -69,17 +69,20 @@ k() { kubectl --context "$CONTEXT" "$@"; }
 # 2. Cluster.
 if kind get clusters 2>/dev/null | grep -qx "$CLUSTER_NAME"; then
   log "Kind cluster '$CLUSTER_NAME' already exists; skipping create"
+  k get --raw /readyz >/dev/null 2>&1 \
+    || die "cluster '$CLUSTER_NAME' exists but its API server is unreachable (containers stopped?). Start it, or run 'make kind-down && make kind-up'."
   # Check that the existing cluster still matches what this script would create.
   want_k8s="$(sed -nE 's/^[^:]+:(v[0-9]+\.[0-9]+\.[0-9]+).*/\1/p' <<<"${KIND_NODE_IMAGE:-}")"
-  have_k8s="$(k version -o json 2>/dev/null | sed -nE 's/.*"gitVersion": *"(v[0-9]+\.[0-9]+\.[0-9]+)[^"]*".*/\1/p' | tail -n1)"
+  have_k8s="$({ k version -o json 2>/dev/null || true; } | sed -nE 's/.*"gitVersion": *"(v[0-9]+\.[0-9]+\.[0-9]+)[^"]*".*/\1/p' | tail -n1)"
   if [[ -z "$want_k8s" ]]; then
     log "warning: expected node image unknown (no upstream cache); not checking the existing cluster's version"
   elif [[ "$have_k8s" != "$want_k8s" ]]; then
     log "warning: cluster runs Kubernetes ${have_k8s:-unknown}, but the node image $KIND_NODE_IMAGE is $want_k8s. Run 'make kind-down && make kind-up' to recreate it."
   fi
-  if ! k -n kube-system get pod -l component=kube-apiserver -o jsonpath='{.items[*].spec.containers[*].command}' 2>/dev/null \
-      | grep -qF -- '"--service-account-issuer=https://kubernetes.default.svc"'; then
-    # Match the whole quoted argument: kubeadm's default issuer, ...default.svc.cluster.local, shares the prefix.
+  # Capture first, so grep -q can't SIGPIPE kubectl under pipefail.
+  apiserver_cmd="$(k -n kube-system get pod -l component=kube-apiserver -o jsonpath='{.items[*].spec.containers[*].command}' 2>/dev/null || true)"
+  # Match the whole quoted argument: kubeadm's default issuer, ...default.svc.cluster.local, shares the prefix.
+  if [[ "$apiserver_cmd" != *'"--service-account-issuer=https://kubernetes.default.svc"'* ]]; then
     die "existing cluster '$CLUSTER_NAME' lacks the service-account-issuer patch (not created by this script?). Run 'make kind-down && make kind-up'."
   fi
 else
