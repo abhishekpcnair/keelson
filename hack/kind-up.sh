@@ -45,11 +45,17 @@ fi
 if kind get clusters 2>/dev/null | grep -qx "$CLUSTER_NAME"; then
   log "Kind cluster '$CLUSTER_NAME' already exists; skipping create"
 else
+  tag="${UPSTREAM_TAG:-$(sed -nE 's/^[[:space:]]*manifestsRef:[[:space:]]*"?([^"[:space:]]+)"?.*/\1/p' "$ROOT/charts/keelson/values.yaml" | head -n1)}"
+  upstream_script="$ROOT/.cache/upstream/$tag/$UPSTREAM_SCRIPT_REL"
+  # Older kind releases generate kubeadm configs that newer node images reject.
+  want_kind="$(sed -nE 's/^KIND_VERSION="(v[0-9.]+)".*/\1/p' "$upstream_script" 2>/dev/null | head -n1)"
+  have_kind="$(kind version | sed -nE 's/^kind (v[0-9.]+).*/\1/p')"
+  if [[ -n "$want_kind" && "$(printf '%s\n' "$want_kind" "$have_kind" | sort -V | head -n1)" != "$want_kind" ]]; then
+    log "warning: kind $have_kind is older than upstream's $want_kind; cluster creation may fail. Upgrade kind."
+  fi
   # 3. Node image, read from the pinned upstream test script.
   if [[ -z "${KIND_NODE_IMAGE:-}" ]]; then
-    tag="${UPSTREAM_TAG:-$(sed -nE 's/^[[:space:]]*manifestsRef:[[:space:]]*"?([^"[:space:]]+)"?.*/\1/p' "$ROOT/charts/keelson/values.yaml" | head -n1)}"
     [[ -n "$tag" ]] || die "could not read upstream.manifestsRef from charts/keelson/values.yaml"
-    upstream_script="$ROOT/.cache/upstream/$tag/$UPSTREAM_SCRIPT_REL"
     [[ -f "$upstream_script" ]] || die "$upstream_script not found. Run 'make upstream-cache', or set KIND_NODE_IMAGE=kindest/node:<tag>@sha256:<digest>"
     KIND_NODE_IMAGE="$(sed -nE 's/^KIND_NODE_IMAGE="\$\{KIND_NODE_IMAGE:-([^}]+)\}".*/\1/p' "$upstream_script" | head -n1)"
     [[ "$KIND_NODE_IMAGE" == *@sha256:* ]] || die "no pinned KIND_NODE_IMAGE line found in $upstream_script; upstream may have changed the file. Set KIND_NODE_IMAGE=kindest/node:<tag>@sha256:<digest>"
