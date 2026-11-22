@@ -1,0 +1,24 @@
+{{- range (include "keelson.enabledModules" . | fromYaml).modules }}
+{{- $spec := include "keelson.defaultAppSpec" (dict "root" $ "module" .) | fromYaml }}
+{{- $override := ((($.Values.advanced).modules | default dict) | dig .name "appSpecOverride" dict) }}
+{{- include "keelson.checkOverride" (dict "module" .name "override" $override) }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Values.argocd.namespace }}
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: {{ .name }}
+  annotations:
+    argocd.argoproj.io/sync-wave: {{ .wave | quote }}
+spec:
+  {{- $merged := mustMergeOverwrite (deepCopy $spec) $override }}
+  {{- /* Re-apply the pinned fields from the generated spec, whatever the merge did. */}}
+  {{- $_ := set $merged "project" $spec.project }}
+  {{- $_ := set $merged.source "repoURL" $spec.source.repoURL }}
+  {{- $_ := set $merged.source "targetRevision" $spec.source.targetRevision }}
+  {{- $_ := set $merged.destination "server" $spec.destination.server }}
+  {{- $merged | toYaml | nindent 2 }}
+{{- end }}

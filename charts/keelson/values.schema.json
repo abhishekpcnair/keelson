@@ -15,13 +15,55 @@
         }
       }
     },
+    "platform": {
+      "type": "string",
+      "enum": ["generic", "kind"],
+      "default": "generic",
+      "description": "Cluster type. Selects platform-specific upstream overlays (source.platformPaths)."
+    },
     "argocd": {
       "type": "object",
+      "required": ["namespace", "project", "destinationServer"],
+      "additionalProperties": false,
       "properties": {
-        "namespace": { "type": "string" },
-        "project": { "type": "string" }
+        "namespace": { "type": "string", "minLength": 1 },
+        "project": { "type": "string", "minLength": 1 },
+        "destinationServer": { "type": "string", "format": "uri" },
+        "extraSourceRepos": {
+          "type": "array",
+          "items": { "type": "string", "format": "uri" },
+          "description": "Extra repos allowed in the AppProject, after upstream.manifestsRepo."
+        }
       }
     },
-    "modules": { "type": "object" }
+    "modules": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z0-9-]+$" },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": { "enabled": { "type": "boolean" } }
+      },
+      "description": "Per-module switches keyed by module name. Unknown names fail at render time."
+    },
+    "advanced": {
+      "type": "object",
+      "properties": {
+        "modules": {
+          "type": "object",
+          "propertyNames": { "pattern": "^[a-z0-9-]+$" },
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "appSpecOverride": {
+                "type": "object",
+                "description": "Unsupported. Deep-merged over the generated Application spec."
+              }
+            }
+          }
+        }
+      }
+    }
   }
 }

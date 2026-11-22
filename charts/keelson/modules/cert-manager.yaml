@@ -1,0 +1,12 @@
+name: cert-manager
+wave: -100
+source:
+  type: kustomize
+  path: common/cert-manager/base
+namespace: cert-manager
+namespaces: [cert-manager, kube-system]
+dependsOn: []
+defaultEnabled: true
+translations: []
+smokeTest: none  # e2e harness lands in #4
+upstreamHelmChart: common/cert-manager/helm

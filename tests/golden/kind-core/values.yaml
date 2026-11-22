@@ -1,0 +1,2 @@
+# kind-core: core dependencies on a Kind cluster, all module defaults.
+platform: kind

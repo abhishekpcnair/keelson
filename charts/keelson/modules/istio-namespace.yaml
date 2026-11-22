@@ -1,0 +1,12 @@
+name: istio-namespace
+wave: -80
+source:
+  type: kustomize
+  path: common/istio/istio-namespace/base
+namespace: istio-system
+namespaces: [istio-system]
+dependsOn: []
+defaultEnabled: true
+translations: []
+smokeTest: none  # e2e harness lands in #4
+upstreamHelmChart: common/istio/helm

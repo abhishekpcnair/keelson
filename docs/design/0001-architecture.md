@@ -96,6 +96,7 @@ Translation logic is the only real code in the project. It is covered by golden 
 upstream:
   manifestsRef: "26.10.0"          # single knob for the Kubeflow release
 domain: kubeflow.example.com
+platform: generic                  # generic | kind; selects platform-specific upstream overlays
 tls:
   issuer: selfsigned                # selfsigned | letsencrypt | existing
 auth:
@@ -126,7 +127,7 @@ argocd:
 modules:
   pipelines: { enabled: true }
   workspaces: { enabled: true }
-  notebooksV1: { enabled: false }    # legacy; upstream EOL notice
+  notebooks-v1: { enabled: false }   # keys are module names (kebab-case); legacy, upstream EOL notice
 advanced:
   modules: {}                        # per-module appSpecOverride / extra patches (unsupported)
 ```
@@ -135,12 +136,13 @@ advanced:
 
 | Wave | Module | Upstream source (26.10.0) | v0.1 |
 |---|---|---|---|
-| -100 | cert-manager | `common/cert-manager/base` + `overlays/kubeflow` | ✓ |
-| -80 | istio-crds, istio-namespace | `common/istio/istio-crds/base`, `common/istio/istio-namespace/base` | ✓ |
+| -100 | cert-manager | `common/cert-manager/base` | ✓ |
+| -90 | cert-manager-kubeflow | `common/cert-manager/overlays/kubeflow` (not included by base; ClusterIssuer needs the CRDs and webhook) | ✓ |
+| -80 | istio-crds, istio-namespace, kubeflow-namespace | `common/istio/istio-crds/base`, `common/istio/istio-namespace/base`, `common/kubeflow-namespace/base` (istio writes `Sidecar`s into `kubeflow`) | ✓ |
 | -70 | istio | `common/istio/istio-install/overlays/oauth2-proxy` | ✓ |
 | -60 | oauth2-proxy | `common/oauth2-proxy/overlays/m2m-dex-only` (`m2m-dex-and-kind` on Kind) | ✓ |
 | -60 | dex | `common/dex/overlays/oauth2-proxy` | ✓ |
-| -50 | kubeflow-namespace, roles, istio-resources | `common/kubeflow-namespace/base`, `common/kubeflow-roles/base`, `common/istio/kubeflow-istio-resources/base` | ✓ |
+| -50 | kubeflow-roles, kubeflow-istio-resources | `common/kubeflow-roles/base`, `common/istio/kubeflow-istio-resources/base` | ✓ |
 | -40 | kyverno policies (optional) | Keelson-owned policies | ✓ |
 | 0 | dashboard (central dashboard, profile controller, PodDefaults) | `applications/dashboard/overlays/istio` | ✓ |
 | 10 | profiles (Keelson-generated) | rendered from `profiles[]` | ✓ |
@@ -164,6 +166,9 @@ source:
   type: kustomize                 # kustomize | helm
   path: applications/pipeline/overlays
   # helm: { repo: ..., chart: ..., version: ... }  # when type=helm
+  # platformPaths: { kind: <path> }  # optional; chosen by values `platform`
+namespace: kubeflow               # Application destination namespace
+namespaces: [kubeflow]            # every namespace the path writes to (AppProject allowlist)
 dependsOn: [dashboard, istio]
 defaultEnabled: true
 translations: [domain, storage, database]   # which translation helpers apply
