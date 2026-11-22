@@ -225,6 +225,27 @@ rejected by default and sources stay pinned (hard rule 3).
 Allowed keys may not be null. A patch may not touch an image (hard rule 2).
 Call with (dict "module" $name "override" $o).
 */}}
+{{- /*
+Merge syncOptions by key (the text before the first "="). Start with base, in order.
+An override entry replaces the entry with the same key, or is added at the end.
+force entries then apply the same way, so an override can't change them.
+Example: base [ServerSideApply=true, CreateNamespace=true] + override [CreateNamespace=false, PruneLast=true]
+  -> [ServerSideApply=true, CreateNamespace=false, PruneLast=true]
+Call with (dict "base" list "override" list "force" list). Returns YAML {items: [...]}.
+*/}}
+{{- define "keelson.mergeSyncOptions" -}}
+{{- $keys := list -}}
+{{- $vals := dict -}}
+{{- range $o := concat (.base | default list) (.override | default list) (.force | default list) -}}
+{{- $k := regexReplaceAll "=.*$" (toString $o) "" -}}
+{{- if not (hasKey $vals $k) -}}{{- $keys = append $keys $k -}}{{- end -}}
+{{- $_ := set $vals $k (toString $o) -}}
+{{- end -}}
+{{- $out := list -}}
+{{- range $keys -}}{{- $out = append $out (get $vals .) -}}{{- end -}}
+{{- toYaml (dict "items" $out) -}}
+{{- end -}}
+
 {{- define "keelson.checkOverride" -}}
 {{- $where := printf "advanced.modules.%s.appSpecOverride" .module -}}
 {{- include "keelson.checkKeys" (dict "where" $where "obj" .override "allowed" (list "syncPolicy" "ignoreDifferences" "info" "revisionHistoryLimit" "source")) -}}
@@ -239,6 +260,11 @@ Call with (dict "module" $name "override" $o).
 {{- end -}}
 {{- if and (kindIs "map" .override.syncPolicy) (hasKey .override.syncPolicy "syncOptions") (not (kindIs "slice" .override.syncPolicy.syncOptions)) -}}
 {{- fail (printf "%s.syncPolicy.syncOptions: must be a list" $where) -}}
+{{- end -}}
+{{- range $i, $o := (dig "syncPolicy" "syncOptions" list .override) -}}
+{{- if not (and (kindIs "string" $o) (regexMatch "^[A-Za-z]+=.+$" $o)) -}}
+{{- fail (printf "%s.syncPolicy.syncOptions[%d]: must be Key=Value, got %v" $where $i $o) -}}
+{{- end -}}
 {{- end -}}
 {{- if and (hasKey .override "source") (not (kindIs "map" .override.source)) -}}{{- fail (printf "%s.source: must be a map" $where) -}}{{- end -}}
 {{- if and (kindIs "map" .override.source) (hasKey .override.source "kustomize") (not (kindIs "map" .override.source.kustomize)) -}}{{- fail (printf "%s.source.kustomize: must be a map" $where) -}}{{- end -}}
