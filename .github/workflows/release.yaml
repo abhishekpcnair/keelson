@@ -105,9 +105,11 @@ jobs:
         run: |
           ref="${{ steps.push.outputs.ref }}"
           cosign generate-key-pair
-          flags=(--key cosign.key --allow-insecure-registry)
-          cosign sign --yes "${flags[@]}" --tlog-upload=false "$ref"
-          cosign attest --yes "${flags[@]}" --tlog-upload=false --type custom --predicate dist/images.json "$ref"
+          # cosign v3 signs with the public-good signing config by default, which includes the
+          # Rekor log. Turn that off, so a dry run writes nothing public.
+          flags=(--key cosign.key --allow-insecure-registry --use-signing-config=false --tlog-upload=false)
+          cosign sign --yes "${flags[@]}" "$ref"
+          cosign attest --yes "${flags[@]}" --type custom --predicate dist/images.json "$ref"
           verify=(--key cosign.pub --allow-insecure-registry --insecure-ignore-tlog)
           cosign verify "${verify[@]}" "$ref"
           cosign verify-attestation "${verify[@]}" --type custom "$ref"
