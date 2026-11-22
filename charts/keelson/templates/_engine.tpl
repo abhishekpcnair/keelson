@@ -6,7 +6,8 @@ Module files live in modules/*.yaml and hold data only (contract: §7).
 {{/*
 keelson.modules: every registry module with `enabled` and `resolvedPath` set.
 Returns YAML `{modules: [...]}`; use with fromYaml. Fails on unknown module
-names, unmet dependsOn, and non-kustomize sources.
+names, unmet dependsOn, a wave not above its dependencies' waves, and
+non-kustomize sources.
 */}}
 {{- define "keelson.modules" -}}
 {{- $registry := dict -}}
@@ -62,6 +63,16 @@ names, unmet dependsOn, and non-kustomize sources.
 {{- end -}}
 {{- $on := dict -}}
 {{- range $out -}}{{- if .enabled -}}{{- $_ := set $on .name true -}}{{- end -}}{{- end -}}
+{{- /* Registry rule (all modules, enabled or not): a wave must be strictly above its dependencies' waves. */ -}}
+{{- range $m := $out -}}
+{{- range $d := $m.dependsOn -}}
+{{- with get $registry $d -}}
+{{- if le (float64 $m.wave) (float64 .wave) -}}
+{{- fail (printf "module %s (wave %v) depends on %s (wave %v): its wave must be higher" $m.name $m.wave $d .wave) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
 {{- range $out -}}
 {{- if .enabled -}}
 {{- $m := . -}}
