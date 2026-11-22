@@ -12,14 +12,18 @@ fail=0 n=0
 for f in "$ROOT"/tests/health/*.yaml; do
   want="$(sed -n '1s/^# expected: *//p' "$f")"
   [[ -n "$want" ]] || { echo "FAIL $(basename "$f"): missing '# expected:' first line"; fail=1; continue; }
-  got="$(KUBECONFIG=/dev/null "$ARGOCD" admin settings resource-overrides health "$f" --argocd-cm-path "$CM" 2>/dev/null \
-    | sed -n 's/^STATUS: *//p')"
+  err="$(mktemp)"
+  got="$(KUBECONFIG=/dev/null "$ARGOCD" admin settings resource-overrides health "$f" --argocd-cm-path "$CM" 2>"$err" \
+    | sed -n 's/^STATUS: *//p')" || true
   n=$((n + 1))
   if [[ "$got" == "$want" ]]; then
     echo "ok   $(basename "$f"): $got"
   else
     echo "FAIL $(basename "$f"): want $want, got ${got:-<nothing>}"; fail=1
+    # Show the CLI's own errors (for example a Lua error), without its info-level log lines.
+    grep -v '"level":"info"' "$err" | sed 's/^/     /' || true
   fi
+  rm -f "$err"
 done
 echo "health-check: $n fixture(s), $([[ $fail == 0 ]] && echo 'all passed' || echo 'FAILURES')"
 exit $fail

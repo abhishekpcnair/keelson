@@ -21,7 +21,7 @@ jobs:
           sudo mv kubeconform /usr/local/bin/
       - name: Install argocd CLI (pinned, checksum-verified)
         env:
-          # Same ArgoCD version as hack/kind-up.sh (ARGOCD_VERSION, #3). Bump both together.
+          # Must match ARGOCD_VERSION in hack/kind-up.sh. Bump both together.
           ARGOCD_VERSION: v3.6.2
           ARGOCD_SHA256: 80cc51ce8eb39d5601d54fd14225ed15a04ccf4baa3427f5c1e72a4e342aa0b2
         run: |

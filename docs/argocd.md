@@ -31,7 +31,7 @@ On Kind, `make kind-up` applies the file for you.
 
 There is no check for `Profile`, `PodDefault`, `WorkspaceKind`, `Viewer` or `ScheduledWorkflow`.
 Their status has no reliable health signal, so ArgoCD's default (Healthy once applied) is used.
-`Profile` is tracked in #33.
+`Profile` is tracked in [#33](https://github.com/abhishekpcnair/keelson/issues/33).
 
 ## Install with a root Application (recommended)
 
@@ -49,7 +49,7 @@ spec:
   source:
     repoURL: https://github.com/abhishekpcnair/keelson
     path: charts/keelson
-    targetRevision: v0.1.0-alpha.1 # a Keelson release tag; never a branch
+    targetRevision: v0.1.0-alpha   # example: a Keelson release tag; never a branch
     helm:
       valuesObject:
         platform: kind
@@ -60,7 +60,7 @@ spec:
     automated: { prune: true, selfHeal: true }
 ```
 
-The first Keelson release is planned in #13. Until then, use a commit SHA for `targetRevision`.
+The first Keelson release (`v0.1.0-alpha`) is planned in [#15](https://github.com/abhishekpcnair/keelson/issues/15). Until then, use a commit SHA for `targetRevision`.
 
 With a plain `helm install`, ArgoCD creates every Application at once. They still converge,
 because each Application retries with backoff, but nothing waits for the waves.
