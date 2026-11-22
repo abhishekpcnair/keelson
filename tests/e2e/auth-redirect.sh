@@ -9,7 +9,8 @@
 #   4. An unauthenticated GET / is not served (fail-closed).
 # Core has no workload at "/" and Envoy skips ext_authz for a request that matches no route (#106).
 # So hop 1 uses a test-only route, /keelson-e2e/ (tests/e2e/fixtures/protected-route.yaml), applied
-# here and deleted at the end. Hops 2 and 3 only prove that oauth2-proxy and Dex answer behind the
+# here and deleted at the end. The route goes to Dex, which cannot return oauth2-proxy's sign-in
+# form, so the form in hop 1 proves that ext_authz answered. Hops 2 and 3 only prove that oauth2-proxy and Dex answer behind the
 # gateway: both AuthorizationPolicies exclude /oauth2/* and /dex/*.
 # It also guards a gap in upstream's dex_login_test.py, which accepts any 401/403 on "/".
 set -euo pipefail
@@ -59,9 +60,13 @@ log "GET /dex/auth (following redirects) -> $code3"
 [[ "$code3" == 200 ]] || fail "Dex login page should answer 200 (got $code3)"
 
 # Fail-closed: with no workload at "/", the gateway denies (403 RBAC). With the dashboard, ext_authz
-# shows the sign-in page (403). Both are fine. A 200 would serve "/" to an unauthenticated user.
+# shows the sign-in page (403) or redirects (302). Only these answers are fine. Any other answer
+# (200, 404, 5xx) means "/" was served, or the gateway failed, so the check fails.
 code4="$(curl -s -o /dev/null --max-time 15 -w '%{http_code}' "$base/")"
 log "GET / -> $code4"
-[[ "$code4" != 200 ]] || fail "an unauthenticated GET / was served (200)"
+case "$code4" in
+  302|401|403) ;;
+  *) fail "an unauthenticated GET / must be refused (302, 401 or 403), got $code4" ;;
+esac
 
 log "auth-redirect: OK"
