@@ -8,10 +8,14 @@ Fields:
 - `name`, `wave`, `defaultEnabled`, `dependsOn`
 - `source.type` (`kustomize` only for now, see ADR 0002), `source.path`, and optional `source.platformPaths` (keyed by `platform`)
 - `namespace`: the Application destination namespace
-- `namespaces`: every namespace the path writes to, which builds the AppProject allowlist (check with `kubectl kustomize`)
+- `namespaces`: every namespace the path writes to, which builds the AppProject allowlist (checked by `make namespaces`)
 - `translations`: names of translation helpers (`templates/_translate_<name>.tpl`). The engine calls
   `keelson.translate.<name>` for each and appends the returned patches to `spec.source.kustomize.patches`.
-  Unknown names fail the render. Known: `domain`.
+  Unknown names fail the render. Known: `domain`, `auth`.
 - `smokeTest`, `upstreamHelmChart`
+- `ignoreDifferences` (optional): ArgoCD `ignoreDifferences` entries for fields another controller owns, such as a cert-manager-injected `caBundle`. Each entry needs `kind` and a non-empty `jsonPointers`, `jqPathExpressions` or `managedFieldsManagers`. The engine adds `RespectIgnoreDifferences=true`, and overrides can't remove these entries.
 
 User docs: `docs/modules/README.md`.
+
+Wave bands (see `docs/argocd.md`): `-100…-40` platform, `0` dashboard, `10` profiles, `20` apps, `30+` v0.2.
+A module's `wave` must be strictly higher than the wave of every module in its `dependsOn`; the engine fails otherwise.

@@ -6,6 +6,10 @@ patches to the upstream path's kustomization (from .cache/upstream/<tag>) and ru
 `kustomize build`. Fails when a patch does not apply, or applies but changes
 nothing (for example, a target that matches no resource).
 
+Dex drift guard: when a patch replaces the Dex config.yaml, every key except
+DEX_MANAGED (and staticPasswords, when kept) must equal upstream's at the tag, so an upstream
+bump that changes them fails here instead of being silently overwritten.
+
 Usage:
   hack/kustomize_check.py --rendered <file-or-dir> [--cache .cache/upstream]
 The kustomize binary ($KUSTOMIZE, default `kustomize`) must match the version
@@ -24,6 +28,7 @@ import yaml
 
 KUSTOMIZE = os.environ.get("KUSTOMIZE", "kustomize")
 KFILES = ("kustomization.yaml", "kustomization.yml", "Kustomization")
+DEX_MANAGED = {"connectors", "enablePasswordDB", "staticPasswords"}  # keys Keelson may change
 
 
 def patched_apps(rendered: pathlib.Path):
@@ -52,6 +57,23 @@ def build(tree: pathlib.Path, path: str, patches):
         return r.returncode, r.stdout if r.returncode == 0 else r.stderr
     finally:
         kfile.write_text(original)
+
+
+def dex_config(manifests: str):
+    for doc in yaml.safe_load_all(manifests):
+        if isinstance(doc, dict) and doc.get("kind") == "ConfigMap" and doc["metadata"].get("name") == "dex":
+            return yaml.safe_load(doc["data"]["config.yaml"])
+    return None
+
+
+def check_dex_config(where, base: str, patched: str, errors):
+    up, ours = dex_config(base), dex_config(patched)
+    if up is None or ours is None or up == ours:
+        return
+    managed = DEX_MANAGED - ({"staticPasswords"} if "staticPasswords" in ours else set())
+    for k in sorted((set(up) | set(ours)) - managed):
+        if ours.get(k) != up.get(k):
+            errors.append(f"{where}: Dex config key '{k}' differs from upstream (update keelson.dex.upstreamConfig)")
 
 
 def check_version(upstream: pathlib.Path):
@@ -94,6 +116,8 @@ def main():
             rc, out = build(tree, src["path"], patches)
             if rc:
                 errors.append(f"{where}: patches together fail: {out.strip()}")
+            else:
+                check_dex_config(where, base, out, errors)
             checked += 1
     for e in errors:
         print(f"FAIL {e}")

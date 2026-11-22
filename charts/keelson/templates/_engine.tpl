@@ -6,7 +6,9 @@ Module files live in modules/*.yaml and hold data only (contract: §7).
 {{/*
 keelson.modules: every registry module with `enabled` and `resolvedPath` set.
 Returns YAML `{modules: [...]}`; use with fromYaml. Fails on unknown module
-names, unmet dependsOn, and non-kustomize sources.
+names, unmet dependsOn, a wave not above its dependencies' waves,
+non-kustomize sources, and a bad appSpecOverride (checked for every module in
+advanced.modules, also a disabled one).
 */}}
 {{- define "keelson.modules" -}}
 {{- $registry := dict -}}
@@ -30,6 +32,12 @@ names, unmet dependsOn, and non-kustomize sources.
 {{- if not (kindIs "map" $m.source) -}}
 {{- fail (printf "%s: source must be a map" $path) -}}
 {{- end -}}
+{{- if and (hasKey $m "ignoreDifferences") (not (kindIs "slice" $m.ignoreDifferences)) -}}
+{{- fail (printf "%s: ignoreDifferences must be a list" $path) -}}
+{{- end -}}
+{{- range $i, $d := $m.ignoreDifferences -}}
+{{- include "keelson.checkIgnoreDifference" (dict "where" (printf "%s.ignoreDifferences[%d]" $path $i) "entry" $d) -}}
+{{- end -}}
 {{- if not $m.source.path -}}{{- fail (printf "%s: missing required field \"source.path\"" $path) -}}{{- end -}}
 {{- if ne (printf "modules/%s.yaml" $m.name) $path -}}
 {{- fail (printf "%s: name %q must match the file name" $path $m.name) -}}
@@ -41,9 +49,13 @@ names, unmet dependsOn, and non-kustomize sources.
 {{- fail (printf "modules.%s: unknown module (known: %s)" $name (keys $registry | sortAlpha | join ", ")) -}}
 {{- end -}}
 {{- end -}}
-{{- range $name, $_ := (.Values.advanced).modules -}}
+{{- range $name, $adv := (.Values.advanced).modules -}}
 {{- if not (hasKey $registry $name) -}}
 {{- fail (printf "advanced.modules.%s: unknown module" $name) -}}
+{{- end -}}
+{{- /* Check every override here, also for a disabled module (#79). */ -}}
+{{- if hasKey ($adv | default dict) "appSpecOverride" -}}
+{{- include "keelson.checkOverride" (dict "module" $name "override" $adv.appSpecOverride) -}}
 {{- end -}}
 {{- end -}}
 {{- $out := list -}}
@@ -62,6 +74,16 @@ names, unmet dependsOn, and non-kustomize sources.
 {{- end -}}
 {{- $on := dict -}}
 {{- range $out -}}{{- if .enabled -}}{{- $_ := set $on .name true -}}{{- end -}}{{- end -}}
+{{- /* Registry rule (all modules, enabled or not): a wave must be strictly above its dependencies' waves. */ -}}
+{{- range $m := $out -}}
+{{- range $d := $m.dependsOn -}}
+{{- with get $registry $d -}}
+{{- if le (float64 $m.wave) (float64 .wave) -}}
+{{- fail (printf "module %s (wave %v) depends on %s (wave %v): its wave must be higher" $m.name $m.wave $d .wave) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
 {{- range $out -}}
 {{- if .enabled -}}
 {{- $m := . -}}
@@ -116,7 +138,7 @@ keelson.translations: run every helper in the module's `translations` list
 Returns YAML `{patches: [...]}`.
 */}}
 {{- define "keelson.translations" -}}
-{{- $known := list "domain" -}}
+{{- $known := list "domain" "auth" -}}
 {{- $patches := list -}}
 {{- range .module.translations -}}
 {{- if not (has . $known) -}}
@@ -154,12 +176,74 @@ syncPolicy:
   syncOptions:
     - ServerSideApply=true
     - CreateNamespace=true
+    {{- if .module.ignoreDifferences }}
+    {{- /* applications.yaml re-applies this (and ignoreDifferences) after any appSpecOverride. */}}
+    - RespectIgnoreDifferences=true
+    {{- end }}
   retry:
     limit: 10
     backoff:
       duration: 10s
       factor: 2
       maxDuration: 5m
+{{- with .module.ignoreDifferences }}
+ignoreDifferences:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- end -}}
+
+
+{{/*
+keelson.mergeSyncOptions: merge syncOptions by key (the text before the first "=").
+Start with base, in order. An override entry replaces the entry with the same key,
+or is added at the end. force entries then apply the same way, so an override can't change them.
+Example: base [ServerSideApply=true, CreateNamespace=true] + override [CreateNamespace=false, PruneLast=true]
+  -> [ServerSideApply=true, CreateNamespace=false, PruneLast=true]
+Call with (dict "base" list "override" list "force" list). Returns YAML {items: [...]}.
+*/}}
+{{- define "keelson.mergeSyncOptions" -}}
+{{- $keys := list -}}
+{{- $vals := dict -}}
+{{- range $o := concat (.base | default list) (.override | default list) (.force | default list) -}}
+{{- $k := regexReplaceAll "=.*$" (toString $o) "" -}}
+{{- if not (hasKey $vals $k) -}}{{- $keys = append $keys $k -}}{{- end -}}
+{{- $_ := set $vals $k (toString $o) -}}
+{{- end -}}
+{{- $out := list -}}
+{{- range $keys -}}{{- $out = append $out (get $vals .) -}}{{- end -}}
+{{- toYaml (dict "items" $out) -}}
+{{- end -}}
+
+
+{{/*
+keelson.checkIgnoreDifference: one ignoreDifferences entry, from the registry or from an
+appSpecOverride. It must be a map with a kind, and name at least one field to ignore
+(jsonPointers, jqPathExpressions or managedFieldsManagers) as a non-empty list.
+Each list item must be a non-empty string.
+Call with (dict "where" "<location>" "entry" $d).
+*/}}
+{{- define "keelson.checkIgnoreDifference" -}}
+{{- $d := .entry -}}
+{{- $where := .where -}}
+{{- if not (and (kindIs "map" $d) (kindIs "string" $d.kind) $d.kind) -}}
+{{- fail (printf "%s: must be a map with a kind" $where) -}}
+{{- end -}}
+{{- $named := false -}}
+{{- range $f := list "jsonPointers" "jqPathExpressions" "managedFieldsManagers" -}}
+{{- if hasKey $d $f -}}
+{{- $v := get $d $f -}}
+{{- if not (kindIs "slice" $v) -}}{{- fail (printf "%s.%s: must be a list" $where $f) -}}{{- end -}}
+{{- if gt (len $v) 0 -}}{{- $named = true -}}{{- end -}}
+{{- range $j, $item := $v -}}
+{{- if not (and (kindIs "string" $item) $item) -}}
+{{- fail (printf "%s.%s[%d]: must be a non-empty string" $where $f $j) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- if not $named -}}
+{{- fail (printf "%s: must name jsonPointers, jqPathExpressions or managedFieldsManagers" $where) -}}
+{{- end -}}
 {{- end -}}
 
 
@@ -177,6 +261,23 @@ Call with (dict "module" $name "override" $o).
 {{- define "keelson.checkOverride" -}}
 {{- $where := printf "advanced.modules.%s.appSpecOverride" .module -}}
 {{- include "keelson.checkKeys" (dict "where" $where "obj" .override "allowed" (list "syncPolicy" "ignoreDifferences" "info" "revisionHistoryLimit" "source")) -}}
+{{- if and (hasKey .override "ignoreDifferences") (not (kindIs "slice" .override.ignoreDifferences)) -}}
+{{- fail (printf "%s.ignoreDifferences: must be a list" $where) -}}
+{{- end -}}
+{{- range $i, $d := .override.ignoreDifferences -}}
+{{- include "keelson.checkIgnoreDifference" (dict "where" (printf "%s.ignoreDifferences[%d]" $where $i) "entry" $d) -}}
+{{- end -}}
+{{- if and (hasKey .override "syncPolicy") (not (kindIs "map" .override.syncPolicy)) -}}
+{{- fail (printf "%s.syncPolicy: must be a map" $where) -}}
+{{- end -}}
+{{- if and (kindIs "map" .override.syncPolicy) (hasKey .override.syncPolicy "syncOptions") (not (kindIs "slice" .override.syncPolicy.syncOptions)) -}}
+{{- fail (printf "%s.syncPolicy.syncOptions: must be a list" $where) -}}
+{{- end -}}
+{{- range $i, $o := (dig "syncPolicy" "syncOptions" list .override) -}}
+{{- if not (and (kindIs "string" $o) (regexMatch "^[A-Za-z]+=\\S+$" $o)) -}}
+{{- fail (printf "%s.syncPolicy.syncOptions[%d]: must be Key=Value, got %v" $where $i $o) -}}
+{{- end -}}
+{{- end -}}
 {{- if and (hasKey .override "source") (not (kindIs "map" .override.source)) -}}{{- fail (printf "%s.source: must be a map" $where) -}}{{- end -}}
 {{- if and (kindIs "map" .override.source) (hasKey .override.source "kustomize") (not (kindIs "map" .override.source.kustomize)) -}}{{- fail (printf "%s.source.kustomize: must be a map" $where) -}}{{- end -}}
 {{- with .override.source -}}

@@ -10,3 +10,9 @@ defaultEnabled: true
 translations: []
 smokeTest: none  # Healthy is the check: no user-facing endpoint
 upstreamHelmChart: common/kubeflow-roles/helm
+# Aggregated ClusterRoles: the RBAC controller fills in .rules at runtime.
+# Listed by name, so drift on the non-aggregated roles still shows.
+ignoreDifferences:
+  - {group: rbac.authorization.k8s.io, kind: ClusterRole, name: kubeflow-admin, jsonPointers: [/rules]}
+  - {group: rbac.authorization.k8s.io, kind: ClusterRole, name: kubeflow-edit, jsonPointers: [/rules]}
+  - {group: rbac.authorization.k8s.io, kind: ClusterRole, name: kubeflow-view, jsonPointers: [/rules]}

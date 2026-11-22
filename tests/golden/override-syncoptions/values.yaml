@@ -1,0 +1,14 @@
+# override-syncoptions: kind-core plus appSpecOverride syncOptions (#65).
+platform: kind
+# #65: override syncOptions merge into the engine defaults by key.
+advanced:
+  modules:
+    istio:
+      appSpecOverride:
+        syncPolicy:
+          syncOptions: [CreateNamespace=false, PruneLast=true]
+    # An override can't turn off RespectIgnoreDifferences on a module with ignoreDifferences.
+    kubeflow-roles:
+      appSpecOverride:
+        syncPolicy:
+          syncOptions: [RespectIgnoreDifferences=false]

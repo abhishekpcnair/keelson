@@ -7,6 +7,6 @@ namespace: auth
 namespaces: [auth]
 dependsOn: [istio]
 defaultEnabled: true
-translations: []
+translations: [auth]
 smokeTest: tests/e2e/auth-redirect.sh
 upstreamHelmChart: common/dex/helm

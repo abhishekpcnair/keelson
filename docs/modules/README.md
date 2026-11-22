@@ -35,6 +35,19 @@ The default is `generic`.
 - The AppProject `argocd.project`. It allows only `upstream.manifestsRepo` plus `argocd.extraSourceRepos`,
   and only the namespaces that enabled modules write to.
 
+## Fields other controllers own
+
+Some modules tell ArgoCD to ignore fields that a controller writes at runtime, so the
+Application stays Synced. For example, `istio` ignores the `caBundle` and `failurePolicy`
+that istiod sets on its validating webhook. Aggregated ClusterRoles such as `kubeflow-admin`
+ignore `.rules`, which the RBAC controller fills in.
+
+Each `ignoreDifferences` entry, in a module file or in `appSpecOverride`, must have a `kind` and name
+at least one field: `jsonPointers`, `jqPathExpressions` or `managedFieldsManagers`. Rendering fails otherwise.
+
+The `istio` HPAs need a metrics-server. Without one, the `istio` Application shows Degraded.
+`make kind-up` installs one; managed clusters such as AKS already have one.
+
 ## Turning a module off leaves its resources running
 
 Applications have no `resources-finalizer.argocd.argoproj.io`. When you disable a module,
@@ -58,6 +71,17 @@ advanced:
 
 This is an escape hatch. We don't support it, and it may break on upgrade.
 
+`syncPolicy.syncOptions` in an override merge into the engine defaults by key (the text before `=`).
+An entry with the same key replaces the default. A new key is added at the end. Each entry must be `Key=Value`.
+
+```yaml
+syncOptions: [CreateNamespace=false, PruneLast=true]
+# result: [ServerSideApply=true, CreateNamespace=false, PruneLast=true]
+```
+
+You can't remove a default option. Set the opposite value instead, for example `CreateNamespace=false`.
+`RespectIgnoreDifferences=true` stays on for modules with `ignoreDifferences`.
+
 The override is an allow-list, so sources stay pinned and inside the AppProject:
 - At the top level you may set only `syncPolicy`, `ignoreDifferences`, `info`,
   `revisionHistoryLimit` and `source`.
@@ -72,6 +96,7 @@ The override is an allow-list, so sources stay pinned and inside the AppProject:
 Anything else fails at render time. That includes newer ArgoCD fields such as `sourceHydrator`,
 and Kustomize fields that load remote content, such as `components`.
 `project`, `source.repoURL`, `source.targetRevision` and `destination.server` always come from values.
+The engine checks every override, also the override of a disabled module.
 
 ## Smoke tests
 

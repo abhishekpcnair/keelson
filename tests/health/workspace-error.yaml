@@ -1,0 +1,9 @@
+# expected: Degraded
+apiVersion: kubeflow.org/v1beta1
+kind: Workspace
+metadata:
+  name: my-workspace
+  namespace: team-a
+status:
+  state: Error
+  stateMessage: 'image pull failed'

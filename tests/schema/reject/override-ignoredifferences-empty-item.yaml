@@ -1,0 +1,9 @@
+# expect: jsonPointers[0]: must be a non-empty string
+# An empty JSON pointer ignores nothing.
+advanced:
+  modules:
+    dex:
+      appSpecOverride:
+        ignoreDifferences:
+          - kind: Deployment
+            jsonPointers: [""]

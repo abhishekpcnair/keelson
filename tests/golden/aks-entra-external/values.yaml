@@ -1,0 +1,17 @@
+# aks-entra-external: production on AKS, Entra ID login, TLS ends at the cloud load balancer.
+environment: production
+domain: kubeflow.example.com
+tls:
+  issuer: external
+auth:
+  staticUsers:
+    enabled: false
+  dex:
+    connectors:
+      - type: microsoft
+        id: entra
+        name: Entra ID
+        tenant: 00000000-0000-0000-0000-000000000000
+        allowedGroups: [ml-vision]
+        secretRef:
+          name: dex-entra

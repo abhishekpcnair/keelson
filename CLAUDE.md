@@ -37,4 +37,4 @@ Keelson is a GitOps-first Kubeflow distribution: one Helm chart that renders Arg
 - Docs: plain English, short sentences, one example per concept.
 
 ## Lessons (add one when a mistake repeats)
-- _(empty)_
+- In `charts/keelson/templates/*.tpl`, put a new helper above the next helper's `{{/* keelson.<name>: */}}` doc comment, not between a doc comment and its `define` (#77, #78). `make rules` T1 checks this.

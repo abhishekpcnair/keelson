@@ -1,0 +1,11 @@
+# expect: invalid propertyName 'tenant'
+# extraConfig must not override the single-tenant guard.
+domain: kubeflow.example.com
+auth:
+  dex:
+    connectors:
+      - type: microsoft
+        id: entra
+        tenant: contoso.onmicrosoft.com
+        secretRef: { name: dex-entra }
+        extraConfig: { tenant: common }

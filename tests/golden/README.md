@@ -5,4 +5,5 @@ Each folder holds `values.yaml` (input) and `expected.yaml` (committed `helm tem
 
 e2e installs a scenario's `values.yaml` as-is (`kind-core` for `make e2e MODULES=core`, see `tests/e2e/README.md`). Changing a scenario's values also changes what e2e installs.
 
-Planned scenarios: `kind-core`, `aks-entra-external`, `byo-istio-certmanager`, `modules-minimal`.
+Scenarios: `kind-core`, `domain-only`, `domain-tls-existing`, `domain-tls-external`, `connectors-oidc`, `production-oidc`, `aks-entra-external`, `connectors-github`.
+Planned: `byo-istio-certmanager`, `modules-minimal`.

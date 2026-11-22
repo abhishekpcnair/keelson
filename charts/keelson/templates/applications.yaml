@@ -1,7 +1,6 @@
 {{- range (include "keelson.enabledModules" . | fromYaml).modules }}
 {{- $spec := include "keelson.defaultAppSpec" (dict "root" $ "module" .) | fromYaml }}
 {{- $override := ((($.Values.advanced).modules | default dict) | dig .name "appSpecOverride" dict) }}
-{{- include "keelson.checkOverride" (dict "module" .name "override" $override) }}
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -26,5 +25,14 @@ spec:
   {{- if and $gen $extra }}
   {{- $_ := set $merged.source.kustomize "patches" (concat $gen $extra) }}
   {{- end }}
+  {{- /* Registry ignoreDifferences survive an override; an override can only add entries. */}}
+  {{- $force := list }}
+  {{- if .ignoreDifferences }}
+  {{- $_ := set $merged "ignoreDifferences" (concat .ignoreDifferences ($override.ignoreDifferences | default list) | uniq) }}
+  {{- $force = list "RespectIgnoreDifferences=true" }}
+  {{- end }}
+  {{- /* Override syncOptions merge into the engine defaults by key; they don't replace the list. */}}
+  {{- $opts := include "keelson.mergeSyncOptions" (dict "base" $spec.syncPolicy.syncOptions "override" (dig "syncPolicy" "syncOptions" list $override) "force" $force) | fromYaml }}
+  {{- $_ := set $merged.syncPolicy "syncOptions" $opts.items }}
   {{- $merged | toYaml | nindent 2 }}
 {{- end }}
