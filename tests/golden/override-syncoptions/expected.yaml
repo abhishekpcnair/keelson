@@ -85,9 +85,11 @@ spec:
     namespace: cert-manager
     server: https://kubernetes.default.svc
   ignoreDifferences:
-  - jsonPointers:
-    - /spec/replicas
-    kind: Deployment
+  - group: cert-manager.io
+    jsonPointers:
+    - /spec/selfSigned
+    kind: ClusterIssuer
+    name: kubeflow-self-signing-issuer
   project: keelson
   source:
     path: common/cert-manager/overlays/kubeflow
