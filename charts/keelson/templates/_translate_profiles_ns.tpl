@@ -4,6 +4,8 @@ Translation: `profileNamespaceLabels` → extra labels on every profile namespac
 from the generated ConfigMap `profiles-namespace-labels-data`. Upstream builds it
 with `behavior: replace`, so the patch replaces the whole file: upstream's labels
 (restated/profile-namespace-labels.yaml) unchanged, plus the user's labels.
+The controller adds a label only when the namespace does not have the key. It never
+changes an existing value (docs/configuration/profile-namespaces.md, "Change or remove a label").
 Call with (dict "root" $ "module" $m). Returns YAML `{patches: [...]}`; empty
 when profileNamespaceLabels is empty.
 */}}

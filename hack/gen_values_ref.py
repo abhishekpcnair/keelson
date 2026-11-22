@@ -32,7 +32,7 @@ CONTEXTS = {
     },
     "branch": {"enum", "const", "maxLength", "minLength", "minItems", "format", "pattern", "not", "propertyNames", "anyOf"},
     "not": {"pattern"},
-    "pnames": {"pattern", "not"},
+    "pnames": {"pattern", "not", "maxLength"},
     "pnames_not": {"pattern", "enum"},
     "fact": {"required", "const", "minLength", "minItems", "propertyNames", "properties"},
     "fact_pnames": {"not"},
@@ -140,6 +140,8 @@ def allowed(n):
         parts.append("not matching " + code(n["not"]["pattern"]))
     if "propertyNames" in n:
         pn = n["propertyNames"]
+        if "maxLength" in pn:
+            parts.append(f"names max length {pn['maxLength']}")
         if "pattern" in pn:
             parts.append("names match " + code(pn["pattern"]))
         if "not" in pn and "pattern" in pn["not"]:
