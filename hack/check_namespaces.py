@@ -5,13 +5,13 @@ For every charts/keelson/modules/*.yaml with source.type kustomize, run
 `kubectl kustomize` on .cache/upstream/<tag>/<path> (and on each platformPaths entry).
   found    = every metadata.namespace, plus the name of every kind: Namespace
   declared = namespace + namespaces
-  N1 FAIL  found - declared is not empty: the AppProject would block a sync.
-  N1 WARN  declared - found - {namespace} is not empty: the allowlist is wider than needed.
+  N1 FAIL  a path writes to a namespace outside declared: the AppProject would block a sync.
+  N1 WARN  declared - {namespace} has a namespace that no path of the module writes to.
 
 Usage:
   hack/check_namespaces.py [--chart charts/keelson] [--cache .cache/upstream]
 The tag comes from upstream.manifestsRef in values.yaml. $KUBECTL overrides `kubectl`.
-Exit 1 on any FAIL, 2 if the upstream cache is missing.
+Exit 1 on any FAIL, 2 if the upstream cache or kubectl is missing.
 """
 import argparse
 import os
@@ -24,8 +24,15 @@ import yaml
 KUBECTL = os.environ.get("KUBECTL", "kubectl")
 
 
+class MissingTool(Exception):
+    pass
+
+
 def found_namespaces(path: pathlib.Path):
-    r = subprocess.run([KUBECTL, "kustomize", str(path)], capture_output=True, text=True)
+    try:
+        r = subprocess.run([KUBECTL, "kustomize", str(path)], capture_output=True, text=True)
+    except FileNotFoundError:
+        raise MissingTool(f"'{KUBECTL}' not found on PATH; install kubectl (or set KUBECTL)") from None
     if r.returncode != 0:
         raise RuntimeError(r.stderr.strip())
     found = set()
@@ -40,6 +47,30 @@ def found_namespaces(path: pathlib.Path):
     return found
 
 
+def check_module(m: dict, upstream: pathlib.Path):
+    """Return (fails, warns) message lists for one module."""
+    fails, warns = [], []
+    src = m.get("source") or {}
+    if src.get("type") != "kustomize":
+        return fails, warns
+    declared = {m.get("namespace")} | set(m.get("namespaces") or [])
+    declared.discard(None)
+    found_any = set()
+    for p in [src["path"], *(src.get("platformPaths") or {}).values()]:
+        try:
+            found = found_namespaces(upstream / p)
+        except RuntimeError as e:
+            fails.append(f"N1 {m['name']}: kubectl kustomize {p} failed: {e}")
+            continue
+        found_any |= found
+        if missing := sorted(found - declared):
+            fails.append(f"N1 {m['name']}: upstream {p} writes to {missing} but namespaces: doesn't list it")
+    # Over all paths together, so a namespace used only by a platform path is not reported.
+    if extra := sorted(declared - found_any - {m.get("namespace")}):
+        warns.append(f"N1 {m['name']}: namespaces: lists {extra}, but no upstream path writes there")
+    return fails, warns
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--chart", type=pathlib.Path, default=pathlib.Path("charts/keelson"))
@@ -50,29 +81,20 @@ def main():
     if not upstream.is_dir():
         print(f"check_namespaces: {upstream} is missing; run make upstream-cache")
         sys.exit(2)
-    fails, checked = 0, 0
+    fails, modules = 0, 0
     for f in sorted((a.chart / "modules").glob("*.yaml")):
-        m = yaml.safe_load(f.read_text())
-        src = m.get("source") or {}
-        if src.get("type") != "kustomize":
-            continue
-        declared = {m.get("namespace")} | set(m.get("namespaces") or [])
-        declared.discard(None)
-        paths = [src["path"], *(src.get("platformPaths") or {}).values()]
-        for p in paths:
-            checked += 1
-            try:
-                found = found_namespaces(upstream / p)
-            except RuntimeError as e:
-                print(f"FAIL N1 {m['name']}: kubectl kustomize {p} failed: {e}")
-                fails += 1
-                continue
-            if missing := sorted(found - declared):
-                print(f"FAIL N1 {m['name']}: upstream {p} writes to {missing} but namespaces: doesn't list it")
-                fails += 1
-            if extra := sorted(declared - found - {m.get("namespace")}):
-                print(f"WARN N1 {m['name']}: namespaces: lists {extra}, but upstream {p} doesn't write there")
-    print(f"check_namespaces: {checked} module paths checked at {tag}, {fails} problem(s)")
+        try:
+            mf, mw = check_module(yaml.safe_load(f.read_text()), upstream)
+        except MissingTool as e:
+            print(f"check_namespaces: {e}")
+            sys.exit(2)
+        modules += 1
+        for w in mw:
+            print(f"WARN {w}")
+        for e in mf:
+            print(f"FAIL {e}")
+        fails += len(mf)
+    print(f"check_namespaces: {modules} modules checked at {tag}, {fails} problem(s)")
     sys.exit(1 if fails else 0)
 
 

@@ -48,6 +48,7 @@ rules: ## Check design rules on rendered output and patches
 	python3 hack/check_rules.py --rendered $(RENDER_DIR) --patches $(CHART)/patches --repo .
 
 namespaces: upstream-cache ## Check module namespaces: lists against upstream kubectl kustomize output
+	python3 -m unittest hack/test_check_namespaces.py
 	python3 hack/check_namespaces.py
 
 kustomize-check: upstream-cache ## Build patched modules against .cache/upstream (needs pinned kustomize)
