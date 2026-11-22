@@ -15,6 +15,9 @@
 set -euo pipefail
 
 ARGOCD_VERSION="v3.6.2"
+# sha256 of manifests/install.yaml at ARGOCD_VERSION. Bump both together; get the hash from
+#   curl -fsSL https://raw.githubusercontent.com/argoproj/argo-cd/<version>/manifests/install.yaml | sha256sum
+ARGOCD_INSTALL_SHA256="c948064d38294d857712ef78444768749a14293613098932f8533e37d067a2a2"
 CLUSTER_NAME="${CLUSTER_NAME:-keelson}"
 CONTEXT="kind-${CLUSTER_NAME}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -25,10 +28,17 @@ die() { printf 'error: %s\n' "$*" >&2; exit 1; }
 
 # 1. Prerequisites. We never download binaries or use sudo.
 provider="${KIND_EXPERIMENTAL_PROVIDER:-docker}"
-for bin in kind kubectl "$provider"; do
+for bin in kind kubectl curl "$provider"; do
   command -v "$bin" >/dev/null || die "missing '$bin' on PATH; install it and rerun"
 done
 "$provider" info >/dev/null 2>&1 || die "'$provider' is installed but not running"
+if command -v sha256sum >/dev/null; then
+  sha256() { sha256sum "$1" | cut -d' ' -f1; }
+elif command -v shasum >/dev/null; then
+  sha256() { shasum -a 256 "$1" | cut -d' ' -f1; }
+else
+  die "missing 'sha256sum' or 'shasum' on PATH; install one and rerun"
+fi
 
 if [[ "$(uname -s)" == "Linux" ]]; then
   # Values from the upstream README prerequisites.
@@ -80,7 +90,16 @@ if kind get clusters 2>/dev/null | grep -qx "$CLUSTER_NAME"; then
     log "warning: cluster runs Kubernetes ${have_k8s:-unknown}, but the node image $KIND_NODE_IMAGE is $want_k8s. Run 'make kind-down && make kind-up' to recreate it."
   fi
   # Capture first, so grep -q can't SIGPIPE kubectl under pipefail.
-  apiserver_cmd="$(k -n kube-system get pod -l component=kube-apiserver -o jsonpath='{.items[*].spec.containers[*].command}' 2>/dev/null || true)"
+  # Right after a restart, /readyz can pass before the mirror pod is listed. Empty means "not known yet".
+  apiserver_cmd="" tries=15 delay=2
+  for (( try = 1; try <= tries; try++ )); do
+    apiserver_cmd="$(k -n kube-system get pod -l component=kube-apiserver -o jsonpath='{.items[*].spec.containers[*].command}' 2>/dev/null || true)"
+    if [[ -n "$apiserver_cmd" ]]; then break; fi
+    if (( try == 1 )); then log "Waiting up to $(( tries * delay ))s for the kube-apiserver pod in '$CLUSTER_NAME' to be listed"; fi
+    if (( try < tries )); then sleep "$delay"; fi
+  done
+  [[ -n "$apiserver_cmd" ]] \
+    || die "could not read the kube-apiserver pod in cluster '$CLUSTER_NAME' after $(( tries * delay ))s (control plane still starting?). Wait and rerun, or run 'make kind-down && make kind-up'."
   # Match the whole quoted argument: kubeadm's default issuer, ...default.svc.cluster.local, shares the prefix.
   if [[ "$apiserver_cmd" != *'"--service-account-issuer=https://kubernetes.default.svc"'* ]]; then
     die "existing cluster '$CLUSTER_NAME' lacks the service-account-issuer patch (not created by this script?). Run 'make kind-down && make kind-up'."
@@ -123,8 +142,13 @@ fi
 # 4. ArgoCD, pinned. Server-side apply because the CRDs exceed the client-side annotation limit.
 log "Installing ArgoCD $ARGOCD_VERSION"
 k create namespace argocd --dry-run=client -o yaml | k apply -f - >/dev/null
-k apply --server-side --force-conflicts -n argocd \
-  -f "https://raw.githubusercontent.com/argoproj/argo-cd/${ARGOCD_VERSION}/manifests/install.yaml" >/dev/null
+argocd_tmp="$(mktemp)"
+trap 'rm -f "$argocd_tmp"' EXIT
+curl -fsSL "https://raw.githubusercontent.com/argoproj/argo-cd/${ARGOCD_VERSION}/manifests/install.yaml" -o "$argocd_tmp"
+got="$(sha256 "$argocd_tmp")"
+[[ "$got" == "$ARGOCD_INSTALL_SHA256" ]] \
+  || die "ArgoCD $ARGOCD_VERSION install.yaml sha256 is $got, expected $ARGOCD_INSTALL_SHA256. The tag may have moved, or ARGOCD_INSTALL_SHA256 wasn't bumped with ARGOCD_VERSION."
+k apply --server-side --force-conflicts -n argocd -f "$argocd_tmp" >/dev/null
 for r in $(k -n argocd get deployment,statefulset -o name); do
   k -n argocd rollout status "$r" --timeout=600s
 done

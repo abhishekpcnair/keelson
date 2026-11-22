@@ -20,5 +20,11 @@ spec:
   {{- $_ := set $merged.source "repoURL" $spec.source.repoURL }}
   {{- $_ := set $merged.source "targetRevision" $spec.source.targetRevision }}
   {{- $_ := set $merged.destination "server" $spec.destination.server }}
+  {{- /* Override patches add to translation patches; they don't replace them. */}}
+  {{- $gen := dig "source" "kustomize" "patches" list $spec }}
+  {{- $extra := dig "source" "kustomize" "patches" list $override }}
+  {{- if and $gen $extra }}
+  {{- $_ := set $merged.source.kustomize "patches" (concat $gen $extra) }}
+  {{- end }}
   {{- $merged | toYaml | nindent 2 }}
 {{- end }}

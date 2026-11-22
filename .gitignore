@@ -1,6 +1,7 @@
-.cache/
+.cache
 /dist/
 *.tgz
 .idea/
 .vscode/
 .DS_Store
+__pycache__/

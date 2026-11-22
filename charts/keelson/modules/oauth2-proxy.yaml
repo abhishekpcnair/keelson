@@ -8,6 +8,6 @@ namespace: oauth2-proxy
 namespaces: [oauth2-proxy, istio-system]
 dependsOn: [istio]
 defaultEnabled: true
-translations: []
+translations: [domain]
 smokeTest: none  # e2e harness lands in #4
 upstreamHelmChart: common/oauth2-proxy/helm
