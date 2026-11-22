@@ -4,6 +4,9 @@
 # and Healthy, then run each enabled module's smoke test.
 #
 # Usage: tests/e2e/run.sh <core|all> [extra helm args...]
+#
+# docs/quickstart-kind.md documents steps 3 and 4 below (install, wait) with the same commands.
+# If you change them here, change the page too.
 # Environment:
 #   E2E_TIMEOUT  how long to wait for Synced + Healthy (default 30m; s/m/h suffix)
 #   E2E_INSTALL  helm (default): helm upgrade --install. root-app (#22): install through a root
