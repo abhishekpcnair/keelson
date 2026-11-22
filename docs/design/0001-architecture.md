@@ -242,7 +242,7 @@ A module is accepted only if it has a golden test scenario, a smoke test (or a d
 
 ## 18. Open questions
 - **Q1** Final project name (check GitHub org, domain, ArtifactHub and trademarks).
-- **Q2** ArgoCD: should v0.1 ship a bootstrap script that installs ArgoCD, or only document "bring your own ArgoCD"?
+- ~~**Q2** ArgoCD: should v0.1 ship a bootstrap script that installs ArgoCD, or only document "bring your own ArgoCD"?~~ **Resolved:** a bootstrap script installs ArgoCD for Kind, dev and CI only; everywhere else is bring-your-own ArgoCD. See [ADR 0003](../adr/0003-kind-bootstrap-installs-argocd.md).
 - **Q3** Kyverno vs `ValidatingAdmissionPolicy` for the Pod Security baseline.
 - **Q4** Production object store on Azure (which S3-compatible option to document).
 - **Q5** Should notebooks-v1 be offered at all in v0.1, given upstream's EOL notice and that Workspaces is the default in 26.10?
