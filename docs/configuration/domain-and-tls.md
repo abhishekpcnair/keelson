@@ -10,6 +10,21 @@ Set `domain` to the hostname users open Kubeflow on. Set `tls.issuer` to say whe
 
 `domain` is a hostname without a scheme: `kubeflow.example.com`, not `https://kubeflow.example.com`.
 
+## Port-forward and health probes
+
+With a `domain`, the Gateway answers only requests whose `Host` is that domain.
+A plain `kubectl port-forward svc/istio-ingressgateway -n istio-system 8080:80` and
+`http://localhost:8080` then give a 404 (or, with `existing`, a redirect to `https://<domain>`).
+Send the right host instead:
+
+```sh
+kubectl -n istio-system port-forward svc/istio-ingressgateway 8443:443
+curl --resolve kubeflow.example.com:8443:127.0.0.1 https://kubeflow.example.com:8443/
+```
+
+Load balancer health probes have the same problem. Point them at the ingress gateway's
+readiness endpoint, port `15021`, path `/healthz/ready`, not at the Gateway.
+
 ## Kind and local testing
 
 You need none of this. Leave `domain` empty and `tls.issuer: none`.

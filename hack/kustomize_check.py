@@ -40,7 +40,9 @@ def patched_apps(rendered: pathlib.Path):
 
 def build(tree: pathlib.Path, path: str, patches):
     d = tree / path
-    kfile = next(d / k for k in KFILES if (d / k).exists())
+    kfile = next((d / k for k in KFILES if (d / k).exists()), None)
+    if kfile is None:
+        return 1, f"no kustomization file in {path}"
     original = kfile.read_text()
     try:
         k = yaml.safe_load(original)
@@ -54,9 +56,11 @@ def build(tree: pathlib.Path, path: str, patches):
 
 def check_version(upstream: pathlib.Path):
     m = re.search(r'KUSTOMIZE_VERSION="(v[0-9.]+)"', (upstream / "tests/kustomize_install.sh").read_text())
-    want = m.group(1) if m else None
+    if not m:
+        sys.exit(f"kustomize_check: no KUSTOMIZE_VERSION in {upstream}/tests/kustomize_install.sh")
+    want = m.group(1)
     got = subprocess.run([KUSTOMIZE, "version"], capture_output=True, text=True).stdout.strip()
-    if want and got != want:
+    if got != want:
         sys.exit(f"kustomize_check: {KUSTOMIZE} is {got or 'missing'}, upstream pins {want}")
 
 
