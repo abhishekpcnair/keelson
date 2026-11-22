@@ -77,6 +77,7 @@ modes, so a bad profile fails at `helm install`, not at sync time.
 
 {{/* keelson.profiles.resources: one Profile per profiles[] entry. */}}
 {{- define "keelson.profiles.resources" -}}
+{{- $kfam := include "keelson.profiles.kfam" $ | fromYaml }}
 {{- range .Values.profiles }}
 ---
 apiVersion: kubeflow.org/v1
@@ -97,7 +98,6 @@ spec:
 {{- $ns := .name }}
 {{- range (include "keelson.profiles.members" (dict "profile" .) | fromYamlArray) }}
 {{- $n := include "keelson.profiles.bindingName" . }}
-{{- $kfam := include "keelson.profiles.kfam" $ | fromYaml }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
