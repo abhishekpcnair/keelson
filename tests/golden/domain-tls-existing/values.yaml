@@ -1,0 +1,6 @@
+# domain-tls-existing: own hostname, Istio terminates TLS with a user-provided Secret.
+domain: kubeflow.example.com
+tls:
+  issuer: existing
+  secretRef:
+    name: kubeflow-tls

@@ -19,4 +19,10 @@ jobs:
         run: |
           curl -sSL https://github.com/yannh/kubeconform/releases/download/v0.7.0/kubeconform-linux-amd64.tar.gz | tar xz
           sudo mv kubeconform /usr/local/bin/
+      - name: Install kustomize (pinned to upstream tests/kustomize_install.sh)
+        run: |
+          A=kustomize_v5.8.1_linux_amd64.tar.gz
+          curl -fsSLO "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.8.1/$A"
+          curl -fsSL "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.8.1/checksums.txt" | grep "  $A$" | sha256sum -c
+          tar xzf "$A" && sudo mv kustomize /usr/local/bin/
       - run: make verify

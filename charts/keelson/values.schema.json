@@ -2,6 +2,22 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "required": ["upstream", "argocd"],
+  "allOf": [
+    {
+      "if": { "required": ["tls"], "properties": { "tls": { "required": ["issuer"], "properties": { "issuer": { "const": "existing" } } } } },
+      "then": {
+        "required": ["domain"],
+        "properties": {
+          "domain": { "minLength": 1 },
+          "tls": { "required": ["secretRef"], "properties": { "secretRef": { "required": ["name"], "properties": { "name": { "minLength": 1 } } } } }
+        }
+      }
+    },
+    {
+      "if": { "required": ["tls"], "properties": { "tls": { "required": ["issuer"], "properties": { "issuer": { "const": "external" } } } } },
+      "then": { "required": ["domain"], "properties": { "domain": { "minLength": 1 } } }
+    }
+  ],
   "properties": {
     "upstream": {
       "type": "object",
@@ -20,6 +36,30 @@
       "enum": ["generic", "kind"],
       "default": "generic",
       "description": "Cluster type. Selects platform-specific upstream overlays (source.platformPaths)."
+    },
+    "domain": {
+      "type": "string",
+      "anyOf": [{ "maxLength": 0 }, { "format": "hostname", "pattern": "^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$" }],
+      "description": "Hostname for Kubeflow, no scheme (e.g. kubeflow.example.com). Empty keeps the upstream default: Gateway hosts \"*\", HTTP."
+    },
+    "tls": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "issuer": {
+          "type": "string",
+          "enum": ["none", "existing", "external"],
+          "default": "none",
+          "description": "none: HTTP. existing: Istio terminates TLS with secretRef. external: TLS ends in front of the cluster; cookies are secure."
+        },
+        "secretRef": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "name": { "type": "string", "description": "kubernetes.io/tls Secret in istio-system (issuer=existing). A name only, never key material." }
+          }
+        }
+      }
     },
     "argocd": {
       "type": "object",
