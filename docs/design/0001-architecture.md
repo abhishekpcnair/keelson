@@ -34,7 +34,7 @@ Keelson combines the engine from the third project, the phasing from the second 
 4. Profiles, and who belongs to them, are declared in values.
 5. Kyverno is optional. It handles secret distribution and a Pod Security baseline, and is tested on two current minor versions.
 6. Core modules: dashboard and profiles, Pipelines, Workspaces (Notebooks v2), plus their dependencies (cert-manager, Istio, Knative only if needed).
-7. Storage and database can be bundled (upstream defaults) or bring-your-own (S3-compatible storage, MySQL/PostgreSQL).
+7. Storage and database can be bundled (upstream defaults) or bring-your-own (S3-compatible storage, MySQL). MySQL in v0.1. PostgreSQL when upstream ships a cert-manager overlay (#40).
 8. Every upstream release triggers an automated bump PR with a rendered diff and an e2e run.
 
 ### Non-goals (v0.1)
@@ -197,7 +197,7 @@ A module is accepted only if it has a golden test scenario, a smoke test (or a d
 
 ## 10. Storage and database
 - **Bundled:** whatever upstream 26.10 bundles for Pipelines (SeaweedFS for objects, plus the bundled database). Clearly labelled not-for-production.
-- **External:** any S3-compatible object store and an external MySQL/PostgreSQL. On AKS, the documented production path is Azure Database for MySQL/PostgreSQL, Azure Workload Identity, and object storage reachable through an S3-compatible endpoint. The exact Azure object-store option must be validated before the AKS guide is published (open question Q4).
+- **External:** any S3-compatible object store and an external MySQL (PostgreSQL: see goal 7 and #40). On AKS, the documented production path is Azure Database for MySQL, Azure Workload Identity, and object storage reachable through an S3-compatible endpoint. The exact Azure object-store option must be validated before the AKS guide is published (open question Q4).
 
 ## 11. Upgrades and tracking upstream
 - `upstream.manifestsRef` is the single knob. Changing it should be the whole upgrade for users.
