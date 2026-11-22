@@ -1,0 +1,9 @@
+# expected: Healthy
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: istio
+  namespace: argocd
+status:
+  health:
+    status: Healthy

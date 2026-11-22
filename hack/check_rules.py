@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Machine-check Keelson's hard rules (CLAUDE.md) on rendered chart output and patch files.
+"""Machine-check Keelson's hard rules (CLAUDE.md) on rendered chart output, patch files and the git index.
 
 Usage:
   hack/check_rules.py --rendered <file-or-dir> [--patches <dir>] [--repo <dir>] [--allow-repo URL ...]
@@ -16,7 +16,8 @@ Checks:
       has an `image` key at any depth or a JSON6902 path ending in /image.
       Same rule as keelson.checkPatchImage in the chart.
   R6  No tracked symlinks in the git repo given by --repo (a symlinked .cache
-      once leaked a local path). Skipped with a note if git is unavailable.
+      once leaked a local path). Skipped with a note if git is not installed;
+      fails if --repo is not a git repository.
 Exit code 1 if any rule fails.
 """
 import argparse
@@ -127,8 +128,11 @@ def check_symlinks(repo: pathlib.Path, errors):
             ["git", "-C", str(repo), "ls-files", "-s", "-z"],
             capture_output=True, text=True, check=True,
         ).stdout
-    except (OSError, subprocess.CalledProcessError):
-        print(f"NOTE R6 skipped: git ls-files unavailable in {repo}")
+    except OSError:
+        print("NOTE R6 skipped: git is not installed")
+        return
+    except subprocess.CalledProcessError as e:
+        errors.append(f"R6 {repo}: git ls-files failed: {(e.stderr or '').strip()}")
         return
     for entry in filter(None, out.split("\0")):
         meta, _, path = entry.partition("\t")

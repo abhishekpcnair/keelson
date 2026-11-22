@@ -15,3 +15,6 @@ Fields:
 - `smokeTest`, `upstreamHelmChart`
 
 User docs: `docs/modules/README.md`.
+
+Wave bands (see `docs/argocd.md`): `-100…-40` platform, `0` dashboard, `10` profiles, `20` apps, `30+` v0.2.
+A module's `wave` must be strictly higher than the wave of every module in its `dependsOn`; the engine fails otherwise.
