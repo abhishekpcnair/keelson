@@ -1,0 +1,7 @@
+# profiles: the parent release with profiles[] set. It renders the keelson-profiles
+# Application (ADR 0004) and the profile namespaces in the AppProject. Kept out of
+# kind-core on purpose: the Kind e2e has no in-cluster OCI registry for keelson.selfSource yet.
+platform: kind
+profiles:
+  - name: kubeflow-user-example-com
+    owner: user@example.com

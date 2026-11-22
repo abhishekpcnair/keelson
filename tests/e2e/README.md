@@ -14,6 +14,10 @@ make kind-down
 
 A full Kubeflow install needs about 16 GB of RAM. On a smaller machine, run only `MODULES=core`, and use CI for anything heavier: add the `needs-e2e` label to the PR, or run `gh workflow run e2e.yaml --ref <branch>`.
 
+## Cleanup helper
+
+Scripts that create state in the cluster or start a process register the cleanup with `on_exit <command>` (from `lib.sh`). Each call adds to one list, and all the commands run in reverse order when the script exits, even on failure. Example: `on_exit 'kubectl delete -f "$fixture" --ignore-not-found'` before the `apply`.
+
 ## Environment variables
 
 | Variable | Default | Meaning |
@@ -21,6 +25,18 @@ A full Kubeflow install needs about 16 GB of RAM. On a smaller machine, run only
 | `E2E_TIMEOUT` | `30m` | How long to wait for Synced + Healthy. Takes an `s`, `m` or `h` suffix. |
 | `KEEP` | `0` | `1` keeps a gateway port-forward on `localhost:8080` open after a passing run, so you can look around. Press Ctrl-C to stop it. |
 | `GATEWAY_PORT` | `8080` | Local port for the gateway port-forward. `dex-login.sh` needs `8080`. |
+| `E2E_INSTALL` | `helm` | `helm` runs `helm upgrade --install`. `root-app` installs through a root ArgoCD Application that pulls the chart from an in-cluster OCI registry, then asserts the sync-wave order. CI uses `root-app` on `main`, nightly and `workflow_dispatch`; PRs use `helm`. |
+| `E2E_REG_PORT` | `5555` | Local port for the push to the in-cluster registry (`root-app` only). |
+
+## Root-Application mode (`E2E_INSTALL=root-app`)
+
+1. `tests/e2e/registry.yaml` deploys a test-only OCI registry (`registry:2.8.3`, pinned by digest) in `e2e-registry`.
+2. The chart under test is packaged as `<Chart.version>-e2e.<short-sha>` and pushed to it.
+3. A test-only repository Secret tells ArgoCD about the registry over plain HTTP.
+4. A root Application `keelson-root` (project `default`) renders the chart with the same values as `helm` mode.
+5. After every Application is Synced and Healthy, the harness checks that no Application in a higher wave started its first deploy before every lower-wave Application had finished. On failure it prints a table of wave, application, start and end times.
+
+Run it from a branch with `gh workflow run e2e.yaml --ref <branch>`. The `kind` job uses `root-app` for any event that is not a pull request.
 
 ## Scenarios
 
@@ -42,6 +58,6 @@ Each `MODULES` value installs a golden scenario's `values.yaml`, so e2e installs
 
 Tests run after every Application is Healthy, in module wave order. A path shared by several modules runs once.
 
-Prefer running upstream's own test from `.cache/upstream/<tag>/tests/` over writing a copy. `dex-login.sh` does this with `dex_login_test.py`. It needs something serving `/` behind the gateway, so the dashboard module wires it (#7). Until then, core uses `auth-redirect.sh`.
+Prefer running upstream's own test from `.cache/upstream/<tag>/tests/` over writing a copy. `dex-login.sh` does this with `dex_login_test.py`. It needs something serving `/` behind the gateway, so the dashboard module wires it (#7): `tests/e2e/dashboard.sh` runs it first, then `dashboard.py`. Without the dashboard, core uses `auth-redirect.sh`. With the dashboard, `auth-redirect.sh` also requires oauth2-proxy's sign-in page on `GET /`.
 
 `auth-redirect.sh` applies a test-only route, `tests/e2e/fixtures/protected-route.yaml`, and deletes it at the end. Core has no workload at `/`, and Envoy skips `ext_authz` for a request that matches no route, so the gateway answers `403 RBAC: access denied` there (#106). The route sends `/keelson-e2e/` to the Dex Service. Dex cannot return oauth2-proxy's sign-in form, so the form on that path proves that `ext_authz` answered. That gives a protected path that `ext_authz` checks.

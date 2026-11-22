@@ -1,0 +1,10 @@
+# profiles-component: the chart in component mode, as the keelson-profiles
+# Application renders it (ADR 0004). Only Profile resources; no Applications.
+component: profiles
+profiles:
+  - name: kubeflow-user-example-com
+    owner: user@example.com
+  - name: team-vision
+    owner: alice@example.com
+  - name: "123"            # all digits: the Profile name must stay a string
+    owner: numeric@example.com

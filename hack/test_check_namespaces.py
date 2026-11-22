@@ -119,6 +119,11 @@ class MainCli(unittest.TestCase):
         self.assertEqual(r.stdout.count("FAIL N0"), 1)
         self.assertIn("missing required field source.path", r.stdout)
 
+    def test_keelson_component_needs_no_source_path(self):
+        r = self.run_cli("name: m\nsource: {type: keelson, component: c, values: [v]}\n")
+        self.assertEqual(r.returncode, 0, r.stdout)
+        self.assertNotIn("FAIL N0", r.stdout)
+
     def test_not_a_mapping(self):
         for text in ("- a\n", "name: m\nsource: p\n"):
             with self.subTest(text):

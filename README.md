@@ -29,7 +29,7 @@ cosign verify ghcr.io/abhishekpcnair/charts/keelson:0.1.0-alpha.1 \
   --certificate-identity-regexp '^https://github.com/abhishekpcnair/keelson/\.github/workflows/release\.yaml@refs/tags/v'
 ```
 
-To try Keelson on a laptop, see [Local Kind cluster](CONTRIBUTING.md#local-kind-cluster). For production on AKS, see the [AKS guide](docs/guides/aks.md). What each release is tested with is in the [support matrix](docs/support-matrix.md).
+To try Keelson on a laptop, follow the [Kind quickstart](docs/quickstart-kind.md). For production on AKS, see the [AKS guide](docs/guides/aks.md). To work on Keelson, see [Local Kind cluster](CONTRIBUTING.md#local-kind-cluster). What each release is tested with is in the [support matrix](docs/support-matrix.md).
 
 Licensed under [Apache-2.0](LICENSE).
 

@@ -30,6 +30,7 @@ The default is `generic`.
 ## What every Application gets
 
 - The pinned source: `upstream.manifestsRepo` at `upstream.manifestsRef`.
+  Keelson components (`keelson-profiles`) use this chart instead; see below.
 - A sync wave from the module file.
 - Automated sync with prune and self-heal, `ServerSideApply`, `CreateNamespace`, and retries with backoff.
 - The AppProject `argocd.project`. It allows only `upstream.manifestsRepo` plus `argocd.extraSourceRepos`,
@@ -47,6 +48,36 @@ at least one field: `jsonPointers`, `jqPathExpressions` or `managedFieldsManager
 
 The `istio` HPAs need a metrics-server. Without one, the `istio` Application shows Degraded.
 `make kind-up` installs one; managed clusters such as AKS already have one.
+
+## Keelson components
+
+Some features need resources that upstream doesn't ship, for example `Profile`s from
+`profiles[]`. A **component** module renders them (ADR 0004). Its Application points back at
+this chart, at the same pinned version, with `component: <name>` and a copy of the values it needs:
+
+```yaml
+source:
+  repoURL: ghcr.io/abhishekpcnair/charts
+  chart: keelson
+  targetRevision: "0.1.0"
+  helm:
+    valuesObject:
+      component: profiles
+      profiles: [{name: team-vision, owner: alice@example.com}]
+```
+
+- The default `keelson.selfSource` works only for a published release. Set it for a git checkout,
+  a fork, a mirror or an air-gapped registry. `targetRevision` must be an exact version:
+  ArgoCD treats anything else as a range, and it can't pin a Helm OCI chart by digest.
+- A private registry needs an ArgoCD repository Secret (`type: helm`, `enableOCI: "true"`).
+  Keelson never renders it.
+- A component gets `SkipDryRunOnMissingResource` and no `CreateNamespace`.
+- `appSpecOverride.source` is rejected for a component.
+- `component` is internal. Never set it.
+
+| Module | Wave | Renders | Needs |
+|---|---|---|---|
+| `keelson-profiles` | 10 | a `Profile` per `profiles[]` entry ([profiles.md](../configuration/profiles.md)) | `dashboard` |
 
 ## Turning a module off leaves its resources running
 
@@ -115,4 +146,4 @@ smokeTest: tests/e2e/auth-redirect.sh
    List every namespace the path writes to in `namespaces`. Use `make namespaces` to check.
 3. Add or update a golden scenario, a smoke test, and a docs page.
 
-Core modules are described in [core.md](core.md).
+Core modules are described in [core.md](core.md). The dashboard is described in [dashboard.md](dashboard.md).

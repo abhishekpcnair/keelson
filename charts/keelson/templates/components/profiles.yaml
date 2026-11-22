@@ -1,0 +1,4 @@
+{{- include "keelson.profiles.check" . }}
+{{- if eq .Values.component "profiles" }}
+{{- include "keelson.profiles.resources" . }}
+{{- end }}

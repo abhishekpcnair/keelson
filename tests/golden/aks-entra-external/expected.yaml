@@ -348,6 +348,36 @@ spec:
           kind: Deployment
           name: dex
           version: v1
+      - patch: |-
+          # purpose: Dex reads the static client ID and secret from the user's Secret, not upstream's public literals
+          # upstream: none
+          # remove-when: upstream ships a production overlay without literal secrets
+          - op: test
+            path: /spec/template/spec/containers/0/envFrom/0/secretRef/name
+            value: dex-oidc-client
+          - op: remove
+            path: /spec/template/spec/containers/0/envFrom/0
+          - op: add
+            path: /spec/template/spec/containers/0/env/-
+            value:
+              name: OIDC_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: "kubeflow-oidc-client"
+                  key: client-id
+          - op: add
+            path: /spec/template/spec/containers/0/env/-
+            value:
+              name: OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: "kubeflow-oidc-client"
+                  key: client-secret
+        target:
+          group: apps
+          kind: Deployment
+          name: dex
+          version: v1
     path: common/dex/overlays/oauth2-proxy
     repoURL: https://github.com/kubeflow/manifests
     targetRevision: 26.10.0
@@ -395,6 +425,33 @@ spec:
         target:
           kind: ConfigMap
           name: oauth2-proxy-parameters
+          version: v1
+      - patch: |-
+          # purpose: oauth2-proxy reads its client ID, client secret and cookie secret from the user's Secrets, not upstream's public literals
+          # upstream: none
+          # remove-when: upstream ships a production overlay without literal secrets
+          - op: test
+            path: /spec/template/spec/containers/0/env/0/name
+            value: OAUTH2_PROXY_CLIENT_ID
+          - op: replace
+            path: /spec/template/spec/containers/0/env/0/valueFrom/secretKeyRef/name
+            value: "kubeflow-oidc-client"
+          - op: test
+            path: /spec/template/spec/containers/0/env/1/name
+            value: OAUTH2_PROXY_CLIENT_SECRET
+          - op: replace
+            path: /spec/template/spec/containers/0/env/1/valueFrom/secretKeyRef/name
+            value: "kubeflow-oidc-client"
+          - op: test
+            path: /spec/template/spec/containers/0/env/2/name
+            value: OAUTH2_PROXY_COOKIE_SECRET
+          - op: replace
+            path: /spec/template/spec/containers/0/env/2/valueFrom/secretKeyRef/name
+            value: "oauth2-proxy-cookie"
+        target:
+          group: apps
+          kind: Deployment
+          name: oauth2-proxy
           version: v1
     path: common/oauth2-proxy/overlays/m2m-dex-only
     repoURL: https://github.com/kubeflow/manifests
@@ -505,6 +562,58 @@ spec:
   project: keelson
   source:
     path: common/kubeflow-roles/base
+    repoURL: https://github.com/kubeflow/manifests
+    targetRevision: 26.10.0
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+      limit: 10
+    syncOptions:
+    - ServerSideApply=true
+    - CreateNamespace=true
+    - RespectIgnoreDifferences=true
+
+---
+# Source: keelson/templates/applications.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dashboard
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: dashboard
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  destination:
+    namespace: kubeflow
+    server: https://kubernetes.default.svc
+  ignoreDifferences:
+  - group: admissionregistration.k8s.io
+    jqPathExpressions:
+    - .webhooks[].clientConfig.caBundle
+    kind: MutatingWebhookConfiguration
+    name: poddefaults-webhook-mutating-webhook-configuration
+  - group: rbac.authorization.k8s.io
+    jsonPointers:
+    - /rules
+    kind: ClusterRole
+    name: poddefaults-webhook-kubeflow-poddefaults-admin
+  - group: rbac.authorization.k8s.io
+    jsonPointers:
+    - /rules
+    kind: ClusterRole
+    name: poddefaults-webhook-kubeflow-poddefaults-edit
+  project: keelson
+  source:
+    path: applications/dashboard/overlays/istio
     repoURL: https://github.com/kubeflow/manifests
     targetRevision: 26.10.0
   syncPolicy:

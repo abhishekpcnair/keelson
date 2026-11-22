@@ -15,6 +15,10 @@ environment: production
 auth:
   staticUsers:
     enabled: false
+  oidcClient:
+    secretRef: { name: kubeflow-oidc-client }
+  cookie:
+    secretRef: { name: oauth2-proxy-cookie }
   dex:
     connectors:
       - type: oidc
@@ -23,8 +27,52 @@ auth:
         secretRef: { name: dex-corp }
 ```
 
-`environment: production` makes the render fail unless static users are off and at least one
-connector is set. With static users off, at least one connector is required in every environment.
+`environment: production` makes the render fail unless static users are off, at least one
+connector is set, and both secretRefs (`auth.oidcClient` and `auth.cookie`) are set.
+With static users off, at least one connector is required in every environment.
+
+### Secrets for oauth2-proxy and Dex
+
+Upstream ships fixed secrets: the OIDC client secret (shared by oauth2-proxy and Dex) and the
+oauth2-proxy cookie secret. They are the same in every install. Anyone who knows them can forge
+session cookies. A production install must not use them.
+
+Make two Secrets with random values. Keelson never creates them.
+
+```sh
+CLIENT_SECRET=$(openssl rand -base64 32)
+COOKIE_SECRET=$(openssl rand -base64 24 | tr -d '\n' | tr '+/' '-_')   # 32 characters
+
+# the OIDC client: the same Secret in BOTH namespaces
+for ns in auth oauth2-proxy; do
+  kubectl -n "$ns" create secret generic kubeflow-oidc-client \
+    --from-literal=client-id=kubeflow-oidc-authservice \
+    --from-literal=client-secret="$CLIENT_SECRET"
+done
+
+# the session cookie
+kubectl -n oauth2-proxy create secret generic oauth2-proxy-cookie \
+  --from-literal=cookie-secret="$COOKIE_SECRET"
+```
+
+| Value | Secret | Namespace | Keys |
+|---|---|---|---|
+| `auth.oidcClient.secretRef.name` | `kubeflow-oidc-client` | `auth` **and** `oauth2-proxy` | `client-id`, `client-secret` |
+| `auth.cookie.secretRef.name` | `oauth2-proxy-cookie` | `oauth2-proxy` | `cookie-secret` |
+
+Rules:
+- Use any Secret names except `oauth2-proxy` and `dex-oidc-client`. These are the names of upstream's
+  generated Secrets, and the render rejects them.
+- The client Secret must have the same values in both namespaces. If they differ, the login fails in
+  Dex with `invalid_client`. Keelson cannot check this. External Secrets or a Kyverno policy can keep the
+  two copies equal.
+- The cookie secret must be 16, 24 or 32 bytes long. The command above makes 32 characters.
+- Keelson restarts the pods when a Secret *name* changes. It does not restart them when the
+  *contents* of a Secret change. Restart them yourself: `kubectl -n oauth2-proxy rollout restart
+  deploy/oauth2-proxy` and `kubectl -n auth rollout restart deploy/dex`.
+
+The generated upstream Secrets still exist in the cluster, with the public values. Nothing reads them
+once you set the two refs. You can delete them, but Argo CD will make them again.
 
 Dex reads its config only at start. Keelson restarts Dex when the config changes. If you remove all
 connectors and turn static users back on, Keelson stops patching Dex. Then restart it yourself:
