@@ -96,8 +96,9 @@ In the Entra app registration:
 - Grant the Microsoft Graph permission `GroupMember.Read.All` and give admin consent. Without it, Dex can't read groups.
 - Create a client secret and put it in the `dex-entra` Secret in `auth`, as above.
 
-`tenant` is required. `common`, `consumers` and `organizations` are rejected: they let any
-Microsoft account log in, and Dex reads no groups for them.
+`tenant` is required: a tenant ID (GUID) or a verified domain. `common`, `consumers` and
+`organizations` are rejected: they let any Microsoft account log in, and Dex reads no groups for them.
+`extraConfig` cannot set `tenant`, `groups` or `useGroupsAsWhitelist`.
 
 Groups come back as **names** (`groupNameFormat: name`). Set `groupNameFormat: id` to get object IDs.
 Set `onlySecurityGroups: true` to skip Microsoft 365 groups.
@@ -130,7 +131,8 @@ auth:
 ```
 
 - Create a GitHub OAuth app with the callback URL `https://<domain>/dex/callback`.
-- `orgs` is required. Without it, any GitHub user could log in.
+- `orgs` is required. Without it, any GitHub user could log in. `extraConfig` cannot set `orgs`,
+  `org`, `hostName` or `rootCA`.
 - Dex asks for the `read:org` scope. An org owner may need to approve the app for the org.
 - Groups come back as `<org>:<team-slug>`, for example `my-org:ml-platform`.
 - GitHub Enterprise Server (`hostName`, `rootCA`) is not supported yet (#46).
