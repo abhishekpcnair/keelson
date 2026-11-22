@@ -42,6 +42,9 @@ Application stays Synced. For example, `istio` ignores the `caBundle` and `failu
 that istiod sets on its validating webhook. Aggregated ClusterRoles such as `kubeflow-admin`
 ignore `.rules`, which the RBAC controller fills in.
 
+Each `ignoreDifferences` entry, in a module file or in `appSpecOverride`, must have a `kind` and name
+at least one field: `jsonPointers`, `jqPathExpressions` or `managedFieldsManagers`. Rendering fails otherwise.
+
 The `istio` HPAs need a metrics-server. Without one, the `istio` Application shows Degraded.
 `make kind-up` installs one; managed clusters such as AKS already have one.
 
