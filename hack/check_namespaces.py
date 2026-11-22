@@ -112,7 +112,9 @@ def main():
             print(f"FAIL N0 {f}: not a mapping (the file and its source: must be maps)")
             fails += 1
             continue
-        missing = [k for k, ok in (("name", m.get("name")), ("source.path", (m.get("source") or {}).get("path"))) if not ok]
+        # A keelson component (ADR 0004) has no upstream path; its namespaces come from the AppProject (namespacesFrom).
+        need_path = (m.get("source") or {}).get("type") != "keelson"
+        missing = [k for k, ok in (("name", m.get("name")), ("source.path", (m.get("source") or {}).get("path") or not need_path)) if not ok]
         if missing:
             for k in missing:
                 print(f"FAIL N0 {f}: missing required field {k}")
