@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Create a local Kind cluster that matches upstream Kubeflow's CI shape, then
-# install a pinned ArgoCD. For Kind, dev and CI only (ADR 0003). Safe to rerun.
+# install a pinned ArgoCD and metrics-server. For Kind, dev and CI only (ADR 0003). Safe to rerun.
 #
 # The Kind cluster config (1 control-plane, 2 workers, kubeadm
 # service-account-issuer patch) is adapted from kubeflow/manifests
@@ -18,6 +18,7 @@ ARGOCD_VERSION="v3.6.2"
 # sha256 of manifests/install.yaml at ARGOCD_VERSION. Bump both together; get the hash from
 #   curl -fsSL https://raw.githubusercontent.com/argoproj/argo-cd/<version>/manifests/install.yaml | sha256sum
 ARGOCD_INSTALL_SHA256="c948064d38294d857712ef78444768749a14293613098932f8533e37d067a2a2"
+METRICS_SERVER_VERSION="v0.9.1"
 CLUSTER_NAME="${CLUSTER_NAME:-keelson}"
 CONTEXT="kind-${CLUSTER_NAME}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -153,6 +154,22 @@ for r in $(k -n argocd get deployment,statefulset -o name); do
   k -n argocd rollout status "$r" --timeout=600s
 done
 
+# 4b. metrics-server, pinned (dev/CI only, ADR 0003). The istio HPAs need it; without it the
+# istio Application shows Degraded. Real clusters (AKS) already have one.
+log "Installing metrics-server $METRICS_SERVER_VERSION"
+k apply --server-side --force-conflicts \
+  -f "https://github.com/kubernetes-sigs/metrics-server/releases/download/${METRICS_SERVER_VERSION}/components.yaml" >/dev/null
+# purpose: Kind kubelets serve self-signed certs, so metrics-server must skip kubelet TLS verification.
+# upstream: none
+# remove-when: kind-up gives kubelets CA-signed serving certs (serverTLSBootstrap plus CSR approval).
+ms_args="$(k -n kube-system get deployment metrics-server -o jsonpath='{.spec.template.spec.containers[0].args}')"
+if [[ "$ms_args" != *'--kubelet-insecure-tls'* ]]; then
+  k -n kube-system patch deployment metrics-server --type=json \
+    -p '[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]' >/dev/null
+fi
+k -n kube-system rollout status deployment/metrics-server --timeout=300s
+k wait --for=condition=Available apiservice/v1beta1.metrics.k8s.io --timeout=300s
+
 # 5. Health customisations from #2, if present.
 health="$ROOT/hack/argocd/argocd-cm-health.yaml"
 if [[ -f "$health" ]]; then
@@ -165,7 +182,7 @@ fi
 # 6. Next steps.
 cat <<EOF
 
-Kind cluster '$CLUSTER_NAME' is ready with ArgoCD $ARGOCD_VERSION.
+Kind cluster '$CLUSTER_NAME' is ready with ArgoCD $ARGOCD_VERSION and metrics-server $METRICS_SERVER_VERSION.
   kubectl context:  $CONTEXT
   install Keelson:  helm install keelson charts/keelson --kube-context $CONTEXT
   e2e smoke tests:  make e2e MODULES=core

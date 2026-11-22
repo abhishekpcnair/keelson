@@ -35,6 +35,16 @@ The default is `generic`.
 - The AppProject `argocd.project`. It allows only `upstream.manifestsRepo` plus `argocd.extraSourceRepos`,
   and only the namespaces that enabled modules write to.
 
+## Fields other controllers own
+
+Some modules tell ArgoCD to ignore fields that a controller writes at runtime, so the
+Application stays Synced. For example, `istio` ignores the `caBundle` and `failurePolicy`
+that istiod sets on its validating webhook. Aggregated ClusterRoles such as `kubeflow-admin`
+ignore `.rules`, which the RBAC controller fills in.
+
+The `istio` HPAs need a metrics-server. Without one, the `istio` Application shows Degraded.
+`make kind-up` installs one; managed clusters such as AKS already have one.
+
 ## Turning a module off leaves its resources running
 
 Applications have no `resources-finalizer.argocd.argoproj.io`. When you disable a module,
