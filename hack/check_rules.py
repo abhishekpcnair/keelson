@@ -2,7 +2,7 @@
 """Machine-check Keelson's hard rules (CLAUDE.md) on rendered chart output, patch files and the git index.
 
 Usage:
-  hack/check_rules.py --rendered <file-or-dir> [--patches <dir>] [--repo <dir>] [--allow-repo URL ...]
+  hack/check_rules.py --rendered <file-or-dir> [--patches <dir>] [--repo <dir>] [--templates <dir>] [--allow-repo URL ...]
 
 Checks:
   R1  Every ArgoCD Application source points to an allowed repo.
@@ -18,6 +18,8 @@ Checks:
   R6  No tracked symlinks in the git repo given by --repo (a symlinked .cache
       once leaked a local path). Skipped with a note if git is not installed;
       fails if --repo is not a git repository.
+  T1  In --templates *.tpl, a `keelson.<name>:` doc comment comes directly
+      before its own `define "keelson.<name>"` (CLAUDE.md lesson, #80).
 Exit code 1 if any rule fails.
 """
 import argparse
@@ -140,11 +142,40 @@ def check_symlinks(repo: pathlib.Path, errors):
             errors.append(f"R6 {path}: tracked symlink")
 
 
+DOC_RE = re.compile(r"^\s*(keelson\.[A-Za-z0-9_.]+):")
+
+
+def check_templates(tdir: pathlib.Path, errors):
+    for f in sorted(tdir.glob("*.tpl")):
+        lines = f.read_text().splitlines()
+        i = 0
+        while i < len(lines):
+            m = re.match(r"^\{\{-?\s*/\*(.*)$", lines[i])
+            if not m:
+                i += 1
+                continue
+            start, end = i, i
+            while "*/" not in lines[end] and end + 1 < len(lines):
+                end += 1
+            # The doc text is the rest of the opening line, or the next line.
+            first = m.group(1) if m.group(1).strip() else (lines[start + 1] if start + 1 < len(lines) else "")
+            doc = DOC_RE.match(first.split("*/")[0])
+            i = end + 1
+            if not doc:
+                continue
+            name = doc.group(1)
+            nxt = next((j for j in range(end + 1, len(lines)) if lines[j].strip()), None)
+            want = re.compile(r'^\{\{-?\s*define\s+"' + re.escape(name) + r'"\s*-?\}\}')
+            if nxt is None or not want.match(lines[nxt]):
+                errors.append(f"T1 {f}:{start + 1}: doc comment for {name} is not directly above its define")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--rendered", type=pathlib.Path)
     ap.add_argument("--patches", type=pathlib.Path)
     ap.add_argument("--repo", type=pathlib.Path)
+    ap.add_argument("--templates", type=pathlib.Path)
     ap.add_argument("--allow-repo", action="append", default=[])
     a = ap.parse_args()
     allowed = DEFAULT_ALLOWED + a.allow_repo
@@ -158,6 +189,8 @@ def main():
         check_patches(a.patches, errors)
     if a.repo:
         check_symlinks(a.repo, errors)
+    if a.templates:
+        check_templates(a.templates, errors)
     for e in errors:
         print(f"FAIL {e}")
     print(f"check_rules: {apps} Applications checked, {len(errors)} problem(s)")

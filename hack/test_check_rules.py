@@ -9,7 +9,7 @@ import io  # noqa: E402
 import tempfile  # noqa: E402
 from unittest import mock  # noqa: E402
 
-from check_rules import check_symlinks, patch_sets_image  # noqa: E402
+from check_rules import check_symlinks, check_templates, patch_sets_image  # noqa: E402
 
 FAILS = {
     "json6902 replace image (issue #24)":
@@ -82,6 +82,36 @@ class CheckSymlinks(unittest.TestCase):
             check_symlinks(pathlib.Path("."), errors)
         self.assertEqual(errors, [])
         self.assertIn("NOTE R6 skipped", out.getvalue())
+
+
+class CheckTemplates(unittest.TestCase):
+    def run_t1(self, text):
+        errors = []
+        with tempfile.TemporaryDirectory() as d:
+            (pathlib.Path(d) / "_x.tpl").write_text(text)
+            check_templates(pathlib.Path(d), errors)
+        return errors
+
+    def test_comment_above_own_define(self):
+        text = '{{/*\nkeelson.a: first helper.\n*/}}\n{{- define "keelson.a" -}}\n{{- end -}}\n'
+        self.assertEqual(self.run_t1(text), [])
+
+    def test_other_define_between_fails(self):
+        # The #77/#78 mistake: a new helper between a doc comment and its define.
+        text = ('{{/*\nkeelson.a: first helper.\n*/}}\n'
+                '{{- define "keelson.b" -}}\n{{- end -}}\n\n'
+                '{{- define "keelson.a" -}}\n{{- end -}}\n')
+        errors = self.run_t1(text)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("T1", errors[0])
+        self.assertIn("keelson.a", errors[0])
+
+    def test_both_comment_forms_checked(self):
+        one_line = '{{/* keelson.a: one line. */}}\n{{- define "keelson.wrong" -}}\n{{- end -}}\n'
+        next_line = '{{- /*\nkeelson.a: next line.\n*/}}\n{{- define "keelson.wrong" -}}\n{{- end -}}\n'
+        self.assertEqual(len(self.run_t1(one_line)), 1)
+        self.assertEqual(len(self.run_t1(next_line)), 1)
+        self.assertEqual(self.run_t1(one_line.replace("keelson.wrong", "keelson.a")), [])
 
 
 if __name__ == "__main__":
