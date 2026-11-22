@@ -7,7 +7,7 @@ Usage:
 
 The script fails when:
   - a property has no `description`;
-  - the schema uses a keyword the script does not know (extend KNOWN when the schema needs it);
+  - the schema uses a keyword the script does not know (extend CONTEXTS when the schema needs it);
   - a `$ref` is not a local `#/$defs/<name>` reference.
 Standard library only. The output is sorted, so it is the same on each run.
 """
@@ -20,10 +20,23 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SCHEMA = ROOT / "charts/keelson/values.schema.json"
 OUT = ROOT / "docs/reference/values.md"
-KNOWN = {
-    "$schema", "$comment", "$defs", "$ref", "type", "properties", "additionalProperties", "required",
-    "items", "enum", "const", "default", "description", "format", "pattern", "minLength", "maxLength",
-    "minItems", "allOf", "anyOf", "if", "then", "not", "propertyNames",
+# Keywords per schema context. Nodes nested in anyOf, not, propertyNames and if/then are
+# rendered by allowed() and facts() only for the keywords below. Any other keyword there would
+# be dropped from the doc without a message, so validate() rejects it.
+ANNOTATIONS = {"$schema", "$comment"}
+CONTEXTS = {
+    "schema": {
+        "$defs", "$ref", "type", "properties", "additionalProperties", "required", "items", "enum", "const",
+        "default", "description", "format", "pattern", "minLength", "maxLength", "minItems", "allOf",
+        "anyOf", "not", "propertyNames",
+    },
+    "branch": {"type", "enum", "const", "maxLength", "minLength", "minItems", "format", "pattern", "not", "propertyNames", "anyOf"},
+    "not": {"pattern"},
+    "pnames": {"pattern", "not"},
+    "pnames_not": {"pattern", "enum"},
+    "fact": {"required", "const", "minLength", "minItems", "propertyNames", "properties"},
+    "fact_pnames": {"not"},
+    "fact_pnames_not": {"enum"},
 }
 
 
@@ -31,12 +44,42 @@ def fail(msg):
     sys.exit(f"gen_values_ref: {msg}")
 
 
-def check_keywords(node, where):
+def validate(node, where, ctx="schema"):
+    """Fail on a keyword that the generator does not render, in the whole schema tree."""
     if not isinstance(node, dict):
-        return
+        fail(f"{where}: expected a schema object")
     for k in node:
-        if k not in KNOWN:
-            fail(f"{where}: unknown keyword '{k}' (extend hack/gen_values_ref.py)")
+        if k not in CONTEXTS[ctx] and k not in ANNOTATIONS:
+            fail(f"{where}: unknown keyword '{k}' in {ctx} context (extend hack/gen_values_ref.py)")
+    sub = lambda name, child, c: validate(child, f"{where}.{name}", c)  # noqa: E731
+    if ctx == "schema":
+        for n, d in node.get("$defs", {}).items():
+            sub(f"$defs.{n}", d, "schema")
+        for n, p in node.get("properties", {}).items():
+            sub(n, p, "schema")
+        for key in ("items", "additionalProperties"):
+            if isinstance(node.get(key), dict):
+                sub(key, node[key], "schema")
+        for i, b in enumerate(node.get("allOf", [])):
+            if not isinstance(b, dict) or set(b) - {"if", "then", "$comment"} or not {"if", "then"} <= set(b):
+                fail(f"{where}.allOf[{i}]: only if/then branches are supported")
+            sub(f"allOf[{i}].if", b["if"], "fact")
+            sub(f"allOf[{i}].then", b["then"], "fact")
+        for i, b in enumerate(node.get("anyOf", [])):
+            sub(f"anyOf[{i}]", b, "branch")
+    elif ctx == "branch":
+        for i, b in enumerate(node.get("anyOf", [])):
+            sub(f"anyOf[{i}]", b, "branch")
+    elif ctx == "fact":
+        for n, p in node.get("properties", {}).items():
+            sub(n, p, "fact")
+    if "not" in node and ctx in ("schema", "branch"):
+        sub("not", node["not"], "not")
+    if "propertyNames" in node:
+        pn_ctx = "fact_pnames" if ctx == "fact" else "pnames"
+        sub("propertyNames", node["propertyNames"], pn_ctx)
+    if ctx in ("pnames", "fact_pnames") and "not" in node:
+        sub("not", node["not"], ctx + "_not")
 
 
 def resolve(schema, node, where):
@@ -99,19 +142,18 @@ def allowed(n):
             parts.append("names match " + code(pn["pattern"]))
         if "not" in pn and "pattern" in pn["not"]:
             parts.append("names not matching " + code(pn["not"]["pattern"]))
+        if "not" in pn and "enum" in pn["not"]:
+            parts.append("names not in " + ", ".join(code(v) for v in pn["not"]["enum"]))
     return "; ".join(parts)
 
 
 def rows(schema, node, path, out, missing):
     """Collect one row per property. Walks properties, items and additionalProperties."""
     node = resolve(schema, node, path or "<root>")
-    check_keywords(node, path or "<root>")
     required = set(node.get("required", []))
     for name, sub in node.get("properties", {}).items():
         p = f"{path}.{name}" if path else name
         target = resolve(schema, sub, p)
-        check_keywords(sub, p)
-        check_keywords(target, p)
         if not sub.get("description") and not target.get("description"):
             missing.append(p)
         typ = target.get("type", "")
@@ -130,7 +172,6 @@ def rows(schema, node, path, out, missing):
 def facts(schema, node, path, acc):
     """Flatten an if/then schema into {path: [fact, ...]}."""
     node = resolve(schema, node, path)
-    check_keywords(node, path)
     for k in node.get("required", []):
         acc.setdefault(f"{path}.{k}" if path else k, []).append("is set")
     if "const" in node:
@@ -159,11 +200,7 @@ def render_facts(acc):
 
 
 def rules(schema, node, prefix, out):
-    check_keywords(node, prefix or "<root>")
     for i, branch in enumerate(node.get("allOf", [])):
-        check_keywords(branch, f"{prefix}allOf[{i}]")
-        if "if" not in branch or "then" not in branch:
-            fail(f"{prefix}allOf[{i}]: only if/then branches are supported")
         cond, then = {}, {}
         facts(schema, branch["if"], prefix.rstrip("."), cond)
         facts(schema, branch["then"], prefix.rstrip("."), then)
@@ -171,7 +208,7 @@ def rules(schema, node, prefix, out):
 
 
 def build(schema):
-    check_keywords(schema, "<root>")
+    validate(schema, "<root>")
     out, missing = [], []
     rows(schema, schema, "", out, missing)
     if missing:
