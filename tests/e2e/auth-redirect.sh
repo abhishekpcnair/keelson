@@ -6,7 +6,7 @@
 #      ext_authz never ran.
 #   2. GET /oauth2/start redirects to Dex (/dex/auth).
 #   3. Dex answers with its login page.
-#   4. An unauthenticated GET / is not served (fail-closed).
+#   4. An unauthenticated GET / is not served (fail-closed). With the dashboard module, oauth2-proxy must answer it.
 # Core has no workload at "/" and Envoy skips ext_authz for a request that matches no route (#106).
 # So hop 1 uses a test-only route, /keelson-e2e/ (tests/e2e/fixtures/protected-route.yaml), applied
 # here and deleted at the end. The route goes to Dex, which cannot return oauth2-proxy's sign-in
@@ -59,14 +59,26 @@ code3="$(curl -s -o /dev/null --max-time 15 -w '%{http_code}' -L "$loc2")"
 log "GET /dex/auth (following redirects) -> $code3"
 [[ "$code3" == 200 ]] || fail "Dex login page should answer 200 (got $code3)"
 
-# Fail-closed: with no workload at "/", the gateway denies (403 RBAC). With the dashboard, ext_authz
-# shows the sign-in page (403) or redirects (302). Only these answers are fine. Any other answer
-# (200, 404, 5xx) means "/" was served, or the gateway failed, so the check fails.
-code4="$(curl -s -o /dev/null --max-time 15 -w '%{http_code}' "$base/")"
-log "GET / -> $code4"
-case "$code4" in
-  302|401|403) ;;
-  *) fail "an unauthenticated GET / must be refused (302, 401 or 403), got $code4" ;;
-esac
+# GET /. Without the dashboard module, nothing serves "/": the gateway denies (403 RBAC), which is
+# fail-closed. Only 302, 401 or 403 pass; any other answer (200, 404, 5xx) means "/" was served, or the
+# gateway failed. With the dashboard module (#7), "/" has a route, so ext_authz must answer, and the
+# check is strict: oauth2-proxy's sign-in form or a redirect to /oauth2/start.
+read -r code4 loc4 <<<"$(curl -s -o "$body" --max-time 15 -w '%{http_code} %{redirect_url}' "$base/")" || true
+log "GET / -> ${code4:-none} ${loc4:-}"
+if kubectl get applications.argoproj.io -A -l keelson.io/module=dashboard -o name 2>/dev/null | grep -q .; then
+  # The dashboard module serves "/", so Envoy runs ext_authz and oauth2-proxy answers: a redirect to
+  # /oauth2/start, or its sign-in page. "RBAC: access denied" would mean the route or ext_authz is broken (#106).
+  case "${code4:-none}" in
+    302) [[ "$loc4" == */oauth2/start* ]] || fail "GET / redirected to '$loc4', expected /oauth2/start" ;;
+    401|403) grep -q 'action="/oauth2/start"' "$body" \
+      || fail "GET / was refused with $code4, but not by oauth2-proxy (no sign-in form). The dashboard serves /, so ext_authz must answer; see #106" ;;
+    *) fail "with the dashboard, an unauthenticated GET / must get oauth2-proxy's sign-in page or a redirect to /oauth2/start (got '${code4:-none}')" ;;
+  esac
+else
+  case "${code4:-none}" in
+    302|401|403) ;;
+    *) fail "an unauthenticated GET / must be refused (302, 401 or 403), got ${code4:-none}" ;;
+  esac
+fi
 
 log "auth-redirect: OK"

@@ -20,5 +20,5 @@ ignoreDifferences:
   # Listed by name, so drift on the non-aggregated poddefaults-...-view role still shows.
   - {group: rbac.authorization.k8s.io, kind: ClusterRole, name: poddefaults-webhook-kubeflow-poddefaults-admin, jsonPointers: [/rules]}
   - {group: rbac.authorization.k8s.io, kind: ClusterRole, name: poddefaults-webhook-kubeflow-poddefaults-edit, jsonPointers: [/rules]}
-smokeTest: tests/e2e/dashboard.py
+smokeTest: tests/e2e/dashboard.sh
 upstreamHelmChart: applications/dashboard/helm
