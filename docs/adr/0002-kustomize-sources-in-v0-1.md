@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-11-22
+- Amended by [ADR 0005](0005-helm-sources-for-non-kubeflow-charts.md): the rule covers Kubeflow modules. Non-Kubeflow upstream charts may use `helm`.
 
 ## Context
 Kubeflow 26.10 ships Helm charts under `applications/*/helm` and `common/*/helm`, generated from Kustomize. Kustomize remains the source of truth upstream, and the Pipelines chart README says it is a draft and "not administrator-ready".
