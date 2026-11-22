@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 """Build every patched module offline, the way ArgoCD does.
 
-For each rendered Application with inline `spec.source.kustomize.patches`, add the
+For each rendered Application with inline `spec.source.kustomize.patches` or with
+`spec.ignoreDifferences`, add the
 patches to the upstream path's kustomization (from .cache/upstream/<tag>) and run
 `kustomize build`. Fails when a patch does not apply, or applies but changes
 nothing (for example, a target that matches no resource).
+
+ignoreDifferences guard: each entry must name a resource (group, kind, name) in the
+unpatched upstream build. An upstream rename then fails here instead of silently
+disabling the rule. A `/rules` entry on a ClusterRole also needs `aggregationRule`.
 
 Dex drift guard: when a patch replaces the Dex config.yaml, every key except
 DEX_MANAGED (and staticPasswords, when kept) must equal upstream's at the tag, so an upstream
@@ -31,7 +36,7 @@ KFILES = ("kustomization.yaml", "kustomization.yml", "Kustomization")
 DEX_MANAGED = {"connectors", "enablePasswordDB", "staticPasswords"}  # keys Keelson may change
 
 
-def patched_apps(rendered: pathlib.Path):
+def checked_apps(rendered: pathlib.Path):
     files = sorted(rendered.glob("*.yaml")) if rendered.is_dir() else [rendered]
     for f in files:
         for doc in yaml.safe_load_all(f.read_text()):
@@ -39,8 +44,10 @@ def patched_apps(rendered: pathlib.Path):
                 continue
             src = doc.get("spec", {}).get("source", {})
             patches = (src.get("kustomize") or {}).get("patches") or []
-            if patches:
-                yield f"{f.name}:{doc['metadata']['name']}", src, patches
+            ignore = doc.get("spec", {}).get("ignoreDifferences") or []
+            # Only kustomize paths can be built. A Helm chart source has no `path`.
+            if (patches or ignore) and src.get("path"):
+                yield f"{f.name}:{doc['metadata']['name']}", src, patches, ignore
 
 
 def build(tree: pathlib.Path, path: str, patches):
@@ -76,6 +83,38 @@ def check_dex_config(where, base: str, patched: str, errors):
             errors.append(f"{where}: Dex config key '{k}' differs from upstream (update keelson.dex.upstreamConfig)")
 
 
+def check_ignore_differences(where, built: str, entries, errors, path=None):
+    """Each ignoreDifferences entry must name a resource in the built upstream overlay.
+
+    Without this check, an upstream rename makes the rule do nothing and the drift
+    returns silently. A `/rules` entry on a ClusterRole is for aggregated roles only,
+    so each matched role must still have `aggregationRule`.
+    """
+    docs = [d for d in yaml.safe_load_all(built) if isinstance(d, dict) and d.get("metadata")]
+    where_in = f", which is not in {path}" if path else ", which is not in the built overlay"
+    for i, e in enumerate(entries):
+        group, kind, name, ns = e.get("group", ""), e.get("kind"), e.get("name"), e.get("namespace")
+        found = []
+        for d in docs:
+            api = str(d.get("apiVersion", ""))
+            dgroup = api.split("/")[0] if "/" in api else ""
+            if dgroup != group or d.get("kind") != kind:
+                continue
+            if name is not None and d["metadata"].get("name") != name:
+                continue
+            # kustomize may leave the namespace unset; ArgoCD fills in the destination one.
+            if ns is not None and d["metadata"].get("namespace") not in (None, ns):
+                continue
+            found.append(d)
+        label = f"{group + '/' if group else ''}{kind}" + (f" {name}" if name is not None else "")
+        if not found:
+            errors.append(f"{where}: ignoreDifferences[{i}] names {label}{where_in}")
+        elif kind == "ClusterRole" and "/rules" in (e.get("jsonPointers") or []):
+            fixed = [d["metadata"].get("name") for d in found if not d.get("aggregationRule")]
+            if fixed:
+                errors.append(f"{where}: ignoreDifferences[{i}] ignores /rules, but {', '.join(map(str, fixed))} has no aggregationRule")
+
+
 class VersionError(Exception):
     """The kustomize version check failed. The message has no prefix; each caller adds its own."""
 
@@ -97,7 +136,7 @@ def main():
     a = ap.parse_args()
     errors, checked, trees = [], 0, {}
     with tempfile.TemporaryDirectory() as tmp:
-        for where, src, patches in patched_apps(a.rendered):
+        for where, src, patches, ignore in checked_apps(a.rendered):
             tag = str(src["targetRevision"])
             if tag not in trees:
                 upstream = a.cache / tag
@@ -114,6 +153,10 @@ def main():
             if rc:
                 errors.append(f"{where}: unpatched build fails: {base.strip()}")
                 continue
+            check_ignore_differences(where, base, ignore, errors, src["path"])
+            if not patches:
+                checked += 1
+                continue
             for i, p in enumerate(patches):
                 rc, out = build(tree, src["path"], [p])
                 if rc:
@@ -128,7 +171,7 @@ def main():
             checked += 1
     for e in errors:
         print(f"FAIL {e}")
-    print(f"kustomize_check: {checked} patched Application(s) built, {len(errors)} problem(s)")
+    print(f"kustomize_check: {checked} Application(s) built, {len(errors)} problem(s)")
     sys.exit(1 if errors else 0)
 
 

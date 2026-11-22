@@ -16,5 +16,7 @@ advanced:
     cert-manager-kubeflow:
       appSpecOverride:
         ignoreDifferences:
-          - kind: Deployment
-            jsonPointers: [/spec/replicas]
+          - group: cert-manager.io
+            kind: ClusterIssuer
+            name: kubeflow-self-signing-issuer
+            jsonPointers: [/spec/selfSigned]
