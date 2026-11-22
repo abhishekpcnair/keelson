@@ -41,25 +41,55 @@ if [[ "$(uname -s)" == "Linux" ]]; then
   fi
 fi
 
+# Pins from the upstream test script at the pinned tag.
+# The tag comes from upstream.manifestsRef in values.yaml (the same key the Makefile reads).
+tag="${UPSTREAM_TAG:-$(awk '/^upstream:/{u=1; next} /^[^[:space:]#]/{u=0} u && $1=="manifestsRef:"{gsub(/"/,"",$2); print $2; exit}' "$ROOT/charts/keelson/values.yaml")}"
+upstream_script="$ROOT/.cache/upstream/$tag/$UPSTREAM_SCRIPT_REL"
+want_kind=""
+if [[ -n "$tag" && -f "$upstream_script" ]]; then
+  want_kind="$(sed -nE 's/^KIND_VERSION="(v[0-9.]+)".*/\1/p' "$upstream_script" | head -n1)"
+  if [[ -z "${KIND_NODE_IMAGE:-}" ]]; then
+    KIND_NODE_IMAGE="$(sed -nE 's/^KIND_NODE_IMAGE="\$\{KIND_NODE_IMAGE:-([^}]+)\}".*/\1/p' "$upstream_script" | head -n1)"
+  fi
+fi
+
+# Older kind releases generate kubeadm configs that newer node images reject (kubeadm v1beta3 vs v1beta4).
+# If the upstream cache is missing (for example, with a KIND_NODE_IMAGE override), there is no
+# upstream KIND_VERSION to compare against, so this check is skipped.
+if [[ -n "$want_kind" ]]; then
+  have_kind="$(kind version | sed -nE 's/^kind (v[0-9]+\.[0-9]+\.[0-9]+).*/\1/p')"
+  [[ -n "$have_kind" ]] || die "could not parse 'kind version' output; kind $want_kind or newer is required"
+  if [[ "$(printf '%s\n' "$want_kind" "$have_kind" | sort -V | head -n1)" != "$want_kind" ]]; then
+    die "kind $have_kind is older than upstream's $want_kind; upgrade kind and rerun"
+  fi
+fi
+
+k() { kubectl --context "$CONTEXT" "$@"; }
+
 # 2. Cluster.
 if kind get clusters 2>/dev/null | grep -qx "$CLUSTER_NAME"; then
   log "Kind cluster '$CLUSTER_NAME' already exists; skipping create"
-else
-  tag="${UPSTREAM_TAG:-$(sed -nE 's/^[[:space:]]*manifestsRef:[[:space:]]*"?([^"[:space:]]+)"?.*/\1/p' "$ROOT/charts/keelson/values.yaml" | head -n1)}"
-  upstream_script="$ROOT/.cache/upstream/$tag/$UPSTREAM_SCRIPT_REL"
-  # Older kind releases generate kubeadm configs that newer node images reject.
-  want_kind="$(sed -nE 's/^KIND_VERSION="(v[0-9.]+)".*/\1/p' "$upstream_script" 2>/dev/null | head -n1)"
-  have_kind="$(kind version | sed -nE 's/^kind (v[0-9.]+).*/\1/p')"
-  if [[ -n "$want_kind" && "$(printf '%s\n' "$want_kind" "$have_kind" | sort -V | head -n1)" != "$want_kind" ]]; then
-    log "warning: kind $have_kind is older than upstream's $want_kind; cluster creation may fail. Upgrade kind."
+  # Check that the existing cluster still matches what this script would create.
+  want_k8s="$(sed -nE 's/^[^:]+:(v[0-9]+\.[0-9]+\.[0-9]+).*/\1/p' <<<"${KIND_NODE_IMAGE:-}")"
+  have_k8s="$(k version -o json 2>/dev/null | sed -nE 's/.*"gitVersion": *"(v[0-9]+\.[0-9]+\.[0-9]+)[^"]*".*/\1/p' | tail -n1)"
+  if [[ -z "$want_k8s" ]]; then
+    log "warning: expected node image unknown (no upstream cache); not checking the existing cluster's version"
+  elif [[ "$have_k8s" != "$want_k8s" ]]; then
+    log "warning: cluster runs Kubernetes ${have_k8s:-unknown}, but the node image $KIND_NODE_IMAGE is $want_k8s. Run 'make kind-down && make kind-up' to recreate it."
   fi
+  if ! k -n kube-system get pod -l component=kube-apiserver -o jsonpath='{.items[*].spec.containers[*].command}' 2>/dev/null \
+      | grep -qF -- '"--service-account-issuer=https://kubernetes.default.svc"'; then
+    # Match the whole quoted argument: kubeadm's default issuer, ...default.svc.cluster.local, shares the prefix.
+    die "existing cluster '$CLUSTER_NAME' lacks the service-account-issuer patch (not created by this script?). Run 'make kind-down && make kind-up'."
+  fi
+else
   # 3. Node image, read from the pinned upstream test script.
   if [[ -z "${KIND_NODE_IMAGE:-}" ]]; then
     [[ -n "$tag" ]] || die "could not read upstream.manifestsRef from charts/keelson/values.yaml"
     [[ -f "$upstream_script" ]] || die "$upstream_script not found. Run 'make upstream-cache', or set KIND_NODE_IMAGE=kindest/node:<tag>@sha256:<digest>"
-    KIND_NODE_IMAGE="$(sed -nE 's/^KIND_NODE_IMAGE="\$\{KIND_NODE_IMAGE:-([^}]+)\}".*/\1/p' "$upstream_script" | head -n1)"
-    [[ "$KIND_NODE_IMAGE" == *@sha256:* ]] || die "no pinned KIND_NODE_IMAGE line found in $upstream_script; upstream may have changed the file. Set KIND_NODE_IMAGE=kindest/node:<tag>@sha256:<digest>"
+    die "no pinned KIND_NODE_IMAGE line found in $upstream_script; upstream may have changed the file. Set KIND_NODE_IMAGE=kindest/node:<tag>@sha256:<digest>"
   fi
+  [[ "$KIND_NODE_IMAGE" == *@sha256:* ]] || die "KIND_NODE_IMAGE must be pinned by digest (tag@sha256:digest), got '$KIND_NODE_IMAGE'"
   log "Creating Kind cluster '$CLUSTER_NAME' with $KIND_NODE_IMAGE"
   kind create cluster --name "$CLUSTER_NAME" --wait 120s --config - <<EOF
 apiVersion: kind.x-k8s.io/v1alpha4
@@ -86,8 +116,6 @@ nodes:
   image: ${KIND_NODE_IMAGE}
 EOF
 fi
-
-k() { kubectl --context "$CONTEXT" "$@"; }
 
 # 4. ArgoCD, pinned. Server-side apply because the CRDs exceed the client-side annotation limit.
 log "Installing ArgoCD $ARGOCD_VERSION"

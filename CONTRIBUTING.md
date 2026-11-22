@@ -33,7 +33,7 @@ make kind-up             # cluster + ArgoCD; kubectl context is kind-keelson
 make kind-down           # delete the cluster
 ```
 
-Plan for RAM. A full Kubeflow install needs about 16 GB for Docker. `MODULES=core` needs less. The script needs `kind`, `kubectl` and Docker (or Podman, with `KIND_EXPERIMENTAL_PROVIDER=podman`). It does not download tools or use `sudo`. On Linux it warns if your inotify limits are lower than upstream recommends.
+Plan for RAM. A full Kubeflow install needs about 16 GB for Docker. `MODULES=core` needs less. The script needs `kind` v0.33.0 or newer (the version upstream pins for 26.10.0), `kubectl` and Docker (or Podman, with `KIND_EXPERIMENTAL_PROVIDER=podman`). An older kind fails at the start with a clear message. It does not download tools or use `sudo`. On Linux it warns if your inotify limits are lower than upstream recommends.
 
 If you change rendered output, run `make golden` and **read the diff** before you commit it.
 
