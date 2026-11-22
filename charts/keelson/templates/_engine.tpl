@@ -30,6 +30,14 @@ names, unmet dependsOn, and non-kustomize sources.
 {{- if not (kindIs "map" $m.source) -}}
 {{- fail (printf "%s: source must be a map" $path) -}}
 {{- end -}}
+{{- if and (hasKey $m "ignoreDifferences") (not (kindIs "slice" $m.ignoreDifferences)) -}}
+{{- fail (printf "%s: ignoreDifferences must be a list" $path) -}}
+{{- end -}}
+{{- range $i, $d := $m.ignoreDifferences -}}
+{{- if not (and (kindIs "map" $d) (kindIs "string" $d.kind) $d.kind) -}}
+{{- fail (printf "%s: ignoreDifferences[%d] must be a map with a kind" $path $i) -}}
+{{- end -}}
+{{- end -}}
 {{- if not $m.source.path -}}{{- fail (printf "%s: missing required field \"source.path\"" $path) -}}{{- end -}}
 {{- if ne (printf "modules/%s.yaml" $m.name) $path -}}
 {{- fail (printf "%s: name %q must match the file name" $path $m.name) -}}
@@ -154,12 +162,20 @@ syncPolicy:
   syncOptions:
     - ServerSideApply=true
     - CreateNamespace=true
+    {{- if .module.ignoreDifferences }}
+    {{- /* applications.yaml re-applies this (and ignoreDifferences) after any appSpecOverride. */}}
+    - RespectIgnoreDifferences=true
+    {{- end }}
   retry:
     limit: 10
     backoff:
       duration: 10s
       factor: 2
       maxDuration: 5m
+{{- with .module.ignoreDifferences }}
+ignoreDifferences:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
 {{- end -}}
 
 
@@ -177,6 +193,15 @@ Call with (dict "module" $name "override" $o).
 {{- define "keelson.checkOverride" -}}
 {{- $where := printf "advanced.modules.%s.appSpecOverride" .module -}}
 {{- include "keelson.checkKeys" (dict "where" $where "obj" .override "allowed" (list "syncPolicy" "ignoreDifferences" "info" "revisionHistoryLimit" "source")) -}}
+{{- if and (hasKey .override "ignoreDifferences") (not (kindIs "slice" .override.ignoreDifferences)) -}}
+{{- fail (printf "%s.ignoreDifferences: must be a list" $where) -}}
+{{- end -}}
+{{- if and (hasKey .override "syncPolicy") (not (kindIs "map" .override.syncPolicy)) -}}
+{{- fail (printf "%s.syncPolicy: must be a map" $where) -}}
+{{- end -}}
+{{- if and (kindIs "map" .override.syncPolicy) (hasKey .override.syncPolicy "syncOptions") (not (kindIs "slice" .override.syncPolicy.syncOptions)) -}}
+{{- fail (printf "%s.syncPolicy.syncOptions: must be a list" $where) -}}
+{{- end -}}
 {{- if and (hasKey .override "source") (not (kindIs "map" .override.source)) -}}{{- fail (printf "%s.source: must be a map" $where) -}}{{- end -}}
 {{- if and (kindIs "map" .override.source) (hasKey .override.source "kustomize") (not (kindIs "map" .override.source.kustomize)) -}}{{- fail (printf "%s.source.kustomize: must be a map" $where) -}}{{- end -}}
 {{- with .override.source -}}
