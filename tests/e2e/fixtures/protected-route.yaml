@@ -1,0 +1,24 @@
+# Test-only route for tests/e2e/auth-redirect.sh (#106). Not part of the chart.
+# Core has no workload at "/" (the dashboard module adds it), and Envoy skips ext_authz for a
+# request that matches no route. This routes /keelson-e2e/ to the existing oauth2-proxy Service.
+# The result is a routed path that the gateway protects, with no new workload.
+# The script applies this file and deletes it when it ends.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: keelson-e2e-protected
+  namespace: istio-system
+spec:
+  gateways:
+  - kubeflow/kubeflow-gateway
+  hosts:
+  - '*'
+  http:
+  - match:
+    - uri:
+        prefix: /keelson-e2e/
+    route:
+    - destination:
+        host: oauth2-proxy.oauth2-proxy.svc.cluster.local
+        port:
+          number: 80
