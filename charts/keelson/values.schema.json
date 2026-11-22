@@ -31,7 +31,7 @@
           "type": "string",
           "pattern": "^([0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}|[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+)$",
           "not": { "pattern": "(?i)^(common|consumers|organizations)$" },
-          "description": "microsoft: tenant ID or verified domain. Multi-tenant values accept any account and drop groups."
+          "description": "microsoft: tenant ID or verified domain. A domain is lowercase only. Multi-tenant values accept any account and drop groups."
         },
         "allowedGroups": { "type": "array", "items": { "type": "string", "minLength": 1 }, "description": "microsoft: only members may log in." },
         "onlySecurityGroups": { "type": "boolean", "default": false, "description": "microsoft: return security groups only, no Microsoft 365 groups." },
@@ -52,7 +52,6 @@
           "description": "github: required, so arbitrary GitHub users can't log in."
         },
         "teamNameField": { "type": "string", "enum": ["name", "slug", "both"], "default": "slug", "description": "github: how teams appear in groups: team name, team slug or both. Keelson default: slug." },
-        "loadAllGroups": { "type": "boolean", "default": false, "description": "github: Dex loads all organizations and teams only when no orgs are set. Keelson requires orgs, so this has no effect." },
         "useLoginAsID": { "type": "boolean", "default": false, "description": "github: use the GitHub login as the user ID, not the numeric ID." },
         "extraConfig": {
           "type": "object",
@@ -63,14 +62,14 @@
       "allOf": [
         {
           "if": { "properties": { "type": { "const": "oidc" } } },
-          "then": { "required": ["issuer"], "propertyNames": { "not": { "enum": ["tenant", "allowedGroups", "onlySecurityGroups", "groupNameFormat", "emailToLowercase", "orgs", "teamNameField", "loadAllGroups", "useLoginAsID"] } } }
+          "then": { "required": ["issuer"], "propertyNames": { "not": { "enum": ["tenant", "allowedGroups", "onlySecurityGroups", "groupNameFormat", "emailToLowercase", "orgs", "teamNameField", "useLoginAsID"] } } }
         },
         {
           "if": { "properties": { "type": { "const": "microsoft" } } },
           "then": {
             "required": ["tenant"],
-            "propertyNames": { "not": { "enum": ["issuer", "scopes", "groupsClaim", "orgs", "teamNameField", "loadAllGroups", "useLoginAsID"] } },
-            "properties": { "extraConfig": { "propertyNames": { "not": { "enum": ["tenant", "groups", "useGroupsAsWhitelist"] } } } }
+            "propertyNames": { "not": { "enum": ["issuer", "scopes", "groupsClaim", "orgs", "teamNameField", "useLoginAsID"] } },
+            "properties": { "extraConfig": { "propertyNames": { "not": { "pattern": "(?i)^(tenant|groups|useGroupsAsWhitelist)$" } } } }
           }
         },
         {
@@ -78,7 +77,7 @@
           "then": {
             "required": ["orgs"],
             "propertyNames": { "not": { "enum": ["issuer", "scopes", "groupsClaim", "tenant", "allowedGroups", "onlySecurityGroups", "groupNameFormat", "emailToLowercase"] } },
-            "properties": { "extraConfig": { "propertyNames": { "not": { "enum": ["orgs", "org", "hostName", "rootCA"] } } } }
+            "properties": { "extraConfig": { "propertyNames": { "not": { "pattern": "(?i)^(orgs?|hostName|rootCA)$" } } } }
           }
         }
       ]

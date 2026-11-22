@@ -37,7 +37,6 @@ For the full default values, see `charts/keelson/values.yaml`.
 | `auth.dex.connectors[].groupsClaim` | string | "groups" | min length 1 | oidc: claim that Dex reads groups from. |
 | `auth.dex.connectors[].id` | string, required | — | max length 63; pattern `^[a-z0-9-]+$` | Unique. Also names the Dex env vars. |
 | `auth.dex.connectors[].issuer` | string | — | pattern `^https?://[^\s]+$` | oidc: issuer URL of the identity provider. Required for oidc. |
-| `auth.dex.connectors[].loadAllGroups` | boolean | false | — | github: Dex loads all organizations and teams only when no orgs are set. Keelson requires orgs, so this has no effect. |
 | `auth.dex.connectors[].name` | string | — | min length 1 | Login button text. Default: id. |
 | `auth.dex.connectors[].onlySecurityGroups` | boolean | false | — | microsoft: return security groups only, no Microsoft 365 groups. |
 | `auth.dex.connectors[].orgs` | array | — | min 1 item | github: required, so arbitrary GitHub users can't log in. |
@@ -49,7 +48,7 @@ For the full default values, see `charts/keelson/values.yaml`.
 | `auth.dex.connectors[].secretRef.clientSecretKey` | string | "clientSecret" | min length 1 | Key of the client secret in the Secret. |
 | `auth.dex.connectors[].secretRef.name` | string, required | — | min length 1 | Secret in namespace auth. A name only. |
 | `auth.dex.connectors[].teamNameField` | string | "slug" | one of `name`, `slug`, `both` | github: how teams appear in groups: team name, team slug or both. Keelson default: slug. |
-| `auth.dex.connectors[].tenant` | string | — | pattern `^([0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}\|[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+)$`; not matching `(?i)^(common\|consumers\|organizations)$` | microsoft: tenant ID or verified domain. Multi-tenant values accept any account and drop groups. |
+| `auth.dex.connectors[].tenant` | string | — | pattern `^([0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}\|[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+)$`; not matching `(?i)^(common\|consumers\|organizations)$` | microsoft: tenant ID or verified domain. A domain is lowercase only. Multi-tenant values accept any account and drop groups. |
 | `auth.dex.connectors[].type` | string, required | — | one of `oidc`, `microsoft`, `github` | Connector type: oidc (any OpenID Connect provider), microsoft (Entra ID) or github. |
 | `auth.dex.connectors[].useLoginAsID` | boolean | false | — | github: use the GitHub login as the user ID, not the numeric ID. |
 | `auth.staticUsers` | object | — | — | Static user settings. |
@@ -143,6 +142,6 @@ The chart fails to render when one of these rules is broken.
 - If `auth.dex.connectors` has at least 1 item, then `domain` is not empty.
 - If `tls.issuer` is `existing`, then `domain` is not empty; `tls.secretRef.name` is not empty.
 - If `tls.issuer` is `external`, then `domain` is not empty.
-- If `auth.dex.connectors[].type` is `oidc`, then `auth.dex.connectors[]` has none of the keys `tenant`, `allowedGroups`, `onlySecurityGroups`, `groupNameFormat`, `emailToLowercase`, `orgs`, `teamNameField`, `loadAllGroups`, `useLoginAsID`; `auth.dex.connectors[].issuer` is set.
-- If `auth.dex.connectors[].type` is `microsoft`, then `auth.dex.connectors[]` has none of the keys `issuer`, `scopes`, `groupsClaim`, `orgs`, `teamNameField`, `loadAllGroups`, `useLoginAsID`; `auth.dex.connectors[].extraConfig` has none of the keys `tenant`, `groups`, `useGroupsAsWhitelist`; `auth.dex.connectors[].tenant` is set.
-- If `auth.dex.connectors[].type` is `github`, then `auth.dex.connectors[]` has none of the keys `issuer`, `scopes`, `groupsClaim`, `tenant`, `allowedGroups`, `onlySecurityGroups`, `groupNameFormat`, `emailToLowercase`; `auth.dex.connectors[].extraConfig` has none of the keys `orgs`, `org`, `hostName`, `rootCA`; `auth.dex.connectors[].orgs` is set.
+- If `auth.dex.connectors[].type` is `oidc`, then `auth.dex.connectors[]` has none of the keys `tenant`, `allowedGroups`, `onlySecurityGroups`, `groupNameFormat`, `emailToLowercase`, `orgs`, `teamNameField`, `useLoginAsID`; `auth.dex.connectors[].issuer` is set.
+- If `auth.dex.connectors[].type` is `microsoft`, then `auth.dex.connectors[]` has none of the keys `issuer`, `scopes`, `groupsClaim`, `orgs`, `teamNameField`, `useLoginAsID`; `auth.dex.connectors[].extraConfig` has no key matching `(?i)^(tenant\|groups\|useGroupsAsWhitelist)$`; `auth.dex.connectors[].tenant` is set.
+- If `auth.dex.connectors[].type` is `github`, then `auth.dex.connectors[]` has none of the keys `issuer`, `scopes`, `groupsClaim`, `tenant`, `allowedGroups`, `onlySecurityGroups`, `groupNameFormat`, `emailToLowercase`; `auth.dex.connectors[].extraConfig` has no key matching `(?i)^(orgs?\|hostName\|rootCA)$`; `auth.dex.connectors[].orgs` is set.

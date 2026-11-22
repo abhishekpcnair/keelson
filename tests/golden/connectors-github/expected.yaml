@@ -284,7 +284,6 @@ spec:
               - config:
                   clientID: $KEELSON_DEX_GITHUB_CLIENT_ID
                   clientSecret: $KEELSON_DEX_GITHUB_CLIENT_SECRET
-                  loadAllGroups: false
                   orgs:
                   - name: my-org
                     teams:
@@ -335,7 +334,7 @@ spec:
             template:
               metadata:
                 annotations:
-                  keelson.io/dex-config: "bdb24670e2bef7ea3ce12eb7de9d97853821083345afa7f83fcdf5675071d37e"
+                  keelson.io/dex-config: "cc0618073aa8880a50b50c21a5612bcec4d6243a4c190154037f678785d0f322"
               spec:
                 containers:
                   - name: dex

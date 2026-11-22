@@ -23,7 +23,7 @@ import subprocess
 import sys
 
 import yaml
-from kustomize_check import check_version
+from kustomize_check import VersionError, check_version
 
 KUSTOMIZE = os.environ.get("KUSTOMIZE", "kustomize")
 
@@ -88,9 +88,9 @@ def main():
         print(f"check_namespaces: {upstream} is missing; run make upstream-cache", file=sys.stderr)
         sys.exit(2)
     try:
-        check_version(upstream)  # exits with a message on a wrong or missing version
-    except SystemExit as e:
-        print(f"check_namespaces: {str(e.code).removeprefix('kustomize_check: ')}", file=sys.stderr)
+        check_version(upstream)
+    except VersionError as e:
+        print(f"check_namespaces: {e}", file=sys.stderr)
         sys.exit(2)
     except OSError as e:
         what = f"'{KUSTOMIZE}' cannot run" if e.filename == KUSTOMIZE else f"cannot read {e.filename}"
