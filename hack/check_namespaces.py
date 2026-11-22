@@ -2,16 +2,19 @@
 """Check each module's namespace lists against its pinned upstream kustomize output.
 
 For every charts/keelson/modules/*.yaml with source.type kustomize, run
-`kubectl kustomize` on .cache/upstream/<tag>/<path> (and on each platformPaths entry).
+`kustomize build` on .cache/upstream/<tag>/<path> (and on each platformPaths entry).
+The kustomize binary must be the version upstream pins in tests/kustomize_install.sh, the same
+as for `make kustomize-check`.
   found    = every metadata.namespace, plus the name of every kind: Namespace
   declared = namespace + namespaces
   N1 FAIL  a path writes to a namespace outside declared: the AppProject would block a sync.
   N1 WARN  declared - {namespace} has a namespace that no path of the module writes to.
+  N0 FAIL  a module file is empty, not valid UTF-8 or YAML, not a mapping, or has no name or source.path.
+Exit 1 on any FAIL. Exit 2 if the upstream cache is missing, or kustomize cannot run or is not the pinned version.
 
 Usage:
   hack/check_namespaces.py [--chart charts/keelson] [--cache .cache/upstream]
-The tag comes from upstream.manifestsRef in values.yaml. $KUBECTL overrides `kubectl`.
-Exit 1 on any FAIL, 2 if the upstream cache or kubectl is missing.
+The tag comes from upstream.manifestsRef in values.yaml. $KUSTOMIZE overrides `kustomize`.
 """
 import argparse
 import os
@@ -20,8 +23,9 @@ import subprocess
 import sys
 
 import yaml
+from kustomize_check import check_version
 
-KUBECTL = os.environ.get("KUBECTL", "kubectl")
+KUSTOMIZE = os.environ.get("KUSTOMIZE", "kustomize")
 
 
 class MissingTool(Exception):
@@ -30,9 +34,11 @@ class MissingTool(Exception):
 
 def found_namespaces(path: pathlib.Path):
     try:
-        r = subprocess.run([KUBECTL, "kustomize", str(path)], capture_output=True, text=True)
+        r = subprocess.run([KUSTOMIZE, "build", str(path)], capture_output=True, text=True)
     except FileNotFoundError:
-        raise MissingTool(f"'{KUBECTL}' not found on PATH; install kubectl (or set KUBECTL)") from None
+        raise MissingTool(f"'{KUSTOMIZE}' not found on PATH; install the pinned kustomize (or set KUSTOMIZE)") from None
+    except OSError as e:
+        raise MissingTool(f"'{KUSTOMIZE}' cannot run: {e.strerror or e}") from None
     if r.returncode != 0:
         raise RuntimeError(r.stderr.strip())
     found = set()
@@ -60,7 +66,7 @@ def check_module(m: dict, upstream: pathlib.Path):
         try:
             found = found_namespaces(upstream / p)
         except RuntimeError as e:
-            fails.append(f"N1 {m['name']}: kubectl kustomize {p} failed: {e}")
+            fails.append(f"N1 {m['name']}: kustomize build {p} failed: {e}")
             continue
         found_any |= found
         if missing := sorted(found - declared):
@@ -79,14 +85,43 @@ def main():
     tag = yaml.safe_load((a.chart / "values.yaml").read_text())["upstream"]["manifestsRef"]
     upstream = a.cache / tag
     if not upstream.is_dir():
-        print(f"check_namespaces: {upstream} is missing; run make upstream-cache")
+        print(f"check_namespaces: {upstream} is missing; run make upstream-cache", file=sys.stderr)
+        sys.exit(2)
+    try:
+        check_version(upstream)  # exits with a message on a wrong or missing version
+    except SystemExit as e:
+        print(f"check_namespaces: {str(e.code).removeprefix('kustomize_check: ')}", file=sys.stderr)
+        sys.exit(2)
+    except OSError as e:
+        what = f"'{KUSTOMIZE}' cannot run" if e.filename == KUSTOMIZE else f"cannot read {e.filename}"
+        print(f"check_namespaces: {what}: {e.strerror or e}", file=sys.stderr)
         sys.exit(2)
     fails, modules = 0, 0
     for f in sorted((a.chart / "modules").glob("*.yaml")):
         try:
-            mf, mw = check_module(yaml.safe_load(f.read_text()), upstream)
+            m = yaml.safe_load(f.read_text()) or {}
+        except UnicodeDecodeError:
+            print(f"FAIL N0 {f}: not valid UTF-8")
+            fails += 1
+            continue
+        except yaml.YAMLError as e:
+            print(f"FAIL N0 {f}: not valid YAML: {str(e).splitlines()[0]}")
+            fails += 1
+            continue
+        if not isinstance(m, dict) or not isinstance(m.get("source") or {}, dict):
+            print(f"FAIL N0 {f}: not a mapping (the file and its source: must be maps)")
+            fails += 1
+            continue
+        missing = [k for k, ok in (("name", m.get("name")), ("source.path", (m.get("source") or {}).get("path"))) if not ok]
+        if missing:
+            for k in missing:
+                print(f"FAIL N0 {f}: missing required field {k}")
+            fails += len(missing)
+            continue
+        try:
+            mf, mw = check_module(m, upstream)
         except MissingTool as e:
-            print(f"check_namespaces: {e}")
+            print(f"check_namespaces: {e}", file=sys.stderr)
             sys.exit(2)
         modules += 1
         for w in mw:

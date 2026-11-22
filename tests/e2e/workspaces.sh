@@ -35,15 +35,19 @@ if ! kubectl get namespace "$PROFILE" >/dev/null 2>&1; then
     kubectl apply -k "$UP/common/user-namespace/base" >/dev/null || fail "could not apply upstream test Profile"
   else
     kubectl create namespace "$PROFILE" >/dev/null || fail "could not create namespace $PROFILE"
-    kubectl label namespace "$PROFILE" app.kubernetes.io/part-of=kubeflow-profile >/dev/null
-    kubectl -n "$PROFILE" create serviceaccount default-editor >/dev/null
+    kubectl label namespace "$PROFILE" app.kubernetes.io/part-of=kubeflow-profile >/dev/null \
+      || fail "could not label namespace $PROFILE"
+    kubectl -n "$PROFILE" create serviceaccount default-editor >/dev/null \
+      || fail "could not create ServiceAccount default-editor in $PROFILE"
     kubectl -n "$PROFILE" create rolebinding default-editor --clusterrole=kubeflow-edit \
-      --serviceaccount="$PROFILE:default-editor" >/dev/null
+      --serviceaccount="$PROFILE:default-editor" >/dev/null \
+      || fail "could not create RoleBinding default-editor in $PROFILE"
   fi
 fi
 for _ in $(seq 60); do kubectl -n "$PROFILE" get serviceaccount default-editor >/dev/null 2>&1 && break; sleep 5; done
 kubectl -n "$PROFILE" get serviceaccount default-editor >/dev/null 2>&1 \
-  && ok "profile namespace $PROFILE with default-editor" || fail "no default-editor ServiceAccount in $PROFILE"
+  && ok "profile namespace $PROFILE with default-editor" \
+  || fail "no default-editor ServiceAccount in $PROFILE after 300s. If the namespace is left over from an earlier run, delete it: kubectl delete namespace $PROFILE"
 
 # 2. The jupyterlab WorkspaceKind from the workspace-kinds module.
 kubectl get workspacekind jupyterlab >/dev/null 2>&1 && ok "WorkspaceKind jupyterlab installed" \

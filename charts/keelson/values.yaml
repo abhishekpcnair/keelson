@@ -14,6 +14,19 @@ tls:
   # issuer=existing: a kubernetes.io/tls Secret in istio-system. Name only.
   secretRef:
     name: ""
+# dev | production. production rejects static users and needs a Dex connector.
+environment: dev
+auth:
+  # The upstream static user (user@example.com). For Kind and dev only.
+  staticUsers:
+    enabled: true
+  dex:
+    # Identity providers. See docs/configuration/authentication.md.
+    # - type: oidc
+    #   id: corp
+    #   issuer: https://idp.example.com
+    #   secretRef: { name: dex-corp }   # keys clientID, clientSecret, in namespace auth
+    connectors: []
 workspaces:
   # WorkspaceKinds to install from upstream's samples: jupyterlab, codeserver, rstudio.
   # [] installs none (bring your own). See docs/modules/workspaces.md.

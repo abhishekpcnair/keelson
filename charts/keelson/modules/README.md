@@ -11,8 +11,9 @@ Fields:
 - `namespaces`: every namespace the path writes to, which builds the AppProject allowlist (checked by `make namespaces`)
 - `translations`: names of translation helpers (`templates/_translate_<name>.tpl`). The engine calls
   `keelson.translate.<name>` for each and appends the returned patches to `spec.source.kustomize.patches`.
-  Unknown names fail the render. Known: `domain`, `workspaceKinds`. A helper can return `skip: true`; then the module renders no Application. A skipped module still counts as enabled for `dependsOn`.
+  Unknown names fail the render. Known: `domain`, `auth`, `workspaceKinds`. A helper can return `skip: true`; then the module renders no Application. A skipped module still counts as enabled for `dependsOn`.
 - `smokeTest`, `upstreamHelmChart`
+- `ignoreDifferences` (optional): ArgoCD `ignoreDifferences` entries for fields another controller owns, such as a cert-manager-injected `caBundle`. Each entry needs `kind` and a non-empty `jsonPointers`, `jqPathExpressions` or `managedFieldsManagers`. The engine adds `RespectIgnoreDifferences=true`, and overrides can't remove these entries.
 
 User docs: `docs/modules/README.md`.
 

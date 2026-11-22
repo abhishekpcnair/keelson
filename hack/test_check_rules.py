@@ -6,10 +6,11 @@ import unittest
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import contextlib  # noqa: E402
 import io  # noqa: E402
+import os  # noqa: E402
 import tempfile  # noqa: E402
 from unittest import mock  # noqa: E402
 
-from check_rules import check_symlinks, patch_sets_image  # noqa: E402
+from check_rules import check_symlinks, check_templates, patch_sets_image  # noqa: E402
 
 FAILS = {
     "json6902 replace image (issue #24)":
@@ -70,10 +71,24 @@ class CheckSymlinks(unittest.TestCase):
     def test_not_a_git_repo_fails(self):
         errors = []
         with tempfile.TemporaryDirectory() as d:
-            check_symlinks(pathlib.Path(d), errors)
+            # No GIT_* variables, and git must not look above the temp dir for a repo.
+            env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+            env["GIT_CEILING_DIRECTORIES"] = str(pathlib.Path(d).parent)
+            with mock.patch.dict(os.environ, env, clear=True):
+                check_symlinks(pathlib.Path(d), errors)
         self.assertEqual(len(errors), 1)
+        # Keelson's own prefix: it doesn't depend on git's locale.
         self.assertTrue(errors[0].startswith("R6 "))
-        self.assertIn("not a git repository", errors[0])
+        self.assertIn("git ls-files failed", errors[0])
+
+    def test_git_cannot_run_fails(self):
+        errors, out = [], io.StringIO()
+        with mock.patch("check_rules.subprocess.run", side_effect=PermissionError("git")), \
+                contextlib.redirect_stdout(out):
+            check_symlinks(pathlib.Path("."), errors)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("git cannot run", errors[0])
+        self.assertNotIn("NOTE", out.getvalue())
 
     def test_git_missing_skips_with_note(self):
         errors, out = [], io.StringIO()
@@ -82,6 +97,36 @@ class CheckSymlinks(unittest.TestCase):
             check_symlinks(pathlib.Path("."), errors)
         self.assertEqual(errors, [])
         self.assertIn("NOTE R6 skipped", out.getvalue())
+
+
+class CheckTemplates(unittest.TestCase):
+    def run_t1(self, text):
+        errors = []
+        with tempfile.TemporaryDirectory() as d:
+            (pathlib.Path(d) / "_x.tpl").write_text(text)
+            check_templates(pathlib.Path(d), errors)
+        return errors
+
+    def test_comment_above_own_define(self):
+        text = '{{/*\nkeelson.a: first helper.\n*/}}\n{{- define "keelson.a" -}}\n{{- end -}}\n'
+        self.assertEqual(self.run_t1(text), [])
+
+    def test_other_define_between_fails(self):
+        # The #77/#78 mistake: a new helper between a doc comment and its define.
+        text = ('{{/*\nkeelson.a: first helper.\n*/}}\n'
+                '{{- define "keelson.b" -}}\n{{- end -}}\n\n'
+                '{{- define "keelson.a" -}}\n{{- end -}}\n')
+        errors = self.run_t1(text)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("T1", errors[0])
+        self.assertIn("keelson.a", errors[0])
+
+    def test_both_comment_forms_checked(self):
+        one_line = '{{/* keelson.a: one line. */}}\n{{- define "keelson.wrong" -}}\n{{- end -}}\n'
+        next_line = '{{- /*\nkeelson.a: next line.\n*/}}\n{{- define "keelson.wrong" -}}\n{{- end -}}\n'
+        self.assertEqual(len(self.run_t1(one_line)), 1)
+        self.assertEqual(len(self.run_t1(next_line)), 1)
+        self.assertEqual(self.run_t1(one_line.replace("keelson.wrong", "keelson.a")), [])
 
 
 if __name__ == "__main__":

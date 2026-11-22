@@ -10,3 +10,12 @@ defaultEnabled: true
 translations: []
 smokeTest: none  # e2e harness lands in #4
 upstreamHelmChart: common/istio/helm
+# istiod patches its validating webhook at runtime: it injects caBundle and flips
+# failurePolicy from Ignore to Fail once ready (Istio's ArgoCD guidance).
+ignoreDifferences:
+  - group: admissionregistration.k8s.io
+    kind: ValidatingWebhookConfiguration
+    name: istio-validator-istio-system
+    jqPathExpressions:
+      - .webhooks[]?.clientConfig.caBundle
+      - .webhooks[]?.failurePolicy

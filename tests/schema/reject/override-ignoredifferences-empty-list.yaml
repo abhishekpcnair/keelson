@@ -1,0 +1,9 @@
+# expect: must name jsonPointers, jqPathExpressions or managedFieldsManagers
+# An empty list names no field.
+advanced:
+  modules:
+    dex:
+      appSpecOverride:
+        ignoreDifferences:
+          - kind: Deployment
+            jqPathExpressions: []

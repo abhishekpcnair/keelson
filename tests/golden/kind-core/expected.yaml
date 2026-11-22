@@ -226,6 +226,13 @@ spec:
   destination:
     namespace: istio-system
     server: https://kubernetes.default.svc
+  ignoreDifferences:
+  - group: admissionregistration.k8s.io
+    jqPathExpressions:
+    - .webhooks[]?.clientConfig.caBundle
+    - .webhooks[]?.failurePolicy
+    kind: ValidatingWebhookConfiguration
+    name: istio-validator-istio-system
   project: keelson
   source:
     path: common/istio/istio-install/overlays/oauth2-proxy
@@ -244,6 +251,7 @@ spec:
     syncOptions:
     - ServerSideApply=true
     - CreateNamespace=true
+    - RespectIgnoreDifferences=true
 
 ---
 # Source: keelson/templates/applications.yaml
@@ -331,6 +339,12 @@ spec:
   destination:
     namespace: kubeflow
     server: https://kubernetes.default.svc
+  ignoreDifferences:
+  - group: rbac.authorization.k8s.io
+    jsonPointers:
+    - /rules
+    kind: ClusterRole
+    name: kubeflow-istio-admin
   project: keelson
   source:
     path: common/istio/kubeflow-istio-resources/base
@@ -349,6 +363,7 @@ spec:
     syncOptions:
     - ServerSideApply=true
     - CreateNamespace=true
+    - RespectIgnoreDifferences=true
 
 ---
 # Source: keelson/templates/applications.yaml
@@ -366,6 +381,22 @@ spec:
   destination:
     namespace: kubeflow
     server: https://kubernetes.default.svc
+  ignoreDifferences:
+  - group: rbac.authorization.k8s.io
+    jsonPointers:
+    - /rules
+    kind: ClusterRole
+    name: kubeflow-admin
+  - group: rbac.authorization.k8s.io
+    jsonPointers:
+    - /rules
+    kind: ClusterRole
+    name: kubeflow-edit
+  - group: rbac.authorization.k8s.io
+    jsonPointers:
+    - /rules
+    kind: ClusterRole
+    name: kubeflow-view
   project: keelson
   source:
     path: common/kubeflow-roles/base
@@ -384,6 +415,7 @@ spec:
     syncOptions:
     - ServerSideApply=true
     - CreateNamespace=true
+    - RespectIgnoreDifferences=true
 
 ---
 # Source: keelson/templates/applications.yaml

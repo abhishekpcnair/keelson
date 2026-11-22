@@ -45,9 +45,10 @@ kubeconform: ## Validate rendered manifests
 
 rules: ## Check design rules on rendered output and patches
 	python3 -m unittest hack/test_check_rules.py
-	python3 hack/check_rules.py --rendered $(RENDER_DIR) --patches $(CHART)/patches --repo .
+	python3 -m unittest hack/test_upstream_watch.py
+	python3 hack/check_rules.py --rendered $(RENDER_DIR) --patches $(CHART)/patches --repo . --templates $(CHART)/templates
 
-namespaces: upstream-cache ## Check module namespaces: lists against upstream kubectl kustomize output
+namespaces: upstream-cache ## Check module namespaces: lists against upstream kustomize build output (pinned kustomize)
 	python3 -m unittest hack/test_check_namespaces.py
 	python3 hack/check_namespaces.py
 
