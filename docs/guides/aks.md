@@ -22,7 +22,8 @@ You need:
 A full Kubeflow install needs about 16 GB of RAM in total ([ADR 0003](../adr/0003-kind-bootstrap-installs-argocd.md)).
 Keelson has not tested an AKS node size.
 
-Which Keelson version to install: the first pre-release, `v0.1.0-alpha.1`, is not published yet (#63).
+Which Keelson version to install: the first pre-release, `v0.1.0-alpha.1`, is not published yet
+([#63](https://github.com/abhishekpcnair/keelson/issues/63)).
 Until it is, pin a commit SHA, as [ArgoCD setup](../argocd.md) says. Never use a branch.
 
 ## 1. Use your existing ArgoCD
@@ -46,9 +47,15 @@ Do **not** set `platform: kind` on AKS. Leave `platform` at its default, `generi
 
 ## 2. Production values
 
-Set `environment: production`. The render then fails unless static users are off and at least one
-Dex connector is set. Without that, Dex would keep upstream's test user (`user@example.com`, password
-`12341234`).
+Set `environment: production`. The render then fails unless all four of these hold:
+- Static users are off. Otherwise Dex keeps upstream's test user (`user@example.com`, password `12341234`).
+- At least one Dex connector is set.
+- `auth.oidcClient.secretRef` is set.
+- `auth.cookie.secretRef` is set.
+
+The last two name Secrets that replace upstream's fixed OIDC client secret and cookie secret, which
+are the same in every install. See
+[Secrets for oauth2-proxy and Dex](../configuration/authentication.md#secrets-for-oauth2-proxy-and-dex).
 
 This is the whole example. It is the file `tests/golden/aks-entra-external/values.yaml`, which
 `make golden-check` renders on every pull request:
@@ -61,6 +68,12 @@ tls:
 auth:
   staticUsers:
     enabled: false
+  oidcClient:
+    secretRef:
+      name: kubeflow-oidc-client
+  cookie:
+    secretRef:
+      name: oauth2-proxy-cookie
   dex:
     connectors:
       - type: microsoft
@@ -72,11 +85,14 @@ auth:
           name: dex-entra
 ```
 
-Change these four things:
+Change these things:
 - `domain`: your hostname (section 3).
 - `tls.issuer`: `external` or `existing` (section 3).
 - `tenant` and `allowedGroups`: your Entra tenant and groups (section 4).
-- `secretRef.name`: the name of the Secret you create in section 4.
+- `connectors[].secretRef.name`: the name of the Secret you create in section 4.
+- `auth.oidcClient.secretRef.name` and `auth.cookie.secretRef.name`: two Secrets with random values.
+  Create them before ArgoCD syncs, as
+  [Authentication](../configuration/authentication.md#secrets-for-oauth2-proxy-and-dex) describes.
 
 ## 3. Domain and TLS
 
@@ -181,14 +197,16 @@ and has no value to change that. You put the front end in place yourself. The Se
       app: istio-ingressgateway
       istio: ingressgateway
     ports:
+      - { name: status-port, port: 15021, targetPort: 15021 }
       - { name: http2, port: 80, targetPort: 8080 }
       - { name: https, port: 443, targetPort: 8443 }
   ```
 
   You apply it yourself. It is not part of Keelson's output.
 
-Set the health probe of whatever you use to **port 15021, path `/healthz/ready`**. Do not probe the Gateway:
-with a `domain` set, it answers only requests for that host.
+Set the health probe of your front end to **port 15021, path `/healthz/ready`**. The Service above
+exposes port 15021 for this. Do not probe the Gateway: with a `domain` set, it answers only requests for
+that host. How to set a probe on the Azure side is not covered here, and is not yet tested on AKS.
 
 To check without DNS, forward the Service and send the right host:
 
@@ -197,8 +215,12 @@ kubectl -n istio-system port-forward svc/istio-ingressgateway 8080:80
 curl -H 'Host: kubeflow.example.com' http://localhost:8080/
 ```
 
-An unauthenticated request to `/` is refused with `403` until the dashboard module is enabled. This is
-expected: see [Core modules](../modules/core.md).
+With `tls.issuer: existing`, port 80 only redirects. Forward port 443 and use `curl --resolve` instead.
+See [Port-forward and health probes](../configuration/domain-and-tls.md#port-forward-and-health-probes).
+
+The dashboard module is on by default and serves `/`. An unauthenticated request is not served the
+dashboard: `tests/e2e/auth-redirect.sh` checks that `GET /` is refused or redirected (302, 401 or 403),
+and that it never gets `200`.
 
 ## 6. Upgrades
 
@@ -227,11 +249,11 @@ The upgrade from the previous minor release is on the manual AKS checklist and i
 
 These parts are added when the feature they describe is released:
 
-| Part | Waits for |
+| Part | Status |
 |---|---|
-| Harden the auth secrets | #27 |
-| Object store | #38 |
-| Azure Database for MySQL | #39 |
-| Groups to profiles | #66 |
+| Auth secrets | Done. See [Secrets for oauth2-proxy and Dex](../configuration/authentication.md#secrets-for-oauth2-proxy-and-dex), linked from section 2. |
+| Object store | Waits for [#38](https://github.com/abhishekpcnair/keelson/issues/38). |
+| Azure Database for MySQL | Waits for [#39](https://github.com/abhishekpcnair/keelson/issues/39). |
+| Groups to profiles | Waits for [#66](https://github.com/abhishekpcnair/keelson/issues/66). |
 
-Progress is tracked in #42.
+Progress is tracked in [#42](https://github.com/abhishekpcnair/keelson/issues/42).

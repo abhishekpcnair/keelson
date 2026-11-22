@@ -6,7 +6,7 @@ You get the **core** modules (cert-manager, Istio, oauth2-proxy, Dex and the Kub
 That is 11 ArgoCD Applications. Workspaces, pipelines and profiles are not on `main` yet.
 See [What is not here yet](#what-is-not-here-yet).
 
-Use Kind for trying Keelson and for development only. For a real cluster, see the AKS guide (planned, #42).
+Use Kind for trying Keelson and for development only. For a real cluster, see the [AKS guide](guides/aks.md).
 
 ## Before you start
 
