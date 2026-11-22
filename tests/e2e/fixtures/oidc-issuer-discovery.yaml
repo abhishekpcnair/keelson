@@ -1,0 +1,16 @@
+# Test-only binding for tests/e2e/auth_oidc.sh (#43). Not part of the chart.
+# Dex opens its OIDC connector by reading /.well-known/openid-configuration and the keys of the issuer.
+# The issuer in this test is the Kind API server. The API server only serves these two documents to
+# unauthenticated callers when this binding exists. The script applies it and deletes it at the end.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: keelson-e2e-issuer-discovery
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:service-account-issuer-discovery
+subjects:
+- apiGroup: rbac.authorization.k8s.io
+  kind: Group
+  name: system:unauthenticated
