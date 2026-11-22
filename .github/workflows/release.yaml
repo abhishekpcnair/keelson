@@ -90,6 +90,7 @@ jobs:
         if: env.DRY_RUN == 'true'
         run: |
           version=$(grep '^version:' charts/keelson/Chart.yaml | awk '{print $2}')
+          mkdir -p pulled
           helm pull oci://localhost:5000/charts/keelson --version "$version" --plain-http -d pulled
           ls pulled
       - name: Sign and attest the image list (keyless)
