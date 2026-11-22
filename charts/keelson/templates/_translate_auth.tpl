@@ -109,7 +109,82 @@ upstream (static users on, no connectors).
 {{- $deploy := dict "env" $env "hash" (toYaml $cfg | sha256sum) -}}
 {{- $patches = append $patches (dict "patch" (include "keelson.translate.auth.deployment" $deploy) "target" (dict "group" "apps" "version" "v1" "kind" "Deployment" "name" "dex")) -}}
 {{- end -}}
+{{- /* Production secrets (#27): oauth2-proxy and Dex read the user's Secrets, not upstream's public literals. */ -}}
+{{- $oidc := dig "oidcClient" "secretRef" "name" "" $auth -}}
+{{- $cookie := dig "cookie" "secretRef" "name" "" $auth -}}
+{{- if and (eq .module.name "oauth2-proxy") (or $oidc $cookie) -}}
+{{- $patches = append $patches (dict "patch" (include "keelson.translate.auth.oauth2proxySecrets" (dict "oidc" $oidc "cookie" $cookie)) "target" (dict "group" "apps" "version" "v1" "kind" "Deployment" "name" "oauth2-proxy")) -}}
+{{- end -}}
+{{- if and (eq .module.name "dex") $oidc -}}
+{{- $patches = append $patches (dict "patch" (include "keelson.translate.auth.dexSecrets" $oidc) "target" (dict "group" "apps" "version" "v1" "kind" "Deployment" "name" "dex")) -}}
+{{- end -}}
 {{- dict "patches" $patches | toYaml -}}
+{{- end -}}
+
+{{/*
+oauth2-proxy env entries 0, 1 and 2 are the client ID, client secret and cookie secret
+(upstream common/oauth2-proxy/base/deployment.yaml at 26.10.0). Each `test` op checks the env var name
+first, so a moved entry fails the sync and never changes the wrong one. The Secret name is not tested:
+upstream's generator adds a hash to it. Secret key names stay the same as upstream's.
+*/}}
+{{- define "keelson.translate.auth.oauth2proxySecrets" -}}
+# purpose: oauth2-proxy reads its client ID, client secret and cookie secret from the user's Secrets, not upstream's public literals
+# upstream: none
+# remove-when: upstream ships a production overlay without literal secrets
+{{- if .oidc }}
+- op: test
+  path: /spec/template/spec/containers/0/env/0/name
+  value: OAUTH2_PROXY_CLIENT_ID
+- op: replace
+  path: /spec/template/spec/containers/0/env/0/valueFrom/secretKeyRef/name
+  value: {{ .oidc | quote }}
+- op: test
+  path: /spec/template/spec/containers/0/env/1/name
+  value: OAUTH2_PROXY_CLIENT_SECRET
+- op: replace
+  path: /spec/template/spec/containers/0/env/1/valueFrom/secretKeyRef/name
+  value: {{ .oidc | quote }}
+{{- end }}
+{{- if .cookie }}
+- op: test
+  path: /spec/template/spec/containers/0/env/2/name
+  value: OAUTH2_PROXY_COOKIE_SECRET
+- op: replace
+  path: /spec/template/spec/containers/0/env/2/valueFrom/secretKeyRef/name
+  value: {{ .cookie | quote }}
+{{- end }}
+{{- end -}}
+
+{{/*
+Dex gets its static client ID and secret from `envFrom[0]` (Secret dex-oidc-client, no name hash:
+upstream sets disableNameSuffixHash). Replace that entry with two env entries from the user's Secret.
+envFrom[1] (dex-passwords) stays.
+*/}}
+{{- define "keelson.translate.auth.dexSecrets" -}}
+# purpose: Dex reads the static client ID and secret from the user's Secret, not upstream's public literals
+# upstream: none
+# remove-when: upstream ships a production overlay without literal secrets
+- op: test
+  path: /spec/template/spec/containers/0/envFrom/0/secretRef/name
+  value: dex-oidc-client
+- op: remove
+  path: /spec/template/spec/containers/0/envFrom/0
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: OIDC_CLIENT_ID
+    valueFrom:
+      secretKeyRef:
+        name: {{ . | quote }}
+        key: client-id
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: OIDC_CLIENT_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: {{ . | quote }}
+        key: client-secret
 {{- end -}}
 
 {{- define "keelson.translate.auth.config" -}}

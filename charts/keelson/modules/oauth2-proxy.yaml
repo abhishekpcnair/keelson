@@ -8,6 +8,6 @@ namespace: oauth2-proxy
 namespaces: [oauth2-proxy, istio-system]
 dependsOn: [istio]
 defaultEnabled: true
-translations: [domain]
+translations: [domain, auth]
 smokeTest: tests/e2e/auth-redirect.sh
 upstreamHelmChart: common/oauth2-proxy/helm

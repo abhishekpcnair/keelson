@@ -6,6 +6,12 @@ tls:
 auth:
   staticUsers:
     enabled: false
+  oidcClient:
+    secretRef:
+      name: kubeflow-oidc-client
+  cookie:
+    secretRef:
+      name: oauth2-proxy-cookie
   dex:
     connectors:
       - type: oidc
