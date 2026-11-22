@@ -9,7 +9,7 @@ as for `make kustomize-check`.
   declared = namespace + namespaces
   N1 FAIL  a path writes to a namespace outside declared: the AppProject would block a sync.
   N1 WARN  declared - {namespace} has a namespace that no path of the module writes to.
-  N0 FAIL  a module file is empty, not valid YAML, not a mapping, or has no name or source.path.
+  N0 FAIL  a module file is empty, not valid UTF-8 or YAML, not a mapping, or has no name or source.path.
 Exit 1 on any FAIL. Exit 2 if the upstream cache is missing, or kustomize cannot run or is not the pinned version.
 
 Usage:
@@ -100,11 +100,15 @@ def main():
     for f in sorted((a.chart / "modules").glob("*.yaml")):
         try:
             m = yaml.safe_load(f.read_text()) or {}
+        except UnicodeDecodeError:
+            print(f"FAIL N0 {f}: not valid UTF-8")
+            fails += 1
+            continue
         except yaml.YAMLError as e:
             print(f"FAIL N0 {f}: not valid YAML: {str(e).splitlines()[0]}")
             fails += 1
             continue
-        if not isinstance(m, dict) or not isinstance(m.get("source", {}), dict):
+        if not isinstance(m, dict) or not isinstance(m.get("source") or {}, dict):
             print(f"FAIL N0 {f}: not a mapping (the file and its source: must be maps)")
             fails += 1
             continue

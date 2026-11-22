@@ -95,7 +95,8 @@ class MainCli(unittest.TestCase):
         return tool
 
     def run_cli(self, module_text, tool=None):
-        (self.root / "chart/modules/m.yaml").write_text(module_text)
+        module = self.root / "chart/modules/m.yaml"
+        module.write_bytes(module_text) if isinstance(module_text, bytes) else module.write_text(module_text)
         env = dict(os.environ)
         env["KUSTOMIZE"] = str(tool or self.stub_tool())
         return subprocess.run(
@@ -127,6 +128,19 @@ class MainCli(unittest.TestCase):
         r = self.run_cli("name: [unclosed\n")
         self.assertEqual(r.returncode, 1)
         self.assertIn("not valid YAML", r.stdout)
+        self.assertNotIn("Traceback", r.stderr)
+
+    def test_empty_source(self):
+        r = self.run_cli("name: m\nsource:\n")
+        self.assertEqual(r.returncode, 1)
+        self.assertEqual(r.stdout.count("FAIL N0"), 1)
+        self.assertIn("missing required field source.path", r.stdout)
+        self.assertNotIn("not a mapping", r.stdout)
+
+    def test_not_utf8(self):
+        r = self.run_cli(b"\xff\xfe")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("not valid UTF-8", r.stdout)
         self.assertNotIn("Traceback", r.stderr)
 
     def test_wrong_kustomize_version(self):
