@@ -19,6 +19,12 @@ These come from [`CLAUDE.md`](CLAUDE.md) and are checked by `hack/check_rules.py
 ## Local setup
 You need `helm`, `kubeconform`, `kubectl` (for `make verify` and e2e), `python3` with `pyyaml`, and (for e2e) `kind` and Docker.
 
+`make verify` also runs `make health-check`, which needs the `argocd` CLI at **v3.6.2**. That is `ARGOCD_VERSION` in `hack/kind-up.sh`, and CI uses the same pin. Use one of these:
+- Set `ARGOCD=/path/to/argocd`.
+- Put the binary at `.cache/bin/argocd` (gitignored).
+
+Download it from the `v3.6.2` release on GitHub and check it against the release's `cli_checksums.txt`.
+
 ```sh
 make upstream-cache      # clone the pinned kubeflow/manifests into .cache/upstream/
 make verify              # lint, golden diff, kubeconform, rules (must pass)

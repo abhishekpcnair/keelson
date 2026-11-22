@@ -35,4 +35,6 @@ jobs:
       # istio-cni needs them; the runner default (128 instances) crash-loops it.
       - run: sudo sysctl -w fs.inotify.max_user_instances=2280 fs.inotify.max_user_watches=1255360
       - run: make kind-up
+      - name: Check the kind-up health apply (#70)
+        run: tests/e2e/check_kind_up_health.sh
       - run: tests/e2e/run.sh core
