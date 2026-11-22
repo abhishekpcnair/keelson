@@ -6,6 +6,11 @@ on:
   # step except the publishing ones against a throwaway local registry and a throwaway
   # signing key. Nothing is pushed to ghcr.io, written to the public Rekor log, or released.
   workflow_dispatch:
+    inputs:
+      sbom:
+        description: "Also dry-run the sbom job (scans every image, so it takes long). Nothing is attested or uploaded."
+        type: boolean
+        default: false
   pull_request:
     paths:
       - .github/workflows/release.yaml
@@ -19,6 +24,8 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    outputs:
+      ref: ${{ steps.push.outputs.ref }}   # the pushed chart digest, for the sbom job
     env:
       # Only a tag push publishes.
       DRY_RUN: ${{ github.event_name != 'push' }}
@@ -54,6 +61,8 @@ jobs:
           python3 hack/release_notes.py "${GITHUB_REF_NAME}" CHANGELOG.md | tee dist/notes.md
       - name: List the referenced upstream images
         run: python3 hack/list_images.py --out dist
+      - uses: actions/upload-artifact@v7
+        with: { name: images-json, path: dist/images.json }
       - name: Check the self-source default matches the push target
         env:
           OWNER: ${{ github.repository_owner }}
@@ -122,3 +131,70 @@ jobs:
           case "${GITHUB_REF_NAME}" in *-*) flags+=(--prerelease) ;; esac
           gh release create "${GITHUB_REF_NAME}" dist/keelson-*.tgz dist/images.txt dist/images.json \
             --notes-file dist/notes.md "${flags[@]}"
+
+  # Full SBOM for each upstream image, from 0.1.0 final (#61). Prereleases only get the image list.
+  sbom:
+    needs: publish
+    if: >-
+      (github.event_name == 'push' && !contains(github.ref_name, '-')) ||
+      (github.event_name == 'workflow_dispatch' && inputs.sbom)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60   # many images, some of them large; the step summary records the time
+    defaults:
+      run:
+        shell: bash   # bash -eo pipefail: a failed hack/sbom.sh fails a step that pipes it to tee
+    env:
+      DRY_RUN: ${{ github.event_name != 'push' }}
+    services:
+      registry:   # the dry-run attestation target
+        image: registry:2.8.3
+        ports: ["5000:5000"]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v7
+        with: { name: images-json, path: dist }
+      - uses: azure/setup-helm@v5
+        if: env.DRY_RUN == 'true'
+        with: { version: v4.3.2 }
+      - uses: sigstore/cosign-installer@v4.1.3
+        with: { cosign-release: v3.1.4 }
+      - name: Install syft (pinned, with checksum)
+        run: |
+          A=syft_1.57.0_linux_amd64.tar.gz
+          curl -fsSLO "https://github.com/anchore/syft/releases/download/v1.57.0/$A"
+          echo "9c077a7d43029b3b13e98a8db720661e700c4d58db6352153a06395ae4a2a704  $A" | sha256sum -c
+          tar xzf "$A" syft && sudo mv syft /usr/local/bin/
+      - name: Make a CycloneDX SBOM for each image
+        run: hack/sbom.sh dist/images.json sbom 4 | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Pack the SBOMs
+        run: tar czf sbom.tar.gz sbom
+      - name: Attest each SBOM to the chart digest (keyless) and attach the archive
+        if: env.DRY_RUN == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REF: ${{ needs.publish.outputs.ref }}
+        run: |
+          echo "$GH_TOKEN" | cosign login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          # One attestation for each unique image (unique.txt), not for each module copy.
+          while read -r f; do
+            cosign attest --yes --type cyclonedx --predicate "sbom/$f" "$REF"
+          done < sbom/unique.txt
+          gh release upload "${GITHUB_REF_NAME}" sbom.tar.gz
+      - name: Dry run only, attest with a throwaway key to a local registry
+        if: env.DRY_RUN == 'true'
+        env:
+          COSIGN_PASSWORD: ""
+        run: |
+          # The same attest loop as the real step, against a throwaway chart push and key.
+          helm package charts/keelson -d dist
+          out=$(helm push dist/keelson-*.tgz oci://localhost:5000/charts --plain-http 2>&1); echo "$out"
+          digest=$(echo "$out" | awk '/^Digest:/{print $2}')
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "could not parse the pushed digest"; exit 1; }
+          ref="localhost:5000/charts/keelson@${digest}"
+          cosign generate-key-pair
+          flags=(--key cosign.key --allow-insecure-registry --use-signing-config=false --tlog-upload=false)
+          while read -r f; do
+            cosign attest --yes "${flags[@]}" --type cyclonedx --predicate "sbom/$f" "$ref"
+          done < sbom/unique.txt
+          verify=(--key cosign.pub --allow-insecure-registry --insecure-ignore-tlog)
+          cosign verify-attestation "${verify[@]}" --type cyclonedx "$ref" | wc -l

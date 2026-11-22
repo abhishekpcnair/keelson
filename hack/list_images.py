@@ -11,9 +11,10 @@ Backstop for hard rule 2 (no forked images): the build WITH Keelson's patches ma
 contain an image that the build WITHOUT them lacks. R5 already stops patches from
 setting images; this checks the built result.
 
-Scope: `image:` fields in container specs of the built manifests. Images that a controller
-reads from its own ConfigMap or env at run time are not listed. Full per-image SBOMs
-come with 0.1.0 final (#61).
+Scope: `image:` fields in container specs of the built manifests, and the image options of
+a WorkspaceKind (`spec.podTemplate.options.imageConfig.values[].spec.image`). Images that a
+controller reads from its own ConfigMap or env at run time are not listed. hack/sbom.sh
+makes a full SBOM for each listed image (#61).
 
 Usage:
   hack/list_images.py --out dist [--values FILE] [--cache .cache/upstream]
@@ -52,7 +53,19 @@ def images_in(manifests: str) -> set:
 
     for doc in yaml.safe_load_all(manifests):
         walk(doc)
+        found |= workspacekind_images(doc)
     return found
+
+
+def workspacekind_images(doc) -> set:
+    """The image of each imageConfig option of a WorkspaceKind. These are not in a container list."""
+    if not isinstance(doc, dict) or doc.get("kind") != "WorkspaceKind":
+        return set()
+    spec = doc.get("spec") if isinstance(doc.get("spec"), dict) else {}
+    options = ((spec.get("podTemplate") or {}).get("options") or {})
+    values = (options.get("imageConfig") or {}).get("values") or []
+    return {v["spec"]["image"] for v in values
+            if isinstance(v, dict) and isinstance(v.get("spec"), dict) and isinstance(v["spec"].get("image"), str)}
 
 
 def rendered_applications(chart: str, values):
