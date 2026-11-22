@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Smoke test for the workspaces and workspace-kinds modules (#14).
 #
-# Needs a running Keelson install, kubectl on the cluster, and the istio-ingressgateway
-# port-forwarded to localhost:8080 (upstream's workspaces_test.sh calls that address).
+# Run by tests/e2e/run.sh. Needs a running Keelson install and kubectl on the cluster. Step 4 forwards
+# the istio-ingressgateway to localhost:8080 itself (upstream's workspaces_test.sh calls that address).
 # Uses only upstream test content from .cache/upstream/<tag> (wrap, don't copy):
 #   tests/workspace.test.kubeflow-user-example-com.yaml  a PVC + a jupyterlab Workspace
 #   tests/workspaces_test.sh                             API authz: 200 for default-editor, 403 otherwise
@@ -20,6 +20,9 @@ WS_TIMEOUT="${KEELSON_WORKSPACE_TIMEOUT:-900}"
 SYNC_TIMEOUT="${KEELSON_SYNC_TIMEOUT:-300}"
 FIXTURE="$UP/tests/workspace.test.kubeflow-user-example-com.yaml"
 WEBHOOK="workspaces-validating-webhook-configuration"
+
+# shellcheck source=tests/e2e/lib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"   # port_forward_gateway
 
 ok()   { echo "ok   $*"; }
 fail() { echo "FAIL $*"; exit 1; }
@@ -65,7 +68,11 @@ done
 [[ "$state" == Running ]] && ok "Workspace test is Running after $(( $(date +%s) - start ))s" \
   || fail "Workspace test state '${state:-<none>}' after ${WS_TIMEOUT}s: $(kubectl -n "$PROFILE" get workspace test -o jsonpath='{.status.stateMessage}' 2>/dev/null)"
 
-# 4. Upstream's API authorization test.
+# 4. Upstream's API authorization test. It calls localhost:8080, so forward the gateway first.
+[[ "$GATEWAY_PORT" == 8080 ]] || fail "upstream's workspaces_test.sh uses localhost:8080; unset GATEWAY_PORT"
+port_forward_gateway
+# port_forward_gateway replaced our EXIT trap: stop the forward and delete the test Workspace.
+trap 'kill "$E2E_PF_PID" 2>/dev/null || true; kubectl delete -f "$FIXTURE" --ignore-not-found --wait=false >/dev/null 2>&1 || true' EXIT
 bash "$UP/tests/workspaces_test.sh" "$PROFILE" >/dev/null 2>&1 && ok "workspaces API: 200 for default-editor, 403 otherwise" \
   || fail "upstream workspaces_test.sh failed (rerun it by hand for curl output)"
 
