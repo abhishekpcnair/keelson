@@ -18,9 +18,20 @@ A plain `kubectl port-forward svc/istio-ingressgateway -n istio-system 8080:80` 
 Send the right host instead:
 
 ```sh
+kubectl -n istio-system port-forward svc/istio-ingressgateway 8080:80
+curl -H 'Host: kubeflow.example.com' http://localhost:8080/
+```
+
+With `tls.issuer: existing`, port 80 only redirects, so use 443. Add `-k` if the certificate
+is self-signed or from a private CA:
+
+```sh
 kubectl -n istio-system port-forward svc/istio-ingressgateway 8443:443
 curl --resolve kubeflow.example.com:8443:127.0.0.1 https://kubeflow.example.com:8443/
 ```
+
+With `existing` or `external`, login cookies are secure, so a browser login over a plain-HTTP
+port-forward won't stick.
 
 Load balancer health probes have the same problem. Point them at the ingress gateway's
 readiness endpoint, port `15021`, path `/healthz/ready`, not at the Gateway.
