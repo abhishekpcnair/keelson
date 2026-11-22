@@ -10,22 +10,23 @@
       "additionalProperties": false,
       "required": ["type", "id", "secretRef"],
       "properties": {
-        "type": { "type": "string", "enum": ["oidc", "microsoft", "github"] },
+        "type": { "type": "string", "enum": ["oidc", "microsoft", "github"], "description": "Connector type: oidc (any OpenID Connect provider), microsoft (Entra ID) or github." },
         "id": { "type": "string", "pattern": "^[a-z0-9-]+$", "maxLength": 63, "description": "Unique. Also names the Dex env vars." },
         "name": { "type": "string", "minLength": 1, "description": "Login button text. Default: id." },
         "secretRef": {
           "type": "object",
           "additionalProperties": false,
           "required": ["name"],
+          "description": "Secret in namespace auth with the client ID and client secret. Keelson never creates it. Put no secret values in values.",
           "properties": {
             "name": { "type": "string", "minLength": 1, "description": "Secret in namespace auth. A name only." },
-            "clientIDKey": { "type": "string", "minLength": 1, "default": "clientID" },
-            "clientSecretKey": { "type": "string", "minLength": 1, "default": "clientSecret" }
+            "clientIDKey": { "type": "string", "minLength": 1, "default": "clientID", "description": "Key of the client ID in the Secret." },
+            "clientSecretKey": { "type": "string", "minLength": 1, "default": "clientSecret", "description": "Key of the client secret in the Secret." }
           }
         },
-        "issuer": { "type": "string", "pattern": "^https?://[^\\s]+$" },
-        "scopes": { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1 },
-        "groupsClaim": { "type": "string", "minLength": 1, "default": "groups" },
+        "issuer": { "type": "string", "pattern": "^https?://[^\\s]+$", "description": "oidc: issuer URL of the identity provider. Required for oidc." },
+        "scopes": { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1, "description": "oidc: scopes to request. Default: openid, profile, email, groups. Remove groups for providers that reject it." },
+        "groupsClaim": { "type": "string", "minLength": 1, "default": "groups", "description": "oidc: claim that Dex reads groups from." },
         "tenant": {
           "type": "string",
           "pattern": "^([0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}|[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+)$",
@@ -33,8 +34,8 @@
           "description": "microsoft: tenant ID or verified domain. Multi-tenant values accept any account and drop groups."
         },
         "allowedGroups": { "type": "array", "items": { "type": "string", "minLength": 1 }, "description": "microsoft: only members may log in." },
-        "onlySecurityGroups": { "type": "boolean", "default": false },
-        "groupNameFormat": { "type": "string", "enum": ["name", "id"], "default": "name" },
+        "onlySecurityGroups": { "type": "boolean", "default": false, "description": "microsoft: return security groups only, no Microsoft 365 groups." },
+        "groupNameFormat": { "type": "string", "enum": ["name", "id"], "default": "name", "description": "microsoft: return groups as names or as object IDs." },
         "emailToLowercase": { "type": "boolean", "default": true, "description": "microsoft: Kubeflow compares user emails case-sensitively." },
         "orgs": {
           "type": "array",
@@ -43,13 +44,16 @@
             "type": "object",
             "additionalProperties": false,
             "required": ["name"],
-            "properties": { "name": { "type": "string", "minLength": 1 }, "teams": { "type": "array", "items": { "type": "string", "minLength": 1 } } }
+            "properties": {
+              "name": { "type": "string", "minLength": 1, "description": "GitHub organization name." },
+              "teams": { "type": "array", "items": { "type": "string", "minLength": 1 }, "description": "Optional. Only members of one of these teams may log in." }
+            }
           },
           "description": "github: required, so arbitrary GitHub users can't log in."
         },
-        "teamNameField": { "type": "string", "enum": ["name", "slug", "both"], "default": "slug" },
-        "loadAllGroups": { "type": "boolean", "default": false },
-        "useLoginAsID": { "type": "boolean", "default": false },
+        "teamNameField": { "type": "string", "enum": ["name", "slug", "both"], "default": "slug", "description": "github: how teams appear in groups: team name, team slug or both. Keelson default: slug." },
+        "loadAllGroups": { "type": "boolean", "default": false, "description": "github: Dex loads all organizations and teams only when no orgs are set. Keelson requires orgs, so this has no effect." },
+        "useLoginAsID": { "type": "boolean", "default": false, "description": "github: use the GitHub login as the user ID, not the numeric ID." },
         "extraConfig": {
           "type": "object",
           "propertyNames": { "not": { "pattern": "(?i)secret|password|token|key" } },
@@ -128,8 +132,9 @@
     "upstream": {
       "type": "object",
       "required": ["manifestsRepo", "manifestsRef"],
+      "description": "The pinned upstream Kubeflow manifests that every Application uses.",
       "properties": {
-        "manifestsRepo": { "type": "string", "format": "uri" },
+        "manifestsRepo": { "type": "string", "format": "uri", "description": "Git URL of the upstream Kubeflow manifests. Every Application pulls from it." },
         "manifestsRef": {
           "type": "string",
           "pattern": "^[0-9]{2}\\.[0-9]{2}(\\.[0-9]+)?$",
@@ -157,22 +162,28 @@
     "auth": {
       "type": "object",
       "additionalProperties": false,
+      "description": "Login settings: the static user and the Dex connectors. See docs/configuration/authentication.md.",
       "properties": {
         "staticUsers": {
           "type": "object",
           "additionalProperties": false,
+          "description": "Static user settings.",
           "properties": { "enabled": { "type": "boolean", "description": "Upstream static user user@example.com. Kind and dev only." } }
         },
         "dex": {
           "type": "object",
           "additionalProperties": false,
-          "properties": { "connectors": { "type": "array", "items": { "$ref": "#/$defs/connector" } } }
+          "description": "Dex settings.",
+          "properties": {
+            "connectors": { "type": "array", "items": { "$ref": "#/$defs/connector" }, "description": "Identity providers for Dex. Each connector needs domain. Static users off, or environment production, needs at least one." }
+          }
         }
       }
     },
     "tls": {
       "type": "object",
       "additionalProperties": false,
+      "description": "Where HTTPS ends. See docs/configuration/domain-and-tls.md.",
       "properties": {
         "issuer": {
           "type": "string",
@@ -183,6 +194,7 @@
         "secretRef": {
           "type": "object",
           "additionalProperties": false,
+          "description": "TLS Secret for issuer existing. A name only.",
           "properties": {
             "name": { "type": "string", "description": "kubernetes.io/tls Secret in istio-system (issuer=existing). A name only, never key material." }
           }
@@ -206,10 +218,11 @@
       "type": "object",
       "required": ["namespace", "project", "destinationServer"],
       "additionalProperties": false,
+      "description": "ArgoCD settings: where Keelson creates its Applications, and which AppProject they use.",
       "properties": {
-        "namespace": { "type": "string", "minLength": 1 },
-        "project": { "type": "string", "minLength": 1 },
-        "destinationServer": { "type": "string", "format": "uri" },
+        "namespace": { "type": "string", "minLength": 1, "description": "Namespace of ArgoCD. Keelson creates the AppProject and the Applications in it." },
+        "project": { "type": "string", "minLength": 1, "description": "Name of the AppProject that Keelson creates. Every Application uses it." },
+        "destinationServer": { "type": "string", "format": "uri", "description": "Cluster API URL for Application destinations. The default is the in-cluster server." },
         "extraSourceRepos": {
           "type": "array",
           "items": { "type": "string", "format": "uri" },
@@ -223,15 +236,17 @@
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
-        "properties": { "enabled": { "type": "boolean" } }
+        "properties": { "enabled": { "type": "boolean", "description": "Turn the module on or off. The default comes from the module file (defaultEnabled)." } }
       },
       "description": "Per-module switches keyed by module name. Unknown names fail at render time."
     },
     "advanced": {
       "type": "object",
+      "description": "Unsupported escape hatches. They can break on upgrade.",
       "properties": {
         "modules": {
           "type": "object",
+          "description": "Per-module overrides keyed by module name. Unknown names fail at render time.",
           "propertyNames": { "pattern": "^[a-z0-9-]+$" },
           "additionalProperties": {
             "type": "object",

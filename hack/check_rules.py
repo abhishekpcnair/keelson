@@ -149,11 +149,20 @@ DOC_RE = re.compile(r"^\s*(keelson\.[A-Za-z0-9_.]+):")
 
 
 def check_templates(tdir: pathlib.Path, errors):
-    for f in sorted(tdir.glob("*.tpl")):
+    """Check T1 in tdir/*.tpl. Return (doc comments checked, files read)."""
+    if not tdir.is_dir():
+        errors.append(f"T1 {tdir}: not a directory")
+        return 0, 0
+    files = sorted(tdir.glob("*.tpl"))
+    if not files:
+        errors.append(f"T1 {tdir}: no *.tpl files")
+        return 0, 0
+    checked = 0
+    for f in files:
         lines = f.read_text().splitlines()
         i = 0
         while i < len(lines):
-            m = re.match(r"^\{\{-?\s*/\*(.*)$", lines[i])
+            m = re.match(r"^\s*\{\{-?\s*/\*(.*)$", lines[i])
             if not m:
                 i += 1
                 continue
@@ -167,10 +176,12 @@ def check_templates(tdir: pathlib.Path, errors):
             if not doc:
                 continue
             name = doc.group(1)
+            checked += 1
             nxt = next((j for j in range(end + 1, len(lines)) if lines[j].strip()), None)
-            want = re.compile(r'^\{\{-?\s*define\s+"' + re.escape(name) + r'"\s*-?\}\}')
+            want = re.compile(r'^\s*\{\{-?\s*define\s+"' + re.escape(name) + r'"\s*-?\}\}')
             if nxt is None or not want.match(lines[nxt]):
                 errors.append(f"T1 {f}:{start + 1}: doc comment for {name} is not directly above its define")
+    return checked, len(files)
 
 
 def main():
@@ -193,7 +204,9 @@ def main():
     if a.repo:
         check_symlinks(a.repo, errors)
     if a.templates:
-        check_templates(a.templates, errors)
+        n, m = check_templates(a.templates, errors)
+        if m:  # no summary when the folder is bad: the T1 error says why
+            print(f"check_rules: T1 checked {n} doc comment(s) in {m} file(s)")
     for e in errors:
         print(f"FAIL {e}")
     print(f"check_rules: {apps} Applications checked, {len(errors)} problem(s)")
