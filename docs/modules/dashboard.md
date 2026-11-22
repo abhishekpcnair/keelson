@@ -36,6 +36,10 @@ So the module declares `ignoreDifferences` for `.webhooks[].clientConfig.caBundl
 Application gets `RespectIgnoreDifferences=true`. No upstream manifest is patched.
 `appSpecOverride` can add more `ignoreDifferences`, but can't remove this one.
 
+## Aggregated ClusterRoles
+
+Two ClusterRoles, `poddefaults-webhook-kubeflow-poddefaults-admin` and `-edit`, ship with `aggregationRule` and `rules: []`. Kubernetes fills `rules` at runtime. Without help, the `dashboard` Application stays `OutOfSync` for ever, and the e2e wait times out. The module ignores `/rules` on these two roles. It lists them by name, so drift on the other roles still shows.
+
 ## Menu links
 
 The dashboard uses upstream's menu. It links Workspaces, Katib, KServe Endpoints, Model Registry and

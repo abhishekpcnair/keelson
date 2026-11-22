@@ -16,5 +16,9 @@ ignoreDifferences:
     kind: MutatingWebhookConfiguration
     name: poddefaults-webhook-mutating-webhook-configuration
     jqPathExpressions: [".webhooks[].clientConfig.caBundle"]
+  # Aggregated ClusterRoles: upstream ships `rules: []` and the RBAC controller fills .rules at runtime.
+  # Listed by name, so drift on the non-aggregated poddefaults-...-view role still shows.
+  - {group: rbac.authorization.k8s.io, kind: ClusterRole, name: poddefaults-webhook-kubeflow-poddefaults-admin, jsonPointers: [/rules]}
+  - {group: rbac.authorization.k8s.io, kind: ClusterRole, name: poddefaults-webhook-kubeflow-poddefaults-edit, jsonPointers: [/rules]}
 smokeTest: tests/e2e/dashboard.py
 upstreamHelmChart: applications/dashboard/helm
