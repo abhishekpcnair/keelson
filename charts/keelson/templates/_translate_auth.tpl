@@ -91,9 +91,9 @@ upstream (static users on, no connectors).
 {{- end -}}
 {{- if $list -}}{{- $_ := set $cfg "connectors" $list -}}{{- end -}}
 {{- $patches = append $patches (dict "patch" (include "keelson.translate.auth.config" $cfg) "target" (dict "version" "v1" "kind" "ConfigMap" "name" "dex")) -}}
-{{- if $env -}}
-{{- $patches = append $patches (dict "patch" (include "keelson.translate.auth.env" $env) "target" (dict "group" "apps" "version" "v1" "kind" "Deployment" "name" "dex")) -}}
-{{- end -}}
+{{- /* Dex reads config.yaml only at start: the config hash restarts it on change. */ -}}
+{{- $deploy := dict "env" $env "hash" (toYaml $cfg | sha256sum) -}}
+{{- $patches = append $patches (dict "patch" (include "keelson.translate.auth.deployment" $deploy) "target" (dict "group" "apps" "version" "v1" "kind" "Deployment" "name" "dex")) -}}
 {{- end -}}
 {{- dict "patches" $patches | toYaml -}}
 {{- end -}}
@@ -108,8 +108,8 @@ upstream (static users on, no connectors).
     {{- toYaml . | nindent 4 }}
 {{- end -}}
 
-{{- define "keelson.translate.auth.env" -}}
-# purpose: pass connector client IDs and secrets to Dex from the user's Secret
+{{- define "keelson.translate.auth.deployment" -}}
+# purpose: restart Dex when its config changes; pass connector client IDs and secrets from the user's Secret
 # upstream: none
 # remove-when: never (Keelson intent: auth.dex.connectors[].secretRef)
 apiVersion: apps/v1
@@ -118,9 +118,14 @@ metadata:
   name: dex
 spec:
   template:
+    metadata:
+      annotations:
+        keelson.io/dex-config: {{ .hash | quote }}
+    {{- if .env }}
     spec:
       containers:
         - name: dex
           env:
-            {{- toYaml . | nindent 12 }}
+            {{- toYaml .env | nindent 12 }}
+    {{- end }}
 {{- end -}}

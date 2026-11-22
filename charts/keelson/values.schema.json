@@ -52,6 +52,10 @@
       }
     },
     {
+      "if": { "required": ["auth"], "properties": { "auth": { "required": ["staticUsers"], "properties": { "staticUsers": { "required": ["enabled"], "properties": { "enabled": { "const": false } } } } } } },
+      "then": { "properties": { "auth": { "required": ["dex"], "properties": { "dex": { "required": ["connectors"], "properties": { "connectors": { "minItems": 1 } } } } } } }
+    },
+    {
       "if": { "required": ["auth"], "properties": { "auth": { "required": ["dex"], "properties": { "dex": { "required": ["connectors"], "properties": { "connectors": { "minItems": 1 } } } } } } },
       "then": { "required": ["domain"], "properties": { "domain": { "minLength": 1 } } }
     },

@@ -24,7 +24,11 @@ auth:
 ```
 
 `environment: production` makes the render fail unless static users are off and at least one
-connector is set.
+connector is set. With static users off, at least one connector is required in every environment.
+
+Dex reads its config only at start. Keelson restarts Dex when the config changes. If you remove all
+connectors and turn static users back on, Keelson stops patching Dex. Then restart it yourself:
+`kubectl -n auth rollout restart deploy/dex`.
 
 ## OIDC connector
 
@@ -40,7 +44,8 @@ auth:
         secretRef:
           name: dex-corp    # keys clientID and clientSecret by default
         # optional:
-        # scopes: [openid, profile, email, groups]   # the default
+        # scopes: [openid, profile, email, groups]   # the default; drop groups for IdPs
+        #                                             # that reject it (Google: invalid_scope)
         # groupsClaim: groups                         # claim Dex reads groups from
 ```
 
@@ -74,7 +79,8 @@ claim holds group **object IDs**, not names. Use the IDs wherever you list group
 ### Extra Dex options (unsupported)
 
 `extraConfig` is merged last into the connector's Dex `config`. Keys that look like secrets
-(`secret`, `password`, `token`, `key`) are rejected.
+(`secret`, `password`, `token`, `key`) are rejected. This also rejects some real Dex options, for
+example `userIDKey` and `userNameKey`. The error is `at '': 'not' failed`.
 
 ```yaml
         extraConfig:

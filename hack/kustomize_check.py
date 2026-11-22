@@ -6,8 +6,8 @@ patches to the upstream path's kustomization (from .cache/upstream/<tag>) and ru
 `kustomize build`. Fails when a patch does not apply, or applies but changes
 nothing (for example, a target that matches no resource).
 
-Dex drift guard: when a patch replaces the Dex config.yaml, the upstream keys
-Keelson re-states (DEX_KEYS) must equal upstream's at the tag, so an upstream
+Dex drift guard: when a patch replaces the Dex config.yaml, every key except
+DEX_MANAGED (and staticPasswords, when kept) must equal upstream's at the tag, so an upstream
 bump that changes them fails here instead of being silently overwritten.
 
 Usage:
@@ -28,7 +28,7 @@ import yaml
 
 KUSTOMIZE = os.environ.get("KUSTOMIZE", "kustomize")
 KFILES = ("kustomization.yaml", "kustomization.yml", "Kustomization")
-DEX_KEYS = ("issuer", "storage", "web", "logger", "oauth2", "staticClients")
+DEX_MANAGED = {"connectors", "enablePasswordDB", "staticPasswords"}  # keys Keelson may change
 
 
 def patched_apps(rendered: pathlib.Path):
@@ -70,8 +70,8 @@ def check_dex_config(where, base: str, patched: str, errors):
     up, ours = dex_config(base), dex_config(patched)
     if up is None or ours is None or up == ours:
         return
-    keys = list(DEX_KEYS) + (["staticPasswords"] if "staticPasswords" in ours else [])
-    for k in keys:
+    managed = DEX_MANAGED - ({"staticPasswords"} if "staticPasswords" in ours else set())
+    for k in sorted((set(up) | set(ours)) - managed):
         if ours.get(k) != up.get(k):
             errors.append(f"{where}: Dex config key '{k}' differs from upstream (update keelson.dex.upstreamConfig)")
 

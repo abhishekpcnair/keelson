@@ -310,7 +310,7 @@ spec:
           name: dex
           version: v1
       - patch: |-
-          # purpose: pass connector client IDs and secrets to Dex from the user's Secret
+          # purpose: restart Dex when its config changes; pass connector client IDs and secrets from the user's Secret
           # upstream: none
           # remove-when: never (Keelson intent: auth.dex.connectors[].secretRef)
           apiVersion: apps/v1
@@ -319,6 +319,9 @@ spec:
             name: dex
           spec:
             template:
+              metadata:
+                annotations:
+                  keelson.io/dex-config: "db71b1db1f13cf470bea017bce1192970df7dffb0d5af06d0361a0548104b524"
               spec:
                 containers:
                   - name: dex
