@@ -2,8 +2,8 @@
 
 Install Keelson on a Kind cluster on your laptop. In CI, the same steps take about 6 minutes.
 
-You get the **core** modules: cert-manager, Istio, oauth2-proxy, Dex and the Kubeflow namespaces and roles.
-That is 10 ArgoCD Applications. The Kubeflow dashboard, workspaces and pipelines are not in core yet.
+You get the **core** modules (cert-manager, Istio, oauth2-proxy, Dex and the Kubeflow namespaces and roles) and the **dashboard** module.
+That is 11 ArgoCD Applications. Workspaces, pipelines and profiles are not on `main` yet.
 See [What is not here yet](#what-is-not-here-yet).
 
 Use Kind for trying Keelson and for development only. For a real cluster, see the AKS guide (planned, #42).
@@ -68,12 +68,12 @@ This creates the ArgoCD Applications. ArgoCD then installs Kubeflow from the pin
 kubectl -n argocd get applications -l app.kubernetes.io/part-of=keelson
 ```
 
-Run it again every minute. Wait until all 10 Applications show `Synced` and `Healthy`.
-The list is in [`docs/modules/core.md`](modules/core.md).
+Run it again every minute. Wait until all 11 Applications show `Synced` and `Healthy`.
+The core modules are in [`docs/modules/core.md`](modules/core.md). The dashboard is in [`docs/modules/dashboard.md`](modules/dashboard.md).
 
 `istio` can show `Degraded` for a short time while it starts. This is normal.
 
-## 5. Look at the login
+## 5. Open the dashboard
 
 Forward the Istio gateway to your machine:
 
@@ -81,7 +81,7 @@ Forward the Istio gateway to your machine:
 kubectl port-forward -n istio-system svc/istio-ingressgateway 8080:80
 ```
 
-Open `http://localhost:8080/oauth2/start` in a browser. It redirects to the Dex login page.
+Open `http://localhost:8080` in a browser. oauth2-proxy sends you to the Dex login page.
 
 Log in with the upstream static user:
 
@@ -93,9 +93,13 @@ Log in with the upstream static user:
 This user is for Kind and development only. Never use it on a shared cluster.
 To use your own identity provider, see [Authentication](configuration/authentication.md).
 
-Core has no web app at `/`, so there is nothing to show after the login. The gateway answers `403 RBAC: access denied` at `/`.
-This is expected. See the notes in [`docs/modules/core.md`](modules/core.md).
-The Kubeflow dashboard comes with the dashboard module (#7).
+After the login, the Kubeflow central dashboard opens. CI checks this login and the dashboard on every run.
+
+A new user has no namespace yet. Namespaces come from `Profile` resources, and Keelson creates them from the
+`profiles` value. That value is not on `main` yet (#9).
+
+If you turn the dashboard module off, there is no web app at `/`, and the gateway answers `403 RBAC: access denied`.
+See the notes in [`docs/modules/core.md`](modules/core.md).
 
 ## Run the checks in one command
 
@@ -105,9 +109,9 @@ Steps 3 and 4 have a shortcut. This command installs Keelson, waits for the Appl
 make e2e MODULES=core
 ```
 
-It runs the same commands as steps 3 and 4. It also forwards the gateway to port 8080 for its smoke tests.
+It runs the same commands as steps 3 and 4. It also forwards the gateway to port 8080 for its smoke tests,
+and the dashboard smoke test needs port 8080 (it uses upstream's login test).
 Stop the port-forward from step 5 first (press Ctrl-C), or the command fails with "port-forward exited".
-You can also set another port: `GATEWAY_PORT=8081 make e2e MODULES=core`.
 
 Add `KEEP=1` to keep the gateway port-forward open after the checks pass:
 
@@ -129,9 +133,8 @@ This deletes the Kind cluster.
 
 | Part | Status |
 |---|---|
-| Kubeflow dashboard | Module #7 (PR #36) |
 | Workspaces (Notebooks v2) | Module #14 (PR #72) |
 | Pipelines with bundled storage | Module #12 |
 | Profiles | #9 |
 
-This page grows when each part lands on `main`: log in to the dashboard, create a workspace, run a sample pipeline.
+This page grows when each part lands on `main`: create a workspace, run a sample pipeline.
