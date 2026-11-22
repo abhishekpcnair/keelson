@@ -174,6 +174,7 @@ dependsOn: [dashboard, istio]
 defaultEnabled: true
 translations: [domain, storage, database]   # which translation helpers apply
 smokeTest: tests/e2e/pipelines.sh
+# ignoreDifferences: [...]       # optional; fields another controller owns (adds RespectIgnoreDifferences=true)
 upstreamHelmChart: applications/pipeline/helm  # tracked; switch when not Draft
 ```
 
