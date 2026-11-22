@@ -6,8 +6,9 @@ Module files live in modules/*.yaml and hold data only (contract: §7).
 {{/*
 keelson.modules: every registry module with `enabled` and `resolvedPath` set.
 Returns YAML `{modules: [...]}`; use with fromYaml. Fails on unknown module
-names, unmet dependsOn, a wave not above its dependencies' waves, and
-non-kustomize sources.
+names, unmet dependsOn, a wave not above its dependencies' waves,
+non-kustomize sources, and a bad appSpecOverride (checked for every module in
+advanced.modules, also a disabled one).
 */}}
 {{- define "keelson.modules" -}}
 {{- $registry := dict -}}
@@ -48,9 +49,13 @@ non-kustomize sources.
 {{- fail (printf "modules.%s: unknown module (known: %s)" $name (keys $registry | sortAlpha | join ", ")) -}}
 {{- end -}}
 {{- end -}}
-{{- range $name, $_ := (.Values.advanced).modules -}}
+{{- range $name, $adv := (.Values.advanced).modules -}}
 {{- if not (hasKey $registry $name) -}}
 {{- fail (printf "advanced.modules.%s: unknown module" $name) -}}
+{{- end -}}
+{{- /* Check every override here, also for a disabled module (#79). */ -}}
+{{- if hasKey ($adv | default dict) "appSpecOverride" -}}
+{{- include "keelson.checkOverride" (dict "module" $name "override" $adv.appSpecOverride) -}}
 {{- end -}}
 {{- end -}}
 {{- $out := list -}}
@@ -214,6 +219,7 @@ Call with (dict "base" list "override" list "force" list). Returns YAML {items: 
 keelson.checkIgnoreDifference: one ignoreDifferences entry, from the registry or from an
 appSpecOverride. It must be a map with a kind, and name at least one field to ignore
 (jsonPointers, jqPathExpressions or managedFieldsManagers) as a non-empty list.
+Each list item must be a non-empty string.
 Call with (dict "where" "<location>" "entry" $d).
 */}}
 {{- define "keelson.checkIgnoreDifference" -}}
@@ -228,6 +234,11 @@ Call with (dict "where" "<location>" "entry" $d).
 {{- $v := get $d $f -}}
 {{- if not (kindIs "slice" $v) -}}{{- fail (printf "%s.%s: must be a list" $where $f) -}}{{- end -}}
 {{- if gt (len $v) 0 -}}{{- $named = true -}}{{- end -}}
+{{- range $j, $item := $v -}}
+{{- if not (and (kindIs "string" $item) $item) -}}
+{{- fail (printf "%s.%s[%d]: must be a non-empty string" $where $f $j) -}}
+{{- end -}}
+{{- end -}}
 {{- end -}}
 {{- end -}}
 {{- if not $named -}}

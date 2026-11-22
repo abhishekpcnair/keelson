@@ -96,6 +96,7 @@ The override is an allow-list, so sources stay pinned and inside the AppProject:
 Anything else fails at render time. That includes newer ArgoCD fields such as `sourceHydrator`,
 and Kustomize fields that load remote content, such as `components`.
 `project`, `source.repoURL`, `source.targetRevision` and `destination.server` always come from values.
+The engine checks every override, also the override of a disabled module.
 
 ## Add a module
 

@@ -1,0 +1,12 @@
+# expect: advanced.modules.dex.appSpecOverride.project: not allowed
+# The engine checks an override also when its module is disabled.
+modules:
+  dex:
+    enabled: false
+  oauth2-proxy:
+    enabled: false
+advanced:
+  modules:
+    dex:
+      appSpecOverride:
+        project: other
