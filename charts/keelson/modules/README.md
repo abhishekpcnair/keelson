@@ -13,7 +13,7 @@ Fields:
   `keelson.translate.<name>` for each and appends the returned patches to `spec.source.kustomize.patches`.
   Unknown names fail the render. Known: `domain`.
 - `smokeTest`, `upstreamHelmChart`
-- `ignoreDifferences` (optional): ArgoCD `ignoreDifferences` entries for fields another controller owns, such as a cert-manager-injected `caBundle`. The engine adds `RespectIgnoreDifferences=true`, and overrides can't remove these entries.
+- `ignoreDifferences` (optional): ArgoCD `ignoreDifferences` entries for fields another controller owns, such as a cert-manager-injected `caBundle`. Each entry needs `kind` and a non-empty `jsonPointers`, `jqPathExpressions` or `managedFieldsManagers`. The engine adds `RespectIgnoreDifferences=true`, and overrides can't remove these entries.
 
 User docs: `docs/modules/README.md`.
 

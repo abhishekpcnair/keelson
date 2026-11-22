@@ -35,9 +35,7 @@ non-kustomize sources.
 {{- fail (printf "%s: ignoreDifferences must be a list" $path) -}}
 {{- end -}}
 {{- range $i, $d := $m.ignoreDifferences -}}
-{{- if not (and (kindIs "map" $d) (kindIs "string" $d.kind) $d.kind) -}}
-{{- fail (printf "%s: ignoreDifferences[%d] must be a map with a kind" $path $i) -}}
-{{- end -}}
+{{- include "keelson.checkIgnoreDifference" (dict "where" (printf "%s.ignoreDifferences[%d]" $path $i) "entry" $d) -}}
 {{- end -}}
 {{- if not $m.source.path -}}{{- fail (printf "%s: missing required field \"source.path\"" $path) -}}{{- end -}}
 {{- if ne (printf "modules/%s.yaml" $m.name) $path -}}
@@ -201,11 +199,34 @@ rejected by default and sources stay pinned (hard rule 3).
 Allowed keys may not be null. A patch may not touch an image (hard rule 2).
 Call with (dict "module" $name "override" $o).
 */}}
+{{- /*
+One ignoreDifferences entry, from the registry or from an appSpecOverride.
+It must be a map with a kind, and name at least one field to ignore, as a non-empty list.
+Call with (dict "where" "<location>" "entry" $d).
+*/}}
+{{- define "keelson.checkIgnoreDifference" -}}
+{{- $d := .entry -}}
+{{- if not (and (kindIs "map" $d) (kindIs "string" $d.kind) $d.kind) -}}
+{{- fail (printf "%s: must be a map with a kind" .where) -}}
+{{- end -}}
+{{- $named := false -}}
+{{- range $f := list "jsonPointers" "jqPathExpressions" "managedFieldsManagers" -}}
+{{- $v := get $d $f -}}
+{{- if and (kindIs "slice" $v) (gt (len $v) 0) -}}{{- $named = true -}}{{- end -}}
+{{- end -}}
+{{- if not $named -}}
+{{- fail (printf "%s: must name jsonPointers, jqPathExpressions or managedFieldsManagers" .where) -}}
+{{- end -}}
+{{- end -}}
+
 {{- define "keelson.checkOverride" -}}
 {{- $where := printf "advanced.modules.%s.appSpecOverride" .module -}}
 {{- include "keelson.checkKeys" (dict "where" $where "obj" .override "allowed" (list "syncPolicy" "ignoreDifferences" "info" "revisionHistoryLimit" "source")) -}}
 {{- if and (hasKey .override "ignoreDifferences") (not (kindIs "slice" .override.ignoreDifferences)) -}}
 {{- fail (printf "%s.ignoreDifferences: must be a list" $where) -}}
+{{- end -}}
+{{- range $i, $d := .override.ignoreDifferences -}}
+{{- include "keelson.checkIgnoreDifference" (dict "where" (printf "%s.ignoreDifferences[%d]" $where $i) "entry" $d) -}}
 {{- end -}}
 {{- if and (hasKey .override "syncPolicy") (not (kindIs "map" .override.syncPolicy)) -}}
 {{- fail (printf "%s.syncPolicy: must be a map" $where) -}}
