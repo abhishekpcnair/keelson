@@ -44,14 +44,16 @@ jobs:
             echo "Issue already open."
           fi
       - id: p
+        # Run also when the manifests steps above fail.
+        if: ${{ !cancelled() }}
         run: python3 hack/upstream_watch.py --tool-pins hack/kind-up.sh --github-output
       - name: Open kind-up pins issue
-        if: steps.p.outputs.pins_newer == 'true'
+        if: ${{ !cancelled() && steps.p.outputs.pins_newer == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           title="chore: kind-up pins have newer releases"
-          if gh issue list --state open --search "$title in:title" --json number --jq 'length' | grep -q '^0$'; then
+          if gh issue list --state open --label module/e2e --search "$title in:title" --json number --jq 'length' | grep -q '^0$'; then
             {
               echo "These \`hack/kind-up.sh\` pins have a newer stable release:"
               echo

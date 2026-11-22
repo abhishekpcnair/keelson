@@ -45,5 +45,35 @@ class CheckPins(unittest.TestCase):
         self.assertFalse(newer)
 
 
+    def test_short_pin_fails_clearly(self):
+        with self.assertRaises(SystemExit) as cm:
+            self.run_check('ARGOCD_VERSION="v3.6"\n')
+        self.assertIn("expected vX.Y.Z", str(cm.exception.code))
+
+
+class PinsOutput(unittest.TestCase):
+    def test_github_output_and_table(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = pathlib.Path(d)
+            pins = root / "kind-up.sh"
+            pins.write_text('ARGOCD_VERSION="v3.6.2"\nMETRICS_SERVER_VERSION="v0.9.1"\n')
+            gh_out = root / "gh_output"
+            args = mock.Mock(tool_pins=str(pins), github_output=True)
+            with mock.patch.object(upstream_watch, "remote_tags", side_effect=lambda r: TAGS[r]), \
+                    mock.patch.dict("os.environ", {"GITHUB_OUTPUT": str(gh_out)}), \
+                    contextlib.redirect_stdout(io.StringIO()):
+                cwd = pathlib.Path.cwd()
+                import os
+                os.chdir(root)
+                try:
+                    upstream_watch.pins_main(args)
+                finally:
+                    os.chdir(cwd)
+            self.assertEqual(gh_out.read_text().strip(), "pins_newer=true")
+            table = (root / "pins.md").read_text()
+            self.assertIn("| `ARGOCD_VERSION` | `v3.6.2` | `v3.7.0` (newer) |", table)
+            self.assertIn("| `METRICS_SERVER_VERSION` | `v0.9.1` | `v0.9.1` |", table)
+
+
 if __name__ == "__main__":
     unittest.main()

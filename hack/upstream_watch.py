@@ -15,6 +15,7 @@ import os
 import pathlib
 import re
 import subprocess
+import sys
 
 import yaml
 
@@ -54,11 +55,15 @@ def check_pins(pins_file):
     text = pathlib.Path(pins_file).read_text()
     rows = []
     for name, repo in TOOL_PINS.items():
-        m = re.search(rf'^{name}="(v[0-9.]+)"', text, re.M)
+        m = re.search(rf'^{name}="([^"]*)"', text, re.M)
         if not m:
             print(f"NOTE pin {name} not found in {pins_file}; skipped")
+            if os.environ.get("GITHUB_ACTIONS"):
+                print(f"::warning::pin {name} not found in {pins_file}")
             continue
         current = m.group(1)
+        if not semver(current):
+            sys.exit(f"upstream_watch: {name} in {pins_file} is '{current}', expected vX.Y.Z")
         latest = max((t for t in remote_tags(repo) if semver(t)), key=semver)
         rows.append((name, current, latest, semver(latest) > semver(current)))
     return rows, any(r[3] for r in rows)
