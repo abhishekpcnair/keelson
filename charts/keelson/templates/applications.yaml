@@ -26,9 +26,12 @@ spec:
   {{- $_ := set $merged.source.kustomize "patches" (concat $gen $extra) }}
   {{- end }}
   {{- /* Registry ignoreDifferences survive an override; an override can only add entries. */}}
-  {{- $force := list }}
   {{- if .ignoreDifferences }}
   {{- $_ := set $merged "ignoreDifferences" (concat .ignoreDifferences ($override.ignoreDifferences | default list) | uniq) }}
+  {{- end }}
+  {{- /* Any ignoreDifferences, from the registry or from an override, force RespectIgnoreDifferences=true. */}}
+  {{- $force := list }}
+  {{- if $merged.ignoreDifferences }}
   {{- $force = list "RespectIgnoreDifferences=true" }}
   {{- end }}
   {{- /* Override syncOptions merge into the engine defaults by key; they don't replace the list. */}}
