@@ -205,7 +205,8 @@ def main():
         check_symlinks(a.repo, errors)
     if a.templates:
         n, m = check_templates(a.templates, errors)
-        print(f"check_rules: T1 checked {n} doc comment(s) in {m} file(s)")
+        if m:  # no summary when the folder is bad: the T1 error says why
+            print(f"check_rules: T1 checked {n} doc comment(s) in {m} file(s)")
     for e in errors:
         print(f"FAIL {e}")
     print(f"check_rules: {apps} Applications checked, {len(errors)} problem(s)")
