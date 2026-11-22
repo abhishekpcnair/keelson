@@ -36,6 +36,7 @@ make e2e MODULES=core    # Kind + ArgoCD smoke test
 
 ```sh
 make kind-up             # cluster + ArgoCD; kubectl context is kind-keelson
+make e2e MODULES=core    # install Keelson, wait for Healthy, run smoke tests (tests/e2e/README.md)
 make kind-down           # delete the cluster
 ```
 

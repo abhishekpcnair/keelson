@@ -1,0 +1,11 @@
+# expect: invalid propertyName 'useGroupsAsWhıtelist'
+# U+0131 (dotless i). Unicode case folding in Go encoding/json might match useGroupsAsWhitelist.
+domain: kubeflow.example.com
+auth:
+  dex:
+    connectors:
+      - type: microsoft
+        id: entra
+        tenant: contoso.onmicrosoft.com
+        secretRef: { name: dex-entra }
+        extraConfig: { "useGroupsAsWhıtelist": false }

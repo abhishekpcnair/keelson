@@ -21,4 +21,8 @@ Notes:
   unless you add a health check for `Application` resources (issue #2). Until then, retries
   with backoff cover the ordering.
 - Dex currently uses the upstream static test user. Connectors come from values in issue #6.
-- There are no smoke tests yet. The e2e harness comes in issue #4.
+- `tests/e2e/auth-redirect.sh` is the smoke test for `istio`, `oauth2-proxy` and `dex`. For the
+  other 7 modules, Healthy is the check. See [tests/e2e/README.md](../../tests/e2e/README.md).
+- Core has no workload at `/`. The gateway answers `403 RBAC: access denied` there until the
+  dashboard module (#7) is enabled. This is expected: Envoy skips `ext_authz` for a request that
+  matches no route. The e2e test checks the sign-in chain on a test-only route instead (#106).

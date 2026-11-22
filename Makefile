@@ -46,6 +46,8 @@ kubeconform: ## Validate rendered manifests
 rules: ## Check design rules on rendered output and patches
 	python3 -m unittest hack/test_check_rules.py
 	python3 -m unittest hack/test_upstream_watch.py
+	python3 -m unittest hack/test_list_images.py
+	python3 -m unittest hack/test_release_notes.py
 	python3 hack/check_rules.py --rendered $(RENDER_DIR) --patches $(CHART)/patches --repo . --templates $(CHART)/templates
 
 namespaces: upstream-cache ## Check module namespaces: lists against upstream kustomize build output (pinned kustomize)
@@ -64,7 +66,7 @@ values-ref-check: ## Fail if docs/reference/values.md is stale or a schema prope
 health-check: ## Test the argocd-cm health scripts offline against tests/health fixtures
 	hack/test_health.sh
 
-e2e: ## Kind + ArgoCD + smoke tests (MODULES=core|all)
+e2e: upstream-cache ## Install Keelson, wait for Healthy, run smoke tests (MODULES=core|all; needs make kind-up)
 	tests/e2e/run.sh $(MODULES)
 
 kind-up: upstream-cache ## Create Kind cluster 'keelson' (upstream CI shape) and install pinned ArgoCD

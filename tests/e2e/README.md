@@ -1,0 +1,47 @@
+# E2E tests
+
+The harness installs Keelson into a cluster that already runs ArgoCD. It waits until every Keelson Application is Synced and Healthy. Then it runs each enabled module's smoke test.
+
+## Run it locally
+
+```sh
+make kind-up             # Kind cluster + pinned ArgoCD (see CONTRIBUTING.md)
+make e2e MODULES=core    # install, wait for Healthy, smoke tests
+make kind-down
+```
+
+`make e2e` runs `tests/e2e/run.sh <MODULES>`. Extra arguments after `MODULES` go to `helm upgrade --install`, for example `tests/e2e/run.sh core --set ...`.
+
+A full Kubeflow install needs about 16 GB of RAM. On a smaller machine, run only `MODULES=core`, and use CI for anything heavier: add the `needs-e2e` label to the PR, or run `gh workflow run e2e.yaml --ref <branch>`.
+
+## Environment variables
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `E2E_TIMEOUT` | `30m` | How long to wait for Synced + Healthy. Takes an `s`, `m` or `h` suffix. |
+| `KEEP` | `0` | `1` keeps a gateway port-forward on `localhost:8080` open after a passing run, so you can look around. Press Ctrl-C to stop it. |
+| `GATEWAY_PORT` | `8080` | Local port for the gateway port-forward. `dex-login.sh` needs `8080`. |
+
+## Scenarios
+
+Each `MODULES` value installs a golden scenario's `values.yaml`, so e2e installs exactly what the snapshot shows:
+
+| `MODULES` | Values file |
+|---|---|
+| `core` | `tests/golden/kind-core/values.yaml` |
+| `all` | Not yet. Fails with a message until a broader scenario exists. |
+
+## When it fails
+
+`run.sh` exits non-zero and writes diagnostics to `.cache/e2e/diagnostics/`: Application status, pods that aren't running, events, and Dex, oauth2-proxy and ArgoCD controller logs. In CI they are uploaded as the `e2e-diagnostics` artifact.
+
+## Add a smoke test for a module
+
+1. Write `tests/e2e/<name>.sh`. Start it with `set -euo pipefail`, and `source` `lib.sh` for `log`, `fail`, `py`, `upstream_dir` and `port_forward_gateway`.
+2. Set `smokeTest: tests/e2e/<name>.sh` in `charts/keelson/modules/<module>.yaml`. If the module has nothing to test beyond Healthy, use `smokeTest: none` with a comment that gives the reason.
+
+Tests run after every Application is Healthy, in module wave order. A path shared by several modules runs once.
+
+Prefer running upstream's own test from `.cache/upstream/<tag>/tests/` over writing a copy. `dex-login.sh` does this with `dex_login_test.py`. It needs something serving `/` behind the gateway, so the dashboard module wires it (#7). Until then, core uses `auth-redirect.sh`.
+
+`auth-redirect.sh` applies a test-only route, `tests/e2e/fixtures/protected-route.yaml`, and deletes it at the end. Core has no workload at `/`, and Envoy skips `ext_authz` for a request that matches no route, so the gateway answers `403 RBAC: access denied` there (#106). The route sends `/keelson-e2e/` to the Dex Service. Dex cannot return oauth2-proxy's sign-in form, so the form on that path proves that `ext_authz` answered. That gives a protected path that `ext_authz` checks.

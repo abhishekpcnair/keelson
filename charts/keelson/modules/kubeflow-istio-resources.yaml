@@ -8,7 +8,7 @@ namespaces: [kubeflow]
 dependsOn: [istio, kubeflow-namespace]
 defaultEnabled: true
 translations: [domain]
-smokeTest: none  # e2e harness lands in #4
+smokeTest: none  # Healthy is the check: no user-facing endpoint
 upstreamHelmChart: common/istio/helm
 # Aggregated ClusterRole: the RBAC controller fills in .rules at runtime.
 ignoreDifferences:

@@ -37,4 +37,11 @@ jobs:
       - run: make kind-up
       - name: Check the kind-up health apply (#70)
         run: tests/e2e/check_kind_up_health.sh
-      - run: tests/e2e/run.sh core
+      # run.sh creates .cache/e2e/venv from tests/e2e/requirements.txt
+      - run: make e2e MODULES=core
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-diagnostics
+          path: .cache/e2e/diagnostics/
+          if-no-files-found: ignore
