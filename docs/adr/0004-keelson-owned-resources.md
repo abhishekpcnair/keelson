@@ -49,22 +49,22 @@ The mechanism must:
    - **Public `ghcr.io`:** no Secret is needed. ArgoCD reads public OCI Helm charts without credentials.
    - **Private or mirrored registries:** the user creates an ArgoCD repository Secret (`type: helm`, `enableOCI: "true"`, plus credentials) themselves, just as for any private Helm repository.
    - **PR e2e:** the harness pushes the chart under test to an in-cluster OCI registry and points the `keelson.selfSource` override at it. This also works for PRs from forks. The harness registers that registry with a test-only repository Secret: `type: helm`, `enableOCI: "true"` and `insecureOCIForceHttp: "true"`.
-9. **Ordering.** Under a root Application (#22), sync waves order the component Applications after their dependencies. Under a bare `helm install`, ArgoCD ignores sync waves on sibling Applications, so component Applications converge only through the `defaultAppSpec` retries, as upstream modules already do. That budget is 10 retries, backing off from 10s and doubling to a 5-minute cap: about 30 minutes in total. This is the same limitation for every module, and it's documented in #2.
+9. **Ordering.** Under a root Application (#22), sync waves order the component Applications after their dependencies. Under a bare `helm install`, ArgoCD ignores sync waves on sibling Applications, so component Applications converge only through the `defaultAppSpec` retries, as upstream modules already do. That budget is 10 retries, backing off from 10s and doubling to a 5-minute cap: about 30 minutes in total. This is the same limitation for every module, and documenting it is planned in #2.
 10. **Minimum ArgoCD version: `v3.6.2`.** That's `ARGOCD_VERSION` in `hack/kind-up.sh` (ADR 0003). It was checked against the ArgoCD source at tag `v3.6.2`:
     - `docs/user-guide/helm.md` and `docs/operator-manual/declarative-setup.md` (Helm section) document Helm charts from OCI registries, with `chart`, a `repoURL` without the `oci://` scheme, and `helm.valuesObject`. Repository Secrets for them set `enableOCI: "true"`.
     - `docs/user-guide/oci.md` documents native OCI sources (`repoURL: oci://…`, `path: .`) as an alternative form.
     - `util/db/repository_secrets.go` reads the `insecureOCIForceHttp` repository option used in point 8.
 
-The mechanism is implemented with its first consumer (#9).
+The mechanism is implemented with its first consumer (#9), or in an engine PR just before it.
 
 ### Principles this ADR bends
 - **ADR 0002** makes every v0.1 module `source.type: kustomize`, and the engine fails on any other type. Design §5.1 and §7 list only `kustomize | helm`. This ADR **extends** them with a third source type, `keelson`, for Keelson-owned components only. Upstream workloads still come only from Kustomize sources in v0.1.
 - **Design principle 1 (§4) and ADR 0001** limit Keelson to Application objects, Kustomize patches and Helm values. This ADR **narrows that rule**:
-  - It allows Keelson-authored **configuration** resources that upstream doesn't ship: Profiles, RBAC and Istio policies, Kyverno policies, and certificate issuers, all built from user intent.
-  - It never allows workloads or images. `check_rules.py` R5 still applies to component output.
+  - It allows Keelson-authored **configuration** resources that upstream doesn't ship: Profiles, RBAC and Istio policies, Kyverno policies, and cert-manager `Certificate`s and `ClusterIssuer`s, all built from user intent.
+  - It never allows workloads or images. #9 extends `check_rules.py` R5 to scan component-mode render output, where any `image:` key fails.
   - Component templates must never copy upstream Kubeflow templates or third-party templates.
   - Anything adapted from a third party, for example Kyverno policies adapted from `kyverno/policies` for #11, needs attribution in `NOTICE` and in the file header.
-- Design §4, §5.1 and §7 are updated to match in the first implementation PR (#9).
+- Design §4, §5.1 and §7 are updated to match in the first PR that implements the mechanism (#9, or the engine PR before it).
 
 ### Alternatives considered
 - **A. Render the resources directly in the Helm release.** Rejected: a bare `helm install` fails on missing CRDs.
