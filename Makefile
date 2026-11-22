@@ -34,6 +34,7 @@ kubeconform: ## Validate rendered manifests
 	kubeconform -strict -summary $(KUBECONFORM_SCHEMAS) $(RENDER_DIR)/*.yaml
 
 rules: ## Check design rules on rendered output and patches
+	python3 -m unittest hack/test_check_rules.py
 	python3 hack/check_rules.py --rendered $(RENDER_DIR) --patches $(CHART)/patches --repo .
 
 kustomize-check: upstream-cache ## Build patched modules against .cache/upstream (needs pinned kustomize)
