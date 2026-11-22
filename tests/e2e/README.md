@@ -41,6 +41,7 @@ Each `MODULES` value installs a golden scenario's `values.yaml`, so e2e installs
 | `MODULES` | Values file |
 |---|---|
 | `core` | `tests/golden/kind-core/values.yaml` |
+| `profiles` | `tests/golden/profiles/values.yaml`: `core` plus a `keelson-profiles` component Application (ADR 0004) |
 | `all` | Not yet. Fails with a message until a broader scenario exists. |
 
 ## When it fails
@@ -57,3 +58,14 @@ Tests run after every Application is Healthy, in module wave order. A path share
 Prefer running upstream's own test from `.cache/upstream/<tag>/tests/` over writing a copy. `dex-login.sh` does this with `dex_login_test.py`. It needs something serving `/` behind the gateway, so the dashboard module wires it (#7): `tests/e2e/dashboard.sh` runs it first, then `dashboard.py`. Without the dashboard, core uses `auth-redirect.sh`. With the dashboard, `auth-redirect.sh` also requires oauth2-proxy's sign-in page on `GET /`.
 
 `auth-redirect.sh` applies a test-only route, `tests/e2e/fixtures/protected-route.yaml`, and deletes it at the end. Core has no workload at `/`, and Envoy skips `ext_authz` for a request that matches no route, so the gateway answers `403 RBAC: access denied` there (#106). The route sends `/keelson-e2e/` to the Dex Service. Dex cannot return oauth2-proxy's sign-in form, so the form on that path proves that `ext_authz` answered. That gives a protected path that `ext_authz` checks.
+
+## Component Applications and the in-cluster registry
+
+A component Application (`keelson-profiles`) pulls this chart from `keelson.selfSource`. The chart under test is not published. So `MODULES=profiles` uses the same in-cluster registry as the root-Application mode (`tests/e2e/registry.yaml`, upstream `registry` image pinned by digest, `lib/root-app.sh`):
+1. `e2e_registry_push` starts the registry, packages the chart at an exact pre-release version (`<version>-e2e.<commit>`) and pushes it.
+2. It creates the ArgoCD repository Secret for the registry. Only the harness makes this Secret. The chart never renders it.
+3. The helm mode passes `--set keelson.selfSource.repoURL=… --set keelson.selfSource.targetRevision=…`. The root-Application mode puts the same override in the root Application's values.
+
+The override exists only in the harness. The chart defaults, the golden scenarios and `check_rules.py` are unchanged.
+
+CI runs `profiles` on `main`, nightly, on manual runs, and on PRs that change the profiles component, the component engine (`source.type: keelson`), the e2e harness or its workflow. Other PRs run `core`.
