@@ -1,0 +1,53 @@
+---
+# Source: keelson/templates/components/profiles.yaml
+apiVersion: kubeflow.org/v1
+kind: Profile
+metadata:
+  name: "kubeflow-user-example-com"
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: keelson-profiles
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+    # Removing a profile from values must never delete its namespace or data.
+    argocd.argoproj.io/sync-options: Prune=false
+spec:
+  owner:
+    kind: User
+    name: "user@example.com"
+
+---
+# Source: keelson/templates/components/profiles.yaml
+apiVersion: kubeflow.org/v1
+kind: Profile
+metadata:
+  name: "team-vision"
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: keelson-profiles
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+    # Removing a profile from values must never delete its namespace or data.
+    argocd.argoproj.io/sync-options: Prune=false
+spec:
+  owner:
+    kind: User
+    name: "alice@example.com"
+
+---
+# Source: keelson/templates/components/profiles.yaml
+apiVersion: kubeflow.org/v1
+kind: Profile
+metadata:
+  name: "123"
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: keelson-profiles
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+    # Removing a profile from values must never delete its namespace or data.
+    argocd.argoproj.io/sync-options: Prune=false
+spec:
+  owner:
+    kind: User
+    name: "numeric@example.com"

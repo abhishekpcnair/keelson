@@ -48,7 +48,7 @@ Keelson combines the engine from the third project, the phasing from the second 
 
 These are binding rules, and the factory enforces them (see `docs/development-factory.md`).
 
-1. **Wrap, don't copy.** Every workload comes from an upstream source (a `kubeflow/manifests` path at a pinned tag, or an upstream Helm chart at a pinned version). Keelson contributes only Application objects, Kustomize patches and Helm values.
+1. **Wrap, don't copy.** Every workload comes from an upstream source (a `kubeflow/manifests` path at a pinned tag, or an upstream Helm chart at a pinned version). Keelson contributes only Application objects, Kustomize patches and Helm values, plus Keelson-authored **configuration** resources that upstream doesn't ship (Profiles, RBAC, Istio and Kyverno policies, cert-manager issuers), rendered in component mode (ADR 0004). Never workloads or images.
 2. **Upstream is the source of truth.** If a change can't be expressed as a small patch, open an upstream issue or PR first, and carry the patch only with a link to it.
 3. **Pinned everything.** No `HEAD`, `master` or floating tags. CI fails on unpinned sources.
 4. **Every patch has a reason.** Each patch file starts with a comment giving its purpose, the upstream issue link (if any) and the removal condition.
@@ -76,7 +76,7 @@ These are binding rules, and the factory enforces them (see `docs/development-fa
 ```
 
 ### 5.1 Layer 3: engine
-- A **module registry** (`charts/keelson/modules/*.yaml`, loaded with `.Files.Glob`) declares, for each module: name, sync wave, source type (`kustomize` | `helm`), upstream path or chart, dependencies, and a default enabled state.
+- A **module registry** (`charts/keelson/modules/*.yaml`, loaded with `.Files.Glob`) declares, for each module: name, sync wave, source type (`kustomize` | `helm` | `keelson`), upstream path or chart (or, for `keelson`, the component this chart renders in component mode, ADR 0004), dependencies, and a default enabled state.
 - One template iterates over the registry and renders an `Application` for each enabled module. A shared `defaultAppSpec` provides ServerSideApply, CreateNamespace, retries with backoff and automated sync. A per-module `appSpecOverride` is the escape hatch.
 - An `AppProject` restricts source repos to an allowlist (upstream `kubeflow/manifests`, pinned Helm repos, and the user's own repo for patches).
 - A `raw:` escape hatch lets users add arbitrary manifests. It is unsupported but available.
@@ -166,8 +166,9 @@ Each module file (`charts/keelson/modules/<name>.yaml`) must declare:
 name: pipelines
 wave: 20
 source:
-  type: kustomize                 # kustomize | helm
+  type: kustomize                 # kustomize | helm | keelson
   path: applications/pipeline/overlays
+  # component: profiles; values: [profiles]   # when type=keelson (ADR 0004)
   # helm: { repo: ..., chart: ..., version: ... }  # when type=helm
   # platformPaths: { kind: <path> }  # optional; chosen by values `platform`
 namespace: kubeflow               # Application destination namespace

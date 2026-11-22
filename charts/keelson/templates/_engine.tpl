@@ -9,6 +9,7 @@ Returns YAML `{modules: [...]}`; use with fromYaml. Fails on unknown module
 names, unmet dependsOn, a wave not above its dependencies' waves,
 non-kustomize sources, and a bad appSpecOverride (checked for every module in
 advanced.modules, also a disabled one).
+A `keelson` component with only empty values is never enabled.
 */}}
 {{- define "keelson.modules" -}}
 {{- $registry := dict -}}
@@ -38,7 +39,16 @@ advanced.modules, also a disabled one).
 {{- range $i, $d := $m.ignoreDifferences -}}
 {{- include "keelson.checkIgnoreDifference" (dict "where" (printf "%s.ignoreDifferences[%d]" $path $i) "entry" $d) -}}
 {{- end -}}
+{{- if eq $m.source.type "kustomize" -}}
 {{- if not $m.source.path -}}{{- fail (printf "%s: missing required field \"source.path\"" $path) -}}{{- end -}}
+{{- else if eq $m.source.type "keelson" -}}
+{{- /* ADR 0004: Keelson-owned resources, rendered by this chart in component mode. */ -}}
+{{- if not (and (kindIs "string" $m.source.component) $m.source.component) -}}{{- fail (printf "%s: source.component must be a non-empty string" $path) -}}{{- end -}}
+{{- if not (and (kindIs "slice" $m.source.values) $m.source.values) -}}{{- fail (printf "%s: source.values must be a non-empty list" $path) -}}{{- end -}}
+{{- if hasKey $m.source "path" -}}{{- fail (printf "%s: source.path is not allowed for source.type keelson" $path) -}}{{- end -}}
+{{- else -}}
+{{- fail (printf "%s: source.type %q is not supported (kustomize: ADR 0002, keelson: ADR 0004)" $path $m.source.type) -}}
+{{- end -}}
 {{- if ne (printf "modules/%s.yaml" $m.name) $path -}}
 {{- fail (printf "%s: name %q must match the file name" $path $m.name) -}}
 {{- end -}}
@@ -55,7 +65,7 @@ advanced.modules, also a disabled one).
 {{- end -}}
 {{- /* Check every override here, also for a disabled module (#79). */ -}}
 {{- if hasKey ($adv | default dict) "appSpecOverride" -}}
-{{- include "keelson.checkOverride" (dict "module" $name "override" $adv.appSpecOverride) -}}
+{{- include "keelson.checkOverride" (dict "module" $name "override" $adv.appSpecOverride "sourceType" (get $registry $name).source.type) -}}
 {{- end -}}
 {{- end -}}
 {{- $out := list -}}
@@ -64,10 +74,13 @@ advanced.modules, also a disabled one).
 {{- $enabled := $m.defaultEnabled -}}
 {{- $v := get $.Values.modules $name | default dict -}}
 {{- if hasKey $v "enabled" -}}{{- $enabled = $v.enabled -}}{{- end -}}
-{{- if ne $m.source.type "kustomize" -}}
-{{- fail (printf "module %s: source.type %q is not supported yet (ADR 0002)" $name $m.source.type) -}}
+{{- if eq $m.source.type "keelson" -}}
+{{- /* A component with only empty values renders no Application (ADR 0004 point 6). */ -}}
+{{- $data := false -}}
+{{- range $m.source.values -}}{{- if get $.Values . -}}{{- $data = true -}}{{- end -}}{{- end -}}
+{{- $enabled = and $enabled $data -}}
 {{- end -}}
-{{- $p := $m.source.path -}}
+{{- $p := $m.source.path | default "" -}}
 {{- $pp := $m.source.platformPaths | default dict -}}
 {{- if hasKey $pp $.Values.platform -}}{{- $p = get $pp $.Values.platform -}}{{- end -}}
 {{- $out = append $out (merge (dict "enabled" $enabled "resolvedPath" $p) $m) -}}
@@ -118,6 +131,9 @@ advanced.modules, also a disabled one).
 {{- define "keelson.sourceRepos" -}}
 {{- $repos := list .Values.upstream.manifestsRepo -}}
 {{- range .Values.argocd.extraSourceRepos -}}{{- $repos = append $repos . -}}{{- end -}}
+{{- range (include "keelson.enabledModules" . | fromYaml).modules -}}
+{{- if eq .source.type "keelson" -}}{{- $repos = append $repos (include "keelson.selfSource" $ | fromYaml).repoURL -}}{{- end -}}
+{{- end -}}
 {{- uniq $repos | toYaml -}}
 {{- end -}}
 
@@ -154,6 +170,28 @@ intent leaves the module with nothing to install (for example workspaces.kinds: 
 {{- end -}}
 
 {{/*
+keelson.selfSource: where component Applications pull this chart from
+(ADR 0004 point 7). targetRevision defaults to this chart's version.
+*/}}
+{{- define "keelson.selfSource" -}}
+{{- $s := .Values.keelson.selfSource -}}
+repoURL: {{ $s.repoURL }}
+chart: {{ $s.chart }}
+targetRevision: {{ $s.targetRevision | default .Chart.Version | quote }}
+{{- end -}}
+
+{{/*
+keelson.componentValues: the helm.valuesObject of a component Application: the
+component name plus a copy of only the values keys it needs (ADR 0004 point 3).
+Call with (dict "root" $ "module" $m).
+*/}}
+{{- define "keelson.componentValues" -}}
+{{- $out := dict "component" .module.source.component -}}
+{{- range .module.source.values -}}{{- $_ := set $out . (get $.root.Values . | deepCopy) -}}{{- end -}}
+{{- toYaml $out -}}
+{{- end -}}
+
+{{/*
 keelson.defaultAppSpec: the shared Application spec for one module.
 Call with (dict "root" $ "module" $m).
 */}}
@@ -163,6 +201,13 @@ project: {{ $v.argocd.project }}
 destination:
   server: {{ $v.argocd.destinationServer }}
   namespace: {{ .module.namespace }}
+{{- if eq .module.source.type "keelson" }}
+source:
+  {{- include "keelson.selfSource" .root | nindent 2 }}
+  helm:
+    valuesObject:
+      {{- include "keelson.componentValues" . | nindent 6 }}
+{{- else }}
 source:
   repoURL: {{ $v.upstream.manifestsRepo }}
   targetRevision: {{ $v.upstream.manifestsRef | quote }}
@@ -172,13 +217,19 @@ source:
     patches:
       {{- toYaml . | nindent 6 }}
   {{- end }}
+{{- end }}
 syncPolicy:
   automated:
     prune: true
     selfHeal: true
   syncOptions:
     - ServerSideApply=true
+    {{- if eq .module.source.type "keelson" }}
+    {{- /* No CreateNamespace: components write into namespaces that other modules or controllers own. */}}
+    - SkipDryRunOnMissingResource=true
+    {{- else }}
     - CreateNamespace=true
+    {{- end }}
     {{- if .module.ignoreDifferences }}
     {{- /* applications.yaml re-applies this (and ignoreDifferences) after any appSpecOverride. */}}
     - RespectIgnoreDifferences=true
@@ -258,11 +309,15 @@ rejected by default and sources stay pinned (hard rule 3).
   source:           path, kustomize
   source.kustomize: patches, commonLabels, commonAnnotations, namePrefix, nameSuffix, replicas
   each patch:       patch (string, required), target, options
+A `keelson` component may not override source at all.
 Allowed keys may not be null. A patch may not touch an image (hard rule 2).
-Call with (dict "module" $name "override" $o).
+Call with (dict "module" $name "override" $o "sourceType" $type).
 */}}
 {{- define "keelson.checkOverride" -}}
 {{- $where := printf "advanced.modules.%s.appSpecOverride" .module -}}
+{{- if and (eq .sourceType "keelson") (hasKey .override "source") -}}
+{{- fail (printf "%s.source: not allowed for a Keelson component (ADR 0004); its source is keelson.selfSource" $where) -}}
+{{- end -}}
 {{- include "keelson.checkKeys" (dict "where" $where "obj" .override "allowed" (list "syncPolicy" "ignoreDifferences" "info" "revisionHistoryLimit" "source")) -}}
 {{- if and (hasKey .override "ignoreDifferences") (not (kindIs "slice" .override.ignoreDifferences)) -}}
 {{- fail (printf "%s.ignoreDifferences: must be a list" $where) -}}

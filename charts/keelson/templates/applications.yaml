@@ -1,3 +1,4 @@
+{{- if not .Values.component }}
 {{- range (include "keelson.enabledModules" . | fromYaml).modules }}
 {{- $spec := include "keelson.defaultAppSpec" (dict "root" $ "module" .) | fromYaml }}
 {{- $override := ((($.Values.advanced).modules | default dict) | dig .name "appSpecOverride" dict) }}
@@ -16,8 +17,12 @@ spec:
   {{- $merged := mustMergeOverwrite (deepCopy $spec) $override }}
   {{- /* Re-apply the pinned fields from the generated spec, whatever the merge did. */}}
   {{- $_ := set $merged "project" $spec.project }}
+  {{- if eq .source.type "keelson" }}
+  {{- $_ := set $merged "source" $spec.source }}
+  {{- else }}
   {{- $_ := set $merged.source "repoURL" $spec.source.repoURL }}
   {{- $_ := set $merged.source "targetRevision" $spec.source.targetRevision }}
+  {{- end }}
   {{- $_ := set $merged.destination "server" $spec.destination.server }}
   {{- /* Override patches add to translation patches; they don't replace them. */}}
   {{- $gen := dig "source" "kustomize" "patches" list $spec }}
@@ -38,4 +43,5 @@ spec:
   {{- $opts := include "keelson.mergeSyncOptions" (dict "base" $spec.syncPolicy.syncOptions "override" (dig "syncPolicy" "syncOptions" list $override) "force" $force) | fromYaml }}
   {{- $_ := set $merged.syncPolicy "syncOptions" $opts.items }}
   {{- $merged | toYaml | nindent 2 }}
+{{- end }}
 {{- end }}
