@@ -81,15 +81,15 @@ if kind get clusters 2>/dev/null | grep -qx "$CLUSTER_NAME"; then
   fi
   # Capture first, so grep -q can't SIGPIPE kubectl under pipefail.
   # Right after a restart, /readyz can pass before the mirror pod is listed. Empty means "not known yet".
-  apiserver_cmd=""
-  for try in $(seq 1 15); do
+  apiserver_cmd="" tries=15 delay=2
+  for (( try = 1; try <= tries; try++ )); do
     apiserver_cmd="$(k -n kube-system get pod -l component=kube-apiserver -o jsonpath='{.items[*].spec.containers[*].command}' 2>/dev/null || true)"
     if [[ -n "$apiserver_cmd" ]]; then break; fi
-    if (( try == 1 )); then log "Waiting up to 30s for the kube-apiserver pod in '$CLUSTER_NAME' to be listed"; fi
-    if (( try < 15 )); then sleep 2; fi
+    if (( try == 1 )); then log "Waiting up to $(( tries * delay ))s for the kube-apiserver pod in '$CLUSTER_NAME' to be listed"; fi
+    if (( try < tries )); then sleep "$delay"; fi
   done
   [[ -n "$apiserver_cmd" ]] \
-    || die "could not read the kube-apiserver pod in cluster '$CLUSTER_NAME' after 30s (control plane still starting?). Wait and rerun, or run 'make kind-down && make kind-up'."
+    || die "could not read the kube-apiserver pod in cluster '$CLUSTER_NAME' after $(( tries * delay ))s (control plane still starting?). Wait and rerun, or run 'make kind-down && make kind-up'."
   # Match the whole quoted argument: kubeadm's default issuer, ...default.svc.cluster.local, shares the prefix.
   if [[ "$apiserver_cmd" != *'"--service-account-issuer=https://kubernetes.default.svc"'* ]]; then
     die "existing cluster '$CLUSTER_NAME' lacks the service-account-issuer patch (not created by this script?). Run 'make kind-down && make kind-up'."
