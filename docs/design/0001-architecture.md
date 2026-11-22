@@ -219,7 +219,10 @@ A module is accepted only if it has a golden test scenario, a smoke test (or a d
 
 ## 13. Release and supply chain
 - SemVer for the chart. `appVersion` = upstream Kubeflow release (e.g. `26.10.0`).
-- Published as an OCI artifact to `ghcr.io/<org>/charts/keelson`, signed with cosign (keyless, GitHub OIDC), with an SBOM of the referenced upstream images attached.
+- Published as an OCI artifact to `ghcr.io/<org>/charts/keelson`, signed with cosign (keyless, GitHub OIDC).
+- Images referenced by the release:
+  - Prereleases attach an image list (`images.txt`, `images.json`), attested with cosign to the chart digest.
+  - `0.1.0` and later releases attach a full SBOM for each referenced upstream image (#61).
 - A support policy: the current and previous upstream release, documented in `docs/support-matrix.md`.
 
 ## 14. Security

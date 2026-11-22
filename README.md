@@ -11,6 +11,26 @@
 - Decisions: [`docs/adr/`](docs/adr/)
 - Contributing: [`CONTRIBUTING.md`](CONTRIBUTING.md) · Security: [`SECURITY.md`](SECURITY.md) · [Code of Conduct](CODE_OF_CONDUCT.md)
 
+## Install
+
+> Not released yet. The first pre-release, `v0.1.0-alpha.1`, is tracked in #63. The commands below work once it's published.
+
+You need a cluster that already runs ArgoCD. Install the signed chart from the OCI registry:
+
+```sh
+helm install keelson oci://ghcr.io/abhishekpcnair/charts/keelson --version 0.1.0-alpha.1
+```
+
+Check the signature before you install. Releases are signed with cosign, keyless, using the GitHub OIDC identity of the release workflow:
+
+```sh
+cosign verify ghcr.io/abhishekpcnair/charts/keelson:0.1.0-alpha.1 \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --certificate-identity-regexp '^https://github.com/abhishekpcnair/keelson/\.github/workflows/release\.yaml@refs/tags/v'
+```
+
+To try Keelson on a laptop, see [Local Kind cluster](CONTRIBUTING.md#local-kind-cluster). What each release is tested with is in the [support matrix](docs/support-matrix.md).
+
 Licensed under [Apache-2.0](LICENSE).
 
 Inspired by [deployKF](https://github.com/deployKF/deployKF), [kubeflow-bootstrap](https://github.com/treebeardtech/kubeflow-bootstrap) and [TheCodingSheikh's kubeflow chart](https://github.com/TheCodingSheikh/helm-charts/tree/main/charts/kubeflow). See [`NOTICE`](NOTICE).
