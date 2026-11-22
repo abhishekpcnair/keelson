@@ -3,7 +3,8 @@
 #
 # Usage: hack/sbom.sh <images.json> <out-dir> [parallel]
 # Writes <out-dir>/<module>/<image-name>.cdx.json. An image that several modules use is
-# scanned once and copied. Needs `syft` (pinned in the release workflow) and `jq`.
+# scanned once and copied. <out-dir>/unique.txt lists one SBOM file for each unique image
+# (for attesting each image once). It scans the registry copy, so no image is pulled into Docker. Needs `syft` (pinned in the release workflow) and `jq`.
 # Fails, with the image names, when an image cannot be scanned. It never skips an image.
 set -euo pipefail
 
@@ -18,13 +19,14 @@ name_of() { local n=$1; n=${n//\//_}; n=${n//:/_}; echo "${n//@/_}"; }
 
 # "<module> <image>" pairs. The first module of an image does the scan.
 jq -r 'to_entries[] | .key as $m | .value[] | "\($m) \(.)"' "$json" | sort -u > "$work/pairs"
+[ -s "$work/pairs" ] || { echo "sbom: $json lists no images" >&2; exit 1; }
 sort -u -k2,2 "$work/pairs" > "$work/scans"
 
 scan() {   # scan <module> <image>
   local dir="$2/$1" file
   mkdir -p "$dir"
   file="$dir/$(name_of "$3").cdx.json"
-  if syft "$3" --platform linux/amd64 -o cyclonedx-json="$file" -q; then
+  if syft "registry:$3" --platform linux/amd64 -o cyclonedx-json="$file" -q; then
     echo "sbom: $3"
   else
     echo "FAIL sbom: $3" >&2; rm -f "$file"; return 1
@@ -43,5 +45,8 @@ while read -r module image; do
   src=$(find "$out" -name "$(name_of "$image").cdx.json" | head -n1)
   mkdir -p "$out/$module" && cp "$src" "$dest"
 done < "$work/pairs"
+
+# One file for each unique image.
+while read -r module image; do echo "$module/$(name_of "$image").cdx.json"; done < "$work/scans" | sort > "$out/unique.txt"
 
 echo "sbom: $(wc -l < "$work/scans" | tr -d ' ') image(s) scanned in $((SECONDS - start))s"
