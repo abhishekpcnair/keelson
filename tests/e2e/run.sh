@@ -63,16 +63,18 @@ kubectl -n "$ARGOCD_NS" get deployment argocd-server >/dev/null 2>&1 \
 
 # 6. Diagnostics on any failure from here on.
 DIAG="$E2E_CACHE/diagnostics"
+# Bounded kubectl, so a struggling API server can't hang collection or the wait loop.
+kd() { kubectl --request-timeout=20s "$@"; }
 collect_diagnostics() {
   rm -rf "$DIAG"; mkdir -p "$DIAG"
   log "Collecting diagnostics into $DIAG"
-  kubectl -n "$ARGOCD_NS" get applications -l app.kubernetes.io/part-of=keelson -o wide >"$DIAG/applications.txt" 2>&1 || true
-  kubectl -n "$ARGOCD_NS" get applications -l app.kubernetes.io/part-of=keelson -o yaml >"$DIAG/applications.yaml" 2>&1 || true
-  kubectl get pods -A --field-selector=status.phase!=Running,status.phase!=Succeeded -o wide >"$DIAG/pods-not-running.txt" 2>&1 || true
-  kubectl get events -A --sort-by=.lastTimestamp >"$DIAG/events.txt" 2>&1 || true
-  kubectl -n auth logs -l app=dex --all-containers --tail=500 >"$DIAG/dex.log" 2>&1 || true
-  kubectl -n oauth2-proxy logs -l app.kubernetes.io/name=oauth2-proxy --all-containers --tail=500 >"$DIAG/oauth2-proxy.log" 2>&1 || true
-  kubectl -n "$ARGOCD_NS" logs statefulset/argocd-application-controller --tail=500 >"$DIAG/argocd-application-controller.log" 2>&1 || true
+  kd -n "$ARGOCD_NS" get applications -l app.kubernetes.io/part-of=keelson -o wide >"$DIAG/applications.txt" 2>&1 || true
+  kd -n "$ARGOCD_NS" get applications -l app.kubernetes.io/part-of=keelson -o yaml >"$DIAG/applications.yaml" 2>&1 || true
+  kd get pods -A --field-selector=status.phase!=Running,status.phase!=Succeeded -o wide >"$DIAG/pods-not-running.txt" 2>&1 || true
+  kd get events -A --sort-by=.lastTimestamp >"$DIAG/events.txt" 2>&1 || true
+  kd -n auth logs -l app=dex --all-containers --tail=500 >"$DIAG/dex.log" 2>&1 || true
+  kd -n oauth2-proxy logs -l app.kubernetes.io/name=oauth2-proxy --all-containers --tail=500 >"$DIAG/oauth2-proxy.log" 2>&1 || true
+  kd -n "$ARGOCD_NS" logs statefulset/argocd-application-controller --tail=500 >"$DIAG/argocd-application-controller.log" 2>&1 || true
   sed 's/^/  /' "$DIAG/applications.txt" >&2 || true
 }
 on_exit() {
@@ -92,10 +94,15 @@ expected="$(helm get manifest "$RELEASE" -n "$ARGOCD_NS" | grep -c '^kind: Appli
 log "Waiting up to $E2E_TIMEOUT for $expected Applications to be Synced and Healthy"
 start=$SECONDS
 while :; do
-  status="$(kubectl -n "$ARGOCD_NS" get applications -l app.kubernetes.io/part-of=keelson -o json \
+  # A failed or timed-out read counts as "API not answering" and is retried until the deadline.
+  status="$({ kd -n "$ARGOCD_NS" get applications -l app.kubernetes.io/part-of=keelson -o json 2>/dev/null || true; } \
     | py -c '
 import json, sys
-items = json.load(sys.stdin)["items"]
+try:
+    items = json.load(sys.stdin)["items"]
+except ValueError:
+    print(0, "(API server not answering)")
+    sys.exit(0)
 not_ready = []
 for a in sorted(items, key=lambda a: a["metadata"]["name"]):
     st = a.get("status", {})
