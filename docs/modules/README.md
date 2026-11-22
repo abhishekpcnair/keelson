@@ -71,6 +71,17 @@ advanced:
 
 This is an escape hatch. We don't support it, and it may break on upgrade.
 
+`syncPolicy.syncOptions` in an override merge into the engine defaults by key (the text before `=`).
+An entry with the same key replaces the default. A new key is added at the end. Each entry must be `Key=Value`.
+
+```yaml
+syncOptions: [CreateNamespace=false, PruneLast=true]
+# result: [ServerSideApply=true, CreateNamespace=false, PruneLast=true]
+```
+
+You can't remove a default option. Set the opposite value instead, for example `CreateNamespace=false`.
+`RespectIgnoreDifferences=true` stays on for modules with `ignoreDifferences`.
+
 The override is an allow-list, so sources stay pinned and inside the AppProject:
 - At the top level you may set only `syncPolicy`, `ignoreDifferences`, `info`,
   `revisionHistoryLimit` and `source`.

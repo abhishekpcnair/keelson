@@ -1,0 +1,8 @@
+# expect: must be Key=Value
+# A sync option without "=".
+advanced:
+  modules:
+    dex:
+      appSpecOverride:
+        syncPolicy:
+          syncOptions: [Prune]
