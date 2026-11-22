@@ -151,6 +151,13 @@ For the full default values, see `charts/keelson/values.yaml`.
 | `upstream.manifestsRef` | string, required | — | pattern `^[0-9]{2}\.[0-9]{2}(\.[0-9]+)?$` | Pinned kubeflow/manifests release tag, e.g. 26.10.0. Branches and HEAD are not allowed. |
 | `upstream.manifestsRepo` | string, required | — | format `uri` | Git URL of the upstream Kubeflow manifests. Every Application pulls from it. |
 
+## `workspaces`
+
+| Key | Type | Default | Allowed | Description |
+|---|---|---|---|---|
+| `workspaces` | object | — | — | Settings for the workspaces and workspace-kinds modules. |
+| `workspaces.kinds` | array | ["jupyterlab"] | unique items | Upstream sample WorkspaceKinds to install (workspace-kinds module): any of codeserver, jupyterlab, rstudio. [] installs none. |
+
 ## Rules
 
 The chart fails to render when one of these rules is broken.

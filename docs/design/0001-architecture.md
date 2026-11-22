@@ -127,8 +127,9 @@ argocd:
   project: keelson
 modules:
   pipelines: { enabled: true }
-  workspaces: { enabled: true }
-  notebooks-v1: { enabled: false }   # keys are module names (kebab-case); legacy, upstream EOL notice
+  workspaces: { enabled: true }      # keys are module names (kebab-case)
+workspaces:
+  kinds: [jupyterlab]                # upstream sample WorkspaceKinds to install (#14)
 advanced:
   modules: {}                        # per-module appSpecOverride / extra patches (unsupported)
 ```
@@ -149,7 +150,8 @@ advanced:
 | 10 | profiles (Keelson-generated) | rendered from `profiles[]` | ✓ |
 | 20 | pipelines | `applications/pipeline/overlays` | ✓ |
 | 20 | workspaces | `applications/workspaces/overlays/istio` | ✓ |
-| 20 | notebooks-v1 (legacy, off) | `applications/notebooks-v1/...` | opt-in |
+| 25 | workspace-kinds | `applications/workspaces/upstream/controller/samples` (delete patches keep the kinds in `workspaces.kinds`) | ✓ |
+| — | notebooks-v1 | not offered (Q5) | ✗ |
 | 30 | knative-serving, cluster-local-gateway | `common/knative/knative-serving/overlays/gateways`, `common/istio/cluster-local-gateway/base` | v0.2 (KServe) |
 | 40 | kserve, kserve-ui | `applications/kserve/kserve`, `applications/kserve/kserve-ui` | v0.2 |
 | 40 | katib, trainer, spark, hub | see `example/kustomization.yaml` | v0.2+ |
@@ -258,7 +260,7 @@ A module is accepted only if it has a golden test scenario, a smoke test (or a d
 - ~~**Q2** ArgoCD: should v0.1 ship a bootstrap script that installs ArgoCD, or only document "bring your own ArgoCD"?~~ **Resolved:** a bootstrap script installs ArgoCD for Kind, dev and CI only; everywhere else is bring-your-own ArgoCD. See [ADR 0003](../adr/0003-kind-bootstrap-installs-argocd.md).
 - **Q3** Kyverno vs `ValidatingAdmissionPolicy` for the Pod Security baseline.
 - **Q4** Production object store on Azure (which S3-compatible option to document).
-- **Q5** Should notebooks-v1 be offered at all in v0.1, given upstream's EOL notice and that Workspaces is the default in 26.10?
+- **Q5** *(resolved, #14)* Do not offer notebooks-v1 in v0.1, not even opt-in. Upstream removes it in Kubeflow 27.03 (`example/kustomization.yaml` at 26.10.0). Workspaces is the default.
 
 ## 19. Attribution
 Design ideas, and possibly code under Apache-2.0 with attribution in `NOTICE`, come from deployKF, treebeardtech/kubeflow-bootstrap and TheCodingSheikh/helm-charts.

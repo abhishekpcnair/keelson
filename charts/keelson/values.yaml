@@ -38,6 +38,10 @@ auth:
     # Secret in namespace oauth2-proxy. Key: cookie-secret.
     secretRef:
       name: ""
+workspaces:
+  # WorkspaceKinds to install from upstream's samples: jupyterlab, codeserver, rstudio.
+  # [] installs none (bring your own). See docs/modules/workspaces.md.
+  kinds: [jupyterlab]
 argocd:
   namespace: argocd
   project: keelson

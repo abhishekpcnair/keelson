@@ -1,0 +1,4 @@
+# expect: items at 0 and 1 are equal
+# A kind listed twice is a mistake, not a no-op.
+workspaces:
+  kinds: [jupyterlab, jupyterlab]

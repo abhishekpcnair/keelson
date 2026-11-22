@@ -239,6 +239,20 @@
         }
       }
     },
+    "workspaces": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Settings for the workspaces and workspace-kinds modules.",
+      "properties": {
+        "kinds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "enum": ["codeserver", "jupyterlab", "rstudio"] },
+          "default": ["jupyterlab"],
+          "description": "Upstream sample WorkspaceKinds to install (workspace-kinds module): any of codeserver, jupyterlab, rstudio. [] installs none."
+        }
+      }
+    },
     "argocd": {
       "type": "object",
       "required": ["namespace", "project", "destinationServer"],

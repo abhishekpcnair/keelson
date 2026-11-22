@@ -27,6 +27,8 @@ spec:
     - server: https://kubernetes.default.svc
       namespace: kubeflow-system
     - server: https://kubernetes.default.svc
+      namespace: kubeflow-workspaces
+    - server: https://kubernetes.default.svc
       namespace: oauth2-proxy
   # Upstream ships CRDs, ClusterRoles, webhooks and Namespaces.
   clusterResourceWhitelist:
@@ -474,3 +476,186 @@ spec:
     - ServerSideApply=true
     - CreateNamespace=true
     - RespectIgnoreDifferences=true
+
+---
+# Source: keelson/templates/applications.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: workspaces
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: workspaces
+  annotations:
+    argocd.argoproj.io/sync-wave: "20"
+spec:
+  destination:
+    namespace: kubeflow-workspaces
+    server: https://kubernetes.default.svc
+  ignoreDifferences:
+  - group: rbac.authorization.k8s.io
+    jsonPointers:
+    - /rules
+    kind: ClusterRole
+    name: kubeflow-workspaces-admin
+  - group: rbac.authorization.k8s.io
+    jsonPointers:
+    - /rules
+    kind: ClusterRole
+    name: kubeflow-workspaces-edit
+  - group: rbac.authorization.k8s.io
+    jsonPointers:
+    - /rules
+    kind: ClusterRole
+    name: kubeflow-workspaces-view
+  project: keelson
+  source:
+    path: applications/workspaces/overlays/istio
+    repoURL: https://github.com/kubeflow/manifests
+    targetRevision: 26.10.0
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+      limit: 10
+    syncOptions:
+    - ServerSideApply=true
+    - CreateNamespace=true
+    - RespectIgnoreDifferences=true
+
+---
+# Source: keelson/templates/applications.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: workspace-kinds
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: workspace-kinds
+  annotations:
+    argocd.argoproj.io/sync-wave: "25"
+spec:
+  destination:
+    namespace: kubeflow-workspaces
+    server: https://kubernetes.default.svc
+  project: keelson
+  source:
+    kustomize:
+      patches:
+      - patch: |-
+          # purpose: drop upstream sample PersistentVolumeClaim/workspace-home-pvc; it is not part of a Keelson install
+          # upstream: none
+          # remove-when: upstream ships an installable WorkspaceKinds overlay (then point workspace-kinds at it)
+          $patch: delete
+          apiVersion: v1
+          kind: PersistentVolumeClaim
+          metadata:
+            name: workspace-home-pvc
+        target:
+          kind: PersistentVolumeClaim
+          name: workspace-home-pvc
+          version: v1
+      - patch: |-
+          # purpose: drop upstream sample PersistentVolumeClaim/workspace-data-pvc; it is not part of a Keelson install
+          # upstream: none
+          # remove-when: upstream ships an installable WorkspaceKinds overlay (then point workspace-kinds at it)
+          $patch: delete
+          apiVersion: v1
+          kind: PersistentVolumeClaim
+          metadata:
+            name: workspace-data-pvc
+        target:
+          kind: PersistentVolumeClaim
+          name: workspace-data-pvc
+          version: v1
+      - patch: |-
+          # purpose: drop upstream sample Secret/workspace-secret; it is not part of a Keelson install
+          # upstream: none
+          # remove-when: upstream ships an installable WorkspaceKinds overlay (then point workspace-kinds at it)
+          $patch: delete
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: workspace-secret
+        target:
+          kind: Secret
+          name: workspace-secret
+          version: v1
+      - patch: |-
+          # purpose: drop upstream sample ConfigMap/workspacekind-image-source; it is not part of a Keelson install
+          # upstream: none
+          # remove-when: upstream ships an installable WorkspaceKinds overlay (then point workspace-kinds at it)
+          $patch: delete
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: workspacekind-image-source
+        target:
+          kind: ConfigMap
+          name: workspacekind-image-source
+          version: v1
+      - patch: |-
+          # purpose: drop upstream sample Workspace/jupyterlab-workspace; it is not part of a Keelson install
+          # upstream: none
+          # remove-when: upstream ships an installable WorkspaceKinds overlay (then point workspace-kinds at it)
+          $patch: delete
+          apiVersion: kubeflow.org/v1beta1
+          kind: Workspace
+          metadata:
+            name: jupyterlab-workspace
+        target:
+          group: kubeflow.org
+          kind: Workspace
+          name: jupyterlab-workspace
+          version: v1beta1
+      - patch: |-
+          # purpose: drop upstream sample WorkspaceKind/codeserver; it is not part of a Keelson install
+          # upstream: none
+          # remove-when: upstream ships an installable WorkspaceKinds overlay (then point workspace-kinds at it)
+          $patch: delete
+          apiVersion: kubeflow.org/v1beta1
+          kind: WorkspaceKind
+          metadata:
+            name: codeserver
+        target:
+          group: kubeflow.org
+          kind: WorkspaceKind
+          name: codeserver
+          version: v1beta1
+      - patch: |-
+          # purpose: drop upstream sample WorkspaceKind/rstudio; it is not part of a Keelson install
+          # upstream: none
+          # remove-when: upstream ships an installable WorkspaceKinds overlay (then point workspace-kinds at it)
+          $patch: delete
+          apiVersion: kubeflow.org/v1beta1
+          kind: WorkspaceKind
+          metadata:
+            name: rstudio
+        target:
+          group: kubeflow.org
+          kind: WorkspaceKind
+          name: rstudio
+          version: v1beta1
+    path: applications/workspaces/upstream/controller/samples
+    repoURL: https://github.com/kubeflow/manifests
+    targetRevision: 26.10.0
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+      limit: 10
+    syncOptions:
+    - ServerSideApply=true
+    - CreateNamespace=true
