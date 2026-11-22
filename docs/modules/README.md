@@ -61,10 +61,15 @@ This is an escape hatch. We don't support it, and it may break on upgrade.
 The override is an allow-list, so sources stay pinned and inside the AppProject:
 - At the top level you may set only `syncPolicy`, `ignoreDifferences`, `info`,
   `revisionHistoryLimit` and `source`.
-- Inside `source` you may set only `path`, `kustomize` and `directory`.
-- `source.kustomize.images` and patches that set an `image:` are rejected (no forked images).
+- Inside `source` you may set only `path` and `kustomize`.
+- Inside `source.kustomize` you may set only `patches`, `commonLabels`, `commonAnnotations`,
+  `namePrefix`, `nameSuffix` and `replicas`. Each patch takes `patch` (an inline string),
+  `target` and `options`.
+- A patch may not change an image, in YAML, JSON or JSON6902 form (no forked images).
+- Allowed keys may not be `null`. For example, `syncPolicy: null` would turn off automated sync.
 
-Anything else fails at render time, including newer ArgoCD fields such as `sourceHydrator`.
+Anything else fails at render time. That includes newer ArgoCD fields such as `sourceHydrator`,
+and Kustomize fields that load remote content, such as `components`.
 `project`, `source.repoURL`, `source.targetRevision` and `destination.server` always come from values.
 
 ## Add a module

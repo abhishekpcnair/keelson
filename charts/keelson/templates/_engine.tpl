@@ -21,6 +21,9 @@ names, unmet dependsOn, and non-kustomize sources.
 {{- if not (or (kindIs "float64" $m.wave) (kindIs "int64" $m.wave)) -}}
 {{- fail (printf "%s: wave must be a number" $path) -}}
 {{- end -}}
+{{- if ne (float64 $m.wave) (floor $m.wave) -}}
+{{- fail (printf "%s: wave must be an integer" $path) -}}
+{{- end -}}
 {{- if not (and (kindIs "string" $m.namespace) $m.namespace) -}}
 {{- fail (printf "%s: namespace must be a non-empty string" $path) -}}
 {{- end -}}
@@ -137,42 +140,69 @@ syncPolicy:
 
 
 {{/*
-keelson.checkOverride: appSpecOverride is an allow-list, so new ArgoCD spec
-fields (for example sourceHydrator) are rejected by default.
-Top level: syncPolicy, ignoreDifferences, info, revisionHistoryLimit, source.
-Inside source: path, kustomize, directory. kustomize.images and inline patches
-that set an image are rejected (hard rule 2). Call with (dict "module" $name "override" $o).
+keelson.checkOverride: appSpecOverride is an allow-list at every level, so new
+ArgoCD or Kustomize fields (sourceHydrator, kustomize.components, ...) are
+rejected by default and sources stay pinned (hard rule 3).
+  spec:             syncPolicy, ignoreDifferences, info, revisionHistoryLimit, source
+  source:           path, kustomize
+  source.kustomize: patches, commonLabels, commonAnnotations, namePrefix, nameSuffix, replicas
+  each patch:       patch (string, required), target, options
+Allowed keys may not be null. A patch may not touch an image (hard rule 2).
+Call with (dict "module" $name "override" $o).
 */}}
 {{- define "keelson.checkOverride" -}}
-{{- $o := .override -}}
 {{- $where := printf "advanced.modules.%s.appSpecOverride" .module -}}
-{{- $top := list "syncPolicy" "ignoreDifferences" "info" "revisionHistoryLimit" "source" -}}
-{{- range $k := keys $o | sortAlpha -}}
-{{- if not (has $k $top) -}}
-{{- fail (printf "%s.%s: not allowed (allowed: %s)" $where $k (join ", " $top)) -}}
+{{- include "keelson.checkKeys" (dict "where" $where "obj" .override "allowed" (list "syncPolicy" "ignoreDifferences" "info" "revisionHistoryLimit" "source")) -}}
+{{- if and (hasKey .override "source") (not (kindIs "map" .override.source)) -}}{{- fail (printf "%s.source: must be a map" $where) -}}{{- end -}}
+{{- if and (kindIs "map" .override.source) (hasKey .override.source "kustomize") (not (kindIs "map" .override.source.kustomize)) -}}{{- fail (printf "%s.source.kustomize: must be a map" $where) -}}{{- end -}}
+{{- with .override.source -}}
+{{- include "keelson.checkKeys" (dict "where" (printf "%s.source" $where) "obj" . "allowed" (list "path" "kustomize")) -}}
+{{- with .kustomize -}}
+{{- $kw := printf "%s.source.kustomize" $where -}}
+{{- include "keelson.checkKeys" (dict "where" $kw "obj" . "allowed" (list "patches" "commonLabels" "commonAnnotations" "namePrefix" "nameSuffix" "replicas")) -}}
+{{- if hasKey . "patches" -}}
+{{- if not (kindIs "slice" .patches) -}}{{- fail (printf "%s.patches: must be a list" $kw) -}}{{- end -}}
+{{- range $i, $pt := .patches -}}
+{{- $pw := printf "%s.patches[%d]" $kw $i -}}
+{{- if not (kindIs "map" $pt) -}}{{- fail (printf "%s: must be a map" $pw) -}}{{- end -}}
+{{- include "keelson.checkKeys" (dict "where" $pw "obj" $pt "allowed" (list "patch" "target" "options")) -}}
+{{- if not (and (kindIs "string" $pt.patch) $pt.patch) -}}{{- fail (printf "%s.patch: must be a non-empty string" $pw) -}}{{- end -}}
+{{- include "keelson.checkPatchImage" (dict "where" $pw "patch" $pt.patch) -}}
 {{- end -}}
 {{- end -}}
-{{- if hasKey $o "source" -}}
-{{- if not (kindIs "map" $o.source) -}}
-{{- fail (printf "%s.source: must be a map" $where) -}}
-{{- end -}}
-{{- $src := list "path" "kustomize" "directory" -}}
-{{- range $k := keys $o.source | sortAlpha -}}
-{{- if not (has $k $src) -}}
-{{- fail (printf "%s.source.%s: not allowed (allowed: %s)" $where $k (join ", " $src)) -}}
 {{- end -}}
 {{- end -}}
-{{- $kz := $o.source.kustomize -}}
-{{- if and (hasKey $o.source "kustomize") (not (kindIs "map" $kz)) -}}
-{{- fail (printf "%s.source.kustomize: must be a map" $where) -}}
 {{- end -}}
-{{- if hasKey ($kz | default dict) "images" -}}
-{{- fail (printf "%s.source.kustomize.images: not allowed (no image overrides, hard rule 2)" $where) -}}
+
+{{/* keelson.checkKeys: fail on keys outside `allowed`, and on null values. */}}
+{{- define "keelson.checkKeys" -}}
+{{- $c := . -}}
+{{- range $k := keys .obj | sortAlpha -}}
+{{- if not (has $k $c.allowed) -}}
+{{- fail (printf "%s.%s: not allowed (allowed: %s)" $c.where $k (join ", " $c.allowed)) -}}
 {{- end -}}
-{{- range ($kz | default dict).patches -}}
-{{- if and (kindIs "map" .) (contains "image:" (toString .patch)) -}}
-{{- fail (printf "%s.source.kustomize.patches: a patch may not set an image (hard rule 2)" $where) -}}
+{{- if kindIs "invalid" (get $c.obj $k) -}}
+{{- fail (printf "%s.%s: must not be null" $c.where $k) -}}
 {{- end -}}
 {{- end -}}
+{{- end -}}
+
+{{/*
+keelson.checkPatchImage: fail if an inline patch touches a container image.
+Checks the raw text (YAML or JSON key `image`, or a JSON6902 path ending in
+/image) and, when it parses, the canonical JSON of the patch.
+*/}}
+{{- define "keelson.checkPatchImage" -}}
+{{- $re := `(^|[^A-Za-z0-9_])["']?image["']?\s*:|/image($|[^A-Za-z0-9_])` -}}
+{{- $raw := .patch -}}
+{{- $canon := "" -}}
+{{- $asMap := fromYaml $raw -}}
+{{- if not (hasKey $asMap "Error") -}}{{- $canon = toJson $asMap -}}
+{{- else -}}
+{{- $asList := fromYamlArray $raw -}}
+{{- if not (and (eq (len $asList) 1) (kindIs "string" (first $asList)) (hasPrefix "error" (first $asList))) -}}{{- $canon = toJson $asList -}}{{- end -}}
+{{- end -}}
+{{- if or (regexMatch $re $raw) (regexMatch `"image":|/image"` $canon) -}}
+{{- fail (printf "%s.patch: may not change an image (hard rule 2)" .where) -}}
 {{- end -}}
 {{- end -}}
