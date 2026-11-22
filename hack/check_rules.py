@@ -7,6 +7,9 @@ Usage:
 Checks:
   R1  Every ArgoCD Application source points to an allowed repo.
   R2  No floating revisions (HEAD, master, main, latest, empty) in Applications.
+      A Helm chart source (`chart:` set, e.g. keelson.selfSource) needs an exact
+      SemVer version: ArgoCD resolves anything else as a semver constraint, and
+      it has no digest form for Helm OCI charts.
   R3  Every Application has an argocd.argoproj.io/sync-wave annotation.
   R4  Every patch file and inline kustomize patch starts with purpose/upstream/
       remove-when header lines. A strict JSON patch file can't hold # lines,
@@ -15,6 +18,8 @@ Checks:
       Keelson must not set images: a YAML, JSON or JSON6902 patch fails if it
       has an `image` key at any depth or a JSON6902 path ending in /image.
       Same rule as keelson.checkPatchImage in the chart.
+      Component-mode output (ADR 0004) and helm.valuesObject may hold no
+      `image` key at all.
   R6  No tracked symlinks in the git repo given by --repo (a symlinked .cache
       once leaked a local path). Skipped with a note if git is not installed;
       fails if --repo is not a git repository.
@@ -31,7 +36,9 @@ import sys
 import yaml
 
 FLOATING = {"", "head", "master", "main", "latest"}
-DEFAULT_ALLOWED = ["https://github.com/kubeflow/manifests"]
+# kubeflow/manifests, and this chart's own OCI repo (release.yaml) for component Applications.
+DEFAULT_ALLOWED = ["https://github.com/kubeflow/manifests", "ghcr.io/abhishekpcnair/charts"]
+EXACT_SEMVER = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$")
 HEADER_KEYS = ("# purpose:", "# upstream:", "# remove-when:")
 # Raw-text check. Same regex as keelson.checkPatchImage in _engine.tpl.
 IMAGE_RE = re.compile(r"""(^|[^A-Za-z0-9_])["']?image["']?\s*:|/image($|[^A-Za-z0-9_])""", re.M)
@@ -100,6 +107,12 @@ def check_app(f, app, allowed, errors):
         rev = str(s.get("targetRevision", "")).strip()
         if rev.lower() in FLOATING:
             errors.append(f"R2 {where}: floating targetRevision '{rev}'")
+        elif s.get("chart") and not EXACT_SEMVER.match(rev):
+            errors.append(f"R2 {where}: chart targetRevision '{rev}' is not an exact SemVer version")
+        if s.get("chart") and (repo.startswith("oci://") or "path" in s):
+            errors.append(f"R1 {where}: chart source must be Helm OCI form (no oci:// scheme, no path)")
+        if any(k == "image" for k, _ in walk((s.get("helm") or {}).get("valuesObject") or {})):
+            errors.append(f"R5 {where}: helm.valuesObject sets an image")
         for i, p in enumerate((s.get("kustomize") or {}).get("patches") or []):
             check_header(f"{where}:patches[{i}]", str((p or {}).get("patch", "")), errors)
         for k, v in walk(s.get("kustomize", {})):
@@ -107,6 +120,13 @@ def check_app(f, app, allowed, errors):
                 errors.append(f"R5 {where}: inline patch sets an image")
             if k == "images":
                 errors.append(f"R5 {where}: kustomize.images override is not allowed")
+
+
+def check_resource(f, doc, errors):
+    """R5 for non-Application output, i.e. component mode: Keelson renders no workloads."""
+    if any(k == "image" for k, _ in walk(doc)):
+        meta = doc.get("metadata") or {}
+        errors.append(f"R5 {f}:{doc.get('kind')}/{meta.get('name', '<unnamed>')}: Keelson-owned resource sets an image")
 
 
 def check_header(where, text, errors):
@@ -199,6 +219,8 @@ def main():
             if doc.get("kind") == "Application" and str(doc.get("apiVersion", "")).startswith("argoproj.io/"):
                 apps += 1
                 check_app(f, doc, allowed, errors)
+            else:
+                check_resource(f, doc, errors)
     if a.patches and a.patches.exists():
         check_patches(a.patches, errors)
     if a.repo:

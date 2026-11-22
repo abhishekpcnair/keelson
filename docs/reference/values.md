@@ -54,6 +54,12 @@ For the full default values, see `charts/keelson/values.yaml`.
 | `auth.staticUsers` | object | — | — | Static user settings. |
 | `auth.staticUsers.enabled` | boolean | — | — | Upstream static user user@example.com. Kind and dev only. |
 
+## `component`
+
+| Key | Type | Default | Allowed | Description |
+|---|---|---|---|---|
+| `component` | string | — | one of ``, `profiles` | Internal. Only the engine sets it, in component Applications (ADR 0004). |
+
 ## `database`
 
 | Key | Type | Default | Allowed | Description |
@@ -78,6 +84,16 @@ For the full default values, see `charts/keelson/values.yaml`.
 |---|---|---|---|---|
 | `global` | object | — | — | Helm global values. Allowed so parent charts and --set global.* keep working. |
 
+## `keelson`
+
+| Key | Type | Default | Allowed | Description |
+|---|---|---|---|---|
+| `keelson` | object | — | — | Settings for Keelson's own chart, used by component Applications (ADR 0004). |
+| `keelson.selfSource` | object | — | — | Where component Applications pull this chart from (ADR 0004). |
+| `keelson.selfSource.chart` | string, required | — | pattern `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$` | Chart name in the registry. |
+| `keelson.selfSource.repoURL` | string, required | — | pattern `^[A-Za-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._-]+)*$` | OCI registry path, no scheme (e.g. ghcr.io/org/charts). |
+| `keelson.selfSource.targetRevision` | string | — | pattern `^$\|^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$` | Empty: this chart's version. Otherwise an exact SemVer version. |
+
 ## `modules`
 
 | Key | Type | Default | Allowed | Description |
@@ -101,7 +117,10 @@ For the full default values, see `charts/keelson/values.yaml`.
 
 | Key | Type | Default | Allowed | Description |
 |---|---|---|---|---|
-| `profiles` | array | — | — | Placeholder; defined by #9 |
+| `profiles` | array | — | — | Kubeflow profiles as code. Names must be unique (checked at render time). |
+| `profiles[].groups` |  | — | — | Not supported yet. Rejected at render time; see issue #28. |
+| `profiles[].name` | string, required | — | max length 63; pattern `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$` | Profile and namespace name (DNS-1123 label). |
+| `profiles[].owner` | string, required | — | pattern `^[^@\s]+@[^@\s]+\.[^@\s]+$` | Owner email: the kubeflow-userid header value. |
 
 ## `storage`
 

@@ -33,6 +33,22 @@ argocd:
   destinationServer: https://kubernetes.default.svc
   # Extra repos the AppProject may pull from (for example, your own patch repo).
   extraSourceRepos: []
+# Kubeflow profiles as code. Each entry becomes a Profile owned by `owner`.
+# Removing an entry never deletes the namespace (Prune=false). See
+# docs/configuration/profiles.md.
+#   - name: team-vision        # namespace name: lowercase DNS-1123 label
+#     owner: alice@example.com
+profiles: []
+# Where component Applications (keelson-profiles, ...) pull this chart from
+# (ADR 0004). The default works only for a published release. Set it for a
+# git checkout, a fork, a mirror or an air-gapped registry.
+keelson:
+  selfSource:
+    repoURL: ghcr.io/abhishekpcnair/charts   # Helm OCI form: no oci:// scheme
+    chart: keelson
+    targetRevision: ""                       # empty = this chart's version; or an exact version
+# Internal: set only by the engine in component Applications. Never set it.
+component: ""
 # Turn modules on or off by name: `modules.<name>.enabled`. Defaults come from
 # charts/keelson/modules/<name>.yaml (defaultEnabled). See docs/modules/README.md.
 modules: {}
