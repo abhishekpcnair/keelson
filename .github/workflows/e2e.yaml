@@ -45,6 +45,8 @@ jobs:
           E2E_INSTALL: ${{ github.event_name == 'pull_request' && 'helm' || 'root-app' }}
       # Dex opens an OIDC connector that Keelson configured (#43). Runs on the same cluster.
       - run: tests/e2e/auth_oidc.sh
+        env:
+          AUTH_OIDC_ISSUER: https://kubernetes.default.svc/bad
       - if: failure()
         uses: actions/upload-artifact@v7
         with:
