@@ -1,4 +1,4 @@
-"""Unit tests for hack/check_rules.py (standard library only). Run: python3 -m unittest hack/test_check_rules.py"""
+"""Unit tests for hack/check_rules.py (no new dependencies: unittest plus the PyYAML that check_rules.py uses). Run: python3 -m unittest hack/test_check_rules.py"""
 import pathlib
 import sys
 import unittest
@@ -30,6 +30,7 @@ spec:
   path: /spec/template/spec/containers/0/image
   value: evil.io/dex:1
 """,
+    "string value with image: (chart rejects it too)": 'cfg: "image: x"\n',
     "unparseable text with image:": "spec: [unclosed\n  image: evil.io/x:1\n",
 }
 
