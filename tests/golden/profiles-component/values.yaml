@@ -1,8 +1,12 @@
 # profiles-component: the chart in component mode, as the keelson-profiles
-# Application renders it (ADR 0004). Only Profile resources; no Applications.
+# Application renders it (ADR 0004). Profiles plus KFAM-shaped contributor and
+# viewer access; no Applications.
 component: profiles
 profiles:
   - name: kubeflow-user-example-com
     owner: user@example.com
+    contributors: [bob@example.com]
   - name: team-vision
     owner: alice@example.com
+    contributors: [Carol.Smith+ml@Example.com]
+    viewers: [dave@example.com]

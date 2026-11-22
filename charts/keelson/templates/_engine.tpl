@@ -143,6 +143,8 @@ A `keelson` component with only empty values is never enabled.
 {{- range (include "keelson.enabledModules" . | fromYaml).modules -}}
 {{- $ns = append $ns .namespace -}}
 {{- range .namespaces -}}{{- $ns = append $ns . -}}{{- end -}}
+{{- /* keelson components: namespaces named by a values list (e.g. profiles[].name). */ -}}
+{{- with (.source).namespacesFrom -}}{{- range (get $.Values .) -}}{{- $ns = append $ns .name -}}{{- end -}}{{- end -}}
 {{- end -}}
 {{- uniq $ns | sortAlpha | toYaml -}}
 {{- end -}}
