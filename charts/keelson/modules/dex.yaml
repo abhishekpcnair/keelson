@@ -7,6 +7,6 @@ namespace: auth
 namespaces: [auth]
 dependsOn: [istio]
 defaultEnabled: true
-translations: []
+translations: [auth]
 smokeTest: none  # e2e harness lands in #4
 upstreamHelmChart: common/dex/helm

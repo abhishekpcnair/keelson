@@ -1,0 +1,10 @@
+# expected: Degraded
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: istio
+  namespace: argocd
+status:
+  health:
+    status: Degraded
+    message: Deployment istiod has 0 ready replicas

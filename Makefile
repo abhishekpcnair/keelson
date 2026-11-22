@@ -7,12 +7,12 @@ MODULES      ?= all
 KUBECONFORM_SCHEMAS := -schema-location default \
   -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
 
-.PHONY: help verify lint schema golden golden-check kubeconform rules kustomize-check namespaces e2e kind-up kind-down upstream-cache upstream-watch clean
+.PHONY: help verify lint schema golden golden-check kubeconform rules kustomize-check namespaces health-check e2e kind-up kind-down upstream-cache upstream-watch clean
 
 help: ## Show targets
 	@grep -E '^[a-z0-9-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-16s %s\n", $$1, $$2}'
 
-verify: lint schema golden-check kubeconform rules kustomize-check namespaces ## All local gates (required before a PR)
+verify: lint schema golden-check kubeconform rules kustomize-check namespaces health-check ## All local gates (required before a PR)
 
 lint: ## helm lint
 	helm lint $(CHART)
@@ -45,14 +45,18 @@ kubeconform: ## Validate rendered manifests
 
 rules: ## Check design rules on rendered output and patches
 	python3 -m unittest hack/test_check_rules.py
-	python3 hack/check_rules.py --rendered $(RENDER_DIR) --patches $(CHART)/patches --repo .
+	python3 -m unittest hack/test_upstream_watch.py
+	python3 hack/check_rules.py --rendered $(RENDER_DIR) --patches $(CHART)/patches --repo . --templates $(CHART)/templates
 
-namespaces: upstream-cache ## Check module namespaces: lists against upstream kubectl kustomize output
+namespaces: upstream-cache ## Check module namespaces: lists against upstream kustomize build output (pinned kustomize)
 	python3 -m unittest hack/test_check_namespaces.py
 	python3 hack/check_namespaces.py
 
 kustomize-check: upstream-cache ## Build patched modules against .cache/upstream (needs pinned kustomize)
 	python3 hack/kustomize_check.py --rendered $(RENDER_DIR)
+
+health-check: ## Test the argocd-cm health scripts offline against tests/health fixtures
+	hack/test_health.sh
 
 e2e: ## Kind + ArgoCD + smoke tests (MODULES=core|all)
 	tests/e2e/run.sh $(MODULES)

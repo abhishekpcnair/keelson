@@ -1,0 +1,9 @@
+# expect: jsonPointers: must be a list
+# A string where a list belongs.
+advanced:
+  modules:
+    dex:
+      appSpecOverride:
+        ignoreDifferences:
+          - kind: Deployment
+            jsonPointers: /spec/replicas

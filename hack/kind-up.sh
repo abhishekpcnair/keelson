@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Create a local Kind cluster that matches upstream Kubeflow's CI shape, then
-# install a pinned ArgoCD. For Kind, dev and CI only (ADR 0003). Safe to rerun.
+# install a pinned ArgoCD and metrics-server. For Kind, dev and CI only (ADR 0003). Safe to rerun.
 #
 # The Kind cluster config (1 control-plane, 2 workers, kubeadm
 # service-account-issuer patch) is adapted from kubeflow/manifests
@@ -18,6 +18,10 @@ ARGOCD_VERSION="v3.6.2"
 # sha256 of manifests/install.yaml at ARGOCD_VERSION. Bump both together; get the hash from
 #   curl -fsSL https://raw.githubusercontent.com/argoproj/argo-cd/<version>/manifests/install.yaml | sha256sum
 ARGOCD_INSTALL_SHA256="c948064d38294d857712ef78444768749a14293613098932f8533e37d067a2a2"
+METRICS_SERVER_VERSION="v0.9.1"
+# sha256 of the components.yaml release asset at METRICS_SERVER_VERSION. Bump both together; get the hash from
+#   curl -fsSL https://github.com/kubernetes-sigs/metrics-server/releases/download/<version>/components.yaml | sha256sum
+METRICS_SERVER_SHA256="3c7f57cdbee0f57fb0259a150e8f6d6cb4f29d72d1aa5dce8803151dd6d4c2a1"
 CLUSTER_NAME="${CLUSTER_NAME:-keelson}"
 CONTEXT="kind-${CLUSTER_NAME}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -75,15 +79,18 @@ if [[ -n "$want_kind" ]]; then
 fi
 
 k() { kubectl --context "$CONTEXT" "$@"; }
+# Quick checks only: each call gives up after 5s. rollout status and apply use k(), which has no limit.
+kq_timeout=5
+kq() { k --request-timeout="${kq_timeout}s" "$@"; }
 
 # 2. Cluster.
 if kind get clusters 2>/dev/null | grep -qx "$CLUSTER_NAME"; then
   log "Kind cluster '$CLUSTER_NAME' already exists; skipping create"
-  k get --raw /readyz >/dev/null 2>&1 \
+  kq get --raw /readyz >/dev/null 2>&1 \
     || die "cluster '$CLUSTER_NAME' exists but its API server is unreachable (containers stopped?). Start it, or run 'make kind-down && make kind-up'."
   # Check that the existing cluster still matches what this script would create.
   want_k8s="$(sed -nE 's/^[^:]+:(v[0-9]+\.[0-9]+\.[0-9]+).*/\1/p' <<<"${KIND_NODE_IMAGE:-}")"
-  have_k8s="$({ k version -o json 2>/dev/null || true; } | sed -nE 's/.*"gitVersion": *"(v[0-9]+\.[0-9]+\.[0-9]+)[^"]*".*/\1/p' | tail -n1)"
+  have_k8s="$({ kq version -o json 2>/dev/null || true; } | sed -nE 's/.*"gitVersion": *"(v[0-9]+\.[0-9]+\.[0-9]+)[^"]*".*/\1/p' | tail -n1)"
   if [[ -z "$want_k8s" ]]; then
     log "warning: expected node image unknown (no upstream cache); not checking the existing cluster's version"
   elif [[ "$have_k8s" != "$want_k8s" ]]; then
@@ -93,13 +100,13 @@ if kind get clusters 2>/dev/null | grep -qx "$CLUSTER_NAME"; then
   # Right after a restart, /readyz can pass before the mirror pod is listed. Empty means "not known yet".
   apiserver_cmd="" tries=15 delay=2
   for (( try = 1; try <= tries; try++ )); do
-    apiserver_cmd="$(k -n kube-system get pod -l component=kube-apiserver -o jsonpath='{.items[*].spec.containers[*].command}' 2>/dev/null || true)"
+    apiserver_cmd="$(kq -n kube-system get pod -l component=kube-apiserver -o jsonpath='{.items[*].spec.containers[*].command}' 2>/dev/null || true)"
     if [[ -n "$apiserver_cmd" ]]; then break; fi
-    if (( try == 1 )); then log "Waiting up to $(( tries * delay ))s for the kube-apiserver pod in '$CLUSTER_NAME' to be listed"; fi
+    if (( try == 1 )); then log "Waiting up to $(( tries * (kq_timeout + delay) ))s for the kube-apiserver pod in '$CLUSTER_NAME' to be listed"; fi
     if (( try < tries )); then sleep "$delay"; fi
   done
   [[ -n "$apiserver_cmd" ]] \
-    || die "could not read the kube-apiserver pod in cluster '$CLUSTER_NAME' after $(( tries * delay ))s (control plane still starting?). Wait and rerun, or run 'make kind-down && make kind-up'."
+    || die "could not read the kube-apiserver pod in cluster '$CLUSTER_NAME' after up to $(( tries * (kq_timeout + delay) ))s (control plane still starting?). Wait and rerun, or run 'make kind-down && make kind-up'."
   # Match the whole quoted argument: kubeadm's default issuer, ...default.svc.cluster.local, shares the prefix.
   if [[ "$apiserver_cmd" != *'"--service-account-issuer=https://kubernetes.default.svc"'* ]]; then
     die "existing cluster '$CLUSTER_NAME' lacks the service-account-issuer patch (not created by this script?). Run 'make kind-down && make kind-up'."
@@ -142,8 +149,10 @@ fi
 # 4. ArgoCD, pinned. Server-side apply because the CRDs exceed the client-side annotation limit.
 log "Installing ArgoCD $ARGOCD_VERSION"
 k create namespace argocd --dry-run=client -o yaml | k apply -f - >/dev/null
-argocd_tmp="$(mktemp)"
-trap 'rm -f "$argocd_tmp"' EXIT
+# One temp dir for every verified download, so one EXIT trap removes all of them.
+tmp_dir="$(mktemp -d)"
+trap 'rm -rf "$tmp_dir"' EXIT
+argocd_tmp="$tmp_dir/argocd-install.yaml"
 curl -fsSL "https://raw.githubusercontent.com/argoproj/argo-cd/${ARGOCD_VERSION}/manifests/install.yaml" -o "$argocd_tmp"
 got="$(sha256 "$argocd_tmp")"
 [[ "$got" == "$ARGOCD_INSTALL_SHA256" ]] \
@@ -153,19 +162,47 @@ for r in $(k -n argocd get deployment,statefulset -o name); do
   k -n argocd rollout status "$r" --timeout=600s
 done
 
+# 4b. metrics-server, pinned (dev/CI only, ADR 0003). The istio HPAs need it; without it the
+# istio Application shows Degraded. Real clusters (AKS) already have one.
+ms_get() { k -n kube-system get deployment metrics-server -o jsonpath="$1" 2>/dev/null || true; }
+# On a rerun with the pinned version already patched, skip the apply: it would drop the patched
+# flag and restart metrics-server twice.
+if [[ "$(ms_get '{.spec.template.spec.containers[0].image}')" == *":${METRICS_SERVER_VERSION}" \
+      && "$(ms_get '{.spec.template.spec.containers[0].args}')" == *'--kubelet-insecure-tls'* ]]; then
+  log "metrics-server $METRICS_SERVER_VERSION already installed; skipping apply"
+else
+  log "Installing metrics-server $METRICS_SERVER_VERSION"
+  ms_tmp="$tmp_dir/metrics-server.yaml"
+  curl -fsSL "https://github.com/kubernetes-sigs/metrics-server/releases/download/${METRICS_SERVER_VERSION}/components.yaml" -o "$ms_tmp"
+  got="$(sha256 "$ms_tmp")"
+  [[ "$got" == "$METRICS_SERVER_SHA256" ]] \
+    || die "metrics-server $METRICS_SERVER_VERSION components.yaml sha256 is $got, expected $METRICS_SERVER_SHA256. The release asset may have changed, or METRICS_SERVER_SHA256 wasn't bumped with METRICS_SERVER_VERSION."
+  k apply --server-side --force-conflicts -f "$ms_tmp" >/dev/null
+fi
+# purpose: Kind kubelets serve self-signed certs, so metrics-server must skip kubelet TLS verification.
+# upstream: none
+# remove-when: kind-up gives kubelets CA-signed serving certs (serverTLSBootstrap plus CSR approval).
+if [[ "$(ms_get '{.spec.template.spec.containers[0].args}')" != *'--kubelet-insecure-tls'* ]]; then
+  k -n kube-system patch deployment metrics-server --type=json \
+    -p '[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]' >/dev/null
+fi
+k -n kube-system rollout status deployment/metrics-server --timeout=300s
+k wait --for=condition=Available apiservice/v1beta1.metrics.k8s.io --timeout=300s
+
 # 5. Health customisations from #2, if present.
 health="$ROOT/hack/argocd/argocd-cm-health.yaml"
 if [[ -f "$health" ]]; then
   log "Applying $health"
-  k apply --server-side --force-conflicts -n argocd -f "$health"
+  # Own field manager, so re-applying ArgoCD install.yaml (default manager) doesn't remove these keys.
+  k apply --server-side --force-conflicts --field-manager=keelson-kind-up-health -n argocd -f "$health"
 else
-  log "No hack/argocd/argocd-cm-health.yaml yet (issue #2); skipping health customisations"
+  log "No hack/argocd/argocd-cm-health.yaml found; skipping health customisations"
 fi
 
 # 6. Next steps.
 cat <<EOF
 
-Kind cluster '$CLUSTER_NAME' is ready with ArgoCD $ARGOCD_VERSION.
+Kind cluster '$CLUSTER_NAME' is ready with ArgoCD $ARGOCD_VERSION and metrics-server $METRICS_SERVER_VERSION.
   kubectl context:  $CONTEXT
   install Keelson:  helm install keelson charts/keelson --kube-context $CONTEXT
   e2e smoke tests:  make e2e MODULES=core
