@@ -102,7 +102,7 @@ The engine checks every override, also the override of a disabled module.
 
 1. Find the path in `.cache/upstream/<tag>` (`make upstream-cache`).
 2. Add `charts/keelson/modules/<name>.yaml` with every field from the contract (design §7).
-   List every namespace the path writes to in `namespaces`. Use `kubectl kustomize <path>` to check.
+   List every namespace the path writes to in `namespaces`. Use `make namespaces` to check.
 3. Add or update a golden scenario, a smoke test, and a docs page.
 
 Core modules are described in [core.md](core.md).
