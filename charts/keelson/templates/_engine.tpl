@@ -48,9 +48,13 @@ non-kustomize sources.
 {{- fail (printf "modules.%s: unknown module (known: %s)" $name (keys $registry | sortAlpha | join ", ")) -}}
 {{- end -}}
 {{- end -}}
-{{- range $name, $_ := (.Values.advanced).modules -}}
+{{- range $name, $adv := (.Values.advanced).modules -}}
 {{- if not (hasKey $registry $name) -}}
 {{- fail (printf "advanced.modules.%s: unknown module" $name) -}}
+{{- end -}}
+{{- /* Check every override here, also for a disabled module (#79). */ -}}
+{{- if hasKey ($adv | default dict) "appSpecOverride" -}}
+{{- include "keelson.checkOverride" (dict "module" $name "override" $adv.appSpecOverride) -}}
 {{- end -}}
 {{- end -}}
 {{- $out := list -}}
@@ -228,6 +232,11 @@ Call with (dict "where" "<location>" "entry" $d).
 {{- $v := get $d $f -}}
 {{- if not (kindIs "slice" $v) -}}{{- fail (printf "%s.%s: must be a list" $where $f) -}}{{- end -}}
 {{- if gt (len $v) 0 -}}{{- $named = true -}}{{- end -}}
+{{- range $j, $item := $v -}}
+{{- if not (and (kindIs "string" $item) $item) -}}
+{{- fail (printf "%s.%s[%d]: must be a non-empty string" $where $f $j) -}}
+{{- end -}}
+{{- end -}}
 {{- end -}}
 {{- end -}}
 {{- if not $named -}}
