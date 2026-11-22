@@ -90,10 +90,12 @@
         "required": ["auth"],
         "properties": {
           "auth": {
-            "required": ["staticUsers", "dex"],
+            "required": ["staticUsers", "dex", "oidcClient", "cookie"],
             "properties": {
               "staticUsers": { "required": ["enabled"], "properties": { "enabled": { "const": false } } },
-              "dex": { "required": ["connectors"], "properties": { "connectors": { "minItems": 1 } } }
+              "dex": { "required": ["connectors"], "properties": { "connectors": { "minItems": 1 } } },
+              "oidcClient": { "required": ["secretRef"], "properties": { "secretRef": { "required": ["name"], "properties": { "name": { "minLength": 1 } } } } },
+              "cookie": { "required": ["secretRef"], "properties": { "secretRef": { "required": ["name"], "properties": { "name": { "minLength": 1 } } } } }
             }
           }
         }
@@ -156,7 +158,7 @@
       "type": "string",
       "enum": ["dev", "production"],
       "default": "dev",
-      "description": "production rejects auth.staticUsers and needs at least one Dex connector."
+      "description": "production rejects auth.staticUsers, and needs at least one Dex connector and the secretRefs auth.oidcClient and auth.cookie."
     },
     "auth": {
       "type": "object",
@@ -168,6 +170,44 @@
           "additionalProperties": false,
           "description": "Static user settings.",
           "properties": { "enabled": { "type": "boolean", "description": "Upstream static user user@example.com. Kind and dev only." } }
+        },
+        "oidcClient": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The OIDC client that oauth2-proxy uses to log in with Dex. Both components must read the same client ID and secret.",
+          "properties": {
+            "secretRef": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "Secret with keys client-id and client-secret. Create it in both namespaces auth and oauth2-proxy. Keelson never creates it. Required with environment production.",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "not": { "pattern": "^(oauth2-proxy|dex-oidc-client)$" },
+                  "description": "Secret name. Not oauth2-proxy and not dex-oidc-client: those names are upstream's generated Secrets."
+                }
+              }
+            }
+          }
+        },
+        "cookie": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The oauth2-proxy session cookie secret.",
+          "properties": {
+            "secretRef": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "Secret in namespace oauth2-proxy with key cookie-secret. Keelson never creates it. Required with environment production.",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "not": { "pattern": "^(oauth2-proxy|dex-oidc-client)$" },
+                  "description": "Secret name. Not oauth2-proxy and not dex-oidc-client: those names are upstream's generated Secrets."
+                }
+              }
+            }
+          }
         },
         "dex": {
           "type": "object",

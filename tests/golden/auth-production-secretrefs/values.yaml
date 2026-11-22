@@ -1,0 +1,22 @@
+# auth-production-secretrefs: production with the OIDC client and cookie Secrets, and one OIDC connector.
+# oauth2-proxy and Dex read the user's Secrets, not upstream's public literals.
+environment: production
+domain: kubeflow.example.com
+tls:
+  issuer: external
+auth:
+  staticUsers:
+    enabled: false
+  oidcClient:
+    secretRef:
+      name: kubeflow-oidc-client
+  cookie:
+    secretRef:
+      name: oauth2-proxy-cookie
+  dex:
+    connectors:
+      - type: oidc
+        id: idp
+        issuer: https://login.example.com
+        secretRef:
+          name: dex-idp
