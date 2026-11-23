@@ -141,6 +141,7 @@ def get_env_info(get, sleep=time.sleep, tries=ENV_INFO_TRIES, wait=ENV_INFO_WAIT
 
 
 def main():
+    sys.exit("tmp/e2e-139: deliberate failure to check the diagnostics dump")
     cookies = load_upstream_dex()(ENDPOINT, DEX_USER, DEX_PASSWORD).get_session_cookies()
     check(bool(cookies), "Dex login returned session cookies")
     headers = {"Cookie": cookies}
