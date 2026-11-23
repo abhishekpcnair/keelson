@@ -57,7 +57,7 @@ jobs:
             scope=profiles
           else
             files="$(gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename')"
-            if printf '%s\n' "$files" | grep -Eq '^(charts/keelson/(modules/keelson-|templates/(components/|_component|component\.yaml|_translate_profiles|_engine\.tpl|applications\.yaml|appproject\.yaml)|values\.schema\.json)|tests/e2e/|tests/golden/profiles/|\.github/workflows/e2e\.yaml)'; then
+            if printf '%s\n' "$files" | grep -Eq '^(charts/keelson/(modules/keelson-|templates/(components/|_component|component\.yaml|_translate_profiles|_engine\.tpl|applications\.yaml|appproject\.yaml)|values(\.schema)?\.(yaml|json))|tests/e2e/|tests/golden/profiles|\.github/workflows/e2e\.yaml)'; then
               scope=profiles
             fi
           fi

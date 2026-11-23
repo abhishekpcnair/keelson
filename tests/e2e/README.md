@@ -26,12 +26,12 @@ Scripts that create state in the cluster or start a process register the cleanup
 | `KEEP` | `0` | `1` keeps a gateway port-forward on `localhost:8080` open after a passing run, so you can look around. Press Ctrl-C to stop it. |
 | `GATEWAY_PORT` | `8080` | Local port for the gateway port-forward. `dex-login.sh` needs `8080`. |
 | `E2E_INSTALL` | `helm` | `helm` runs `helm upgrade --install`. `root-app` installs through a root ArgoCD Application that pulls the chart from an in-cluster OCI registry, then asserts the sync-wave order. CI uses `root-app` on `main`, nightly and `workflow_dispatch`; PRs use `helm`. |
-| `E2E_REG_PORT` | `5555` | Local port for the push to the in-cluster registry (`root-app` only). |
+| `E2E_REG_PORT` | `5555` | Local port for the push to the in-cluster registry (`root-app` mode, and `MODULES=profiles` in `helm` mode). |
 
 ## Root-Application mode (`E2E_INSTALL=root-app`)
 
 1. `tests/e2e/registry.yaml` deploys a test-only OCI registry (`registry:2.8.3`, pinned by digest) in `e2e-registry`.
-2. The chart under test is packaged as `<Chart.version>-e2e.<short-sha>` and pushed to it.
+2. The chart under test is packaged as `<Chart.version>-e2e.<unix-time>.g<short-sha>` and pushed to it.
 3. A test-only repository Secret tells ArgoCD about the registry over plain HTTP.
 4. A root Application `keelson-root` (project `default`) renders the chart with the same values as `helm` mode.
 5. After every Application is Synced and Healthy, the harness checks that no Application in a higher wave started its first deploy before every lower-wave Application had finished. On failure it prints a table of wave, application, start and end times.
@@ -74,7 +74,7 @@ Prefer running upstream's own test from `.cache/upstream/<tag>/tests/` over writ
 ## Component Applications and the in-cluster registry
 
 A component Application (`keelson-profiles`) pulls this chart from `keelson.selfSource`. The chart under test is not published. So `MODULES=profiles` uses the same in-cluster registry as the root-Application mode (`tests/e2e/registry.yaml`, upstream `registry` image pinned by digest, `lib/root-app.sh`):
-1. `e2e_registry_push` starts the registry, packages the chart at an exact pre-release version (`<version>-e2e.<commit>`) and pushes it.
+1. `e2e_registry_push` starts the registry, packages the chart at an exact pre-release version (`<version>-e2e.<unix-time>.g<commit>`) and pushes it.
 2. It creates the ArgoCD repository Secret for the registry. Only the harness makes this Secret. The chart never renders it.
 3. The helm mode passes `--set keelson.selfSource.repoURL=… --set keelson.selfSource.targetRevision=…`. The root-Application mode puts the same override in the root Application's values.
 

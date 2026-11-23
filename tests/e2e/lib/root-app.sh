@@ -19,7 +19,9 @@ e2e_registry_push() {
   local base sha ver pkg tgz pf
   base="$(py -c "import yaml;print(yaml.safe_load(open('$CHART/Chart.yaml'))['version'])")"
   sha="$(git -C "$E2E_ROOT" rev-parse --short=8 HEAD)"
-  ver="$base-e2e.$sha"   # unique per commit, so no chart version is reused (R2 needs an exact version)
+  # Unique per run, so a rerun never reuses a chart version (ArgoCD caches by version). The "g" keeps
+  # an all-digit SHA that starts with 0 valid SemVer (R2 needs an exact version).
+  ver="$base-e2e.$(date +%s).g$sha"
   pkg="$E2E_CACHE/root-app"
   mkdir -p "$pkg"
   helm package "$CHART" --version "$ver" -d "$pkg" >/dev/null || fail "helm package failed"
@@ -28,10 +30,13 @@ e2e_registry_push() {
   # Push through a port-forward. The forward lives only for this push.
   kubectl -n e2e-registry port-forward "svc/registry" "$E2E_REG_PORT:5000" >"$pkg/port-forward.log" 2>&1 &
   pf=$!
+  E2E_REG_PF=$pf   # run.sh's exit handler kills it, also on an interrupt or an early exit
+  local ready=0
   for _ in $(seq 1 30); do
-    curl -fsS -o /dev/null "http://localhost:$E2E_REG_PORT/v2/" && break
+    if curl -fsS -o /dev/null "http://localhost:$E2E_REG_PORT/v2/"; then ready=1; break; fi
     sleep 1
   done
+  (( ready )) || fail "the e2e registry did not answer on localhost:$E2E_REG_PORT after 30 tries ($(cat "$pkg/port-forward.log" 2>/dev/null))"
   if ! helm push "$tgz" "oci://localhost:$E2E_REG_PORT/charts" --plain-http >/dev/null; then
     kill "$pf" 2>/dev/null || true
     fail "helm push to the e2e registry failed"

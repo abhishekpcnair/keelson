@@ -99,6 +99,7 @@ collect_diagnostics() {
 }
 run_exit_diagnostics() {
   local rc=$?
+  if [[ -n "${E2E_REG_PF:-}" ]]; then kill "$E2E_REG_PF" 2>/dev/null || true; fi   # registry port-forward (#129)
   if (( rc != 0 )); then collect_diagnostics; fi
   exit "$rc"
 }
