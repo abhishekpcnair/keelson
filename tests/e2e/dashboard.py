@@ -125,7 +125,9 @@ def get_env_info(get, sleep=time.sleep, tries=ENV_INFO_TRIES, wait=ENV_INFO_WAIT
             print(f"WARN env-info try {n}/{tries}: 403 {GATEWAY_DENY_BODY}", flush=True)
             sleep(wait)
     else:
-        print(f"env-info statuses: {statuses}", flush=True)
+        h = r.headers
+        print(f"env-info statuses: {statuses}; last: server={h.get('server')!r} "
+              f"www-authenticate={h.get('www-authenticate')!r} content-type={h.get('content-type')!r}", flush=True)
         return r, tries
     if r.status_code != 200:
         h = r.headers
