@@ -49,9 +49,9 @@ Each `MODULES` value installs a golden scenario's `values.yaml`, so e2e installs
 
 ## When it fails
 
-`run.sh` exits non-zero and writes diagnostics to `.cache/e2e/diagnostics/`: Application status, pods that aren't running, events, and Dex, oauth2-proxy and ArgoCD controller logs. For gateway denials (#139) it also writes `istio-pods.txt`, `istiod.log`, `istio-ingressgateway.log` and `gateway-stats-<pod>.txt` (Envoy `rbac`, `jwt_authn` and `ext_authz` counters).
+`run.sh` exits non-zero and writes diagnostics to `.cache/e2e/diagnostics/`: Application status, pods that aren't running, events, and Dex, oauth2-proxy and ArgoCD controller logs. For gateway denials (#139) it also writes `istio-pods.txt`, `istiod.log`, `istio-ingressgateway.log` and `gateway-stats-<pod>.txt` (Envoy `rbac`, `jwt_authn` and `ext_authz` counters). In CI they are uploaded as the `e2e-diagnostics` artifact.
 
-`dashboard.py` retries `GET /api/workgroup/env-info` up to 5 times, 5 seconds apart, but only for `403 RBAC: access denied`. A retry is never silent: it prints a `WARN` line and a GitHub `::warning` annotation, and the final JSON line has `env-info-tries`. If the warning shows in 3 or more runs, open a product issue (see #139); the retry is not the fix. Unit test: `tests/e2e/test_dashboard_retry.py` (run by `make rules`). In CI they are uploaded as the `e2e-diagnostics` artifact.
+`dashboard.py` retries `GET /api/workgroup/env-info` up to 5 times, 5 seconds apart, but only for `403 RBAC: access denied`. A retry is never silent: it prints a `WARN` line and a GitHub `::warning` annotation, and the final JSON line has `env-info-tries`. If the warning shows in 3 or more runs, open a product issue (see #139); the retry is not the fix. Unit test: `tests/e2e/test_dashboard_retry.py` (run by `make rules`).
 
 ## Add a smoke test for a module
 
