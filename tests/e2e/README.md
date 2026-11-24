@@ -47,6 +47,12 @@ Each `MODULES` value installs a golden scenario's `values.yaml`, so e2e installs
 | `core` | `tests/golden/kind-core/values.yaml` |
 | `all` | Not yet. Fails with a message until a broader scenario exists. |
 
+## Extra checks
+
+`auth_oidc.sh` runs after `make e2e MODULES=core`, on the same cluster (CI runs it as the next step). It upgrades the release with `tests/e2e/scenarios/auth-oidc/values.yaml`: one OIDC connector whose issuer is the Kind API server. The script applies upstream's own `unauthenticated-oidc-viewer` binding (from the upstream cache), so that Dex can read the issuer documents. It waits until Dex runs the new config (the `keelson.io/dex-config` hash) and the `dex` Application is Synced and Healthy, then checks the log of those pods for a `config connector` line and no `Failed to open connector` line. On failure it writes the Dex log, the Deployment, the Application and the events to `.cache/e2e/diagnostics/auth-oidc/`. A Ready Dex pod is not enough: Dex starts even when a connector fails to open. It deletes the test objects and upgrades the release back to the core values at the end.
+
+Set `AUTH_OIDC_ISSUER` to try another issuer. A bad URL makes the script fail at step 5. You can run the script again, because step 3 waits for the pods of the new config hash.
+
 ## When it fails
 
 `run.sh` exits non-zero and writes diagnostics to `.cache/e2e/diagnostics/`: Application status, pods that aren't running, events, and Dex, oauth2-proxy and ArgoCD controller logs. In CI they are uploaded as the `e2e-diagnostics` artifact.
