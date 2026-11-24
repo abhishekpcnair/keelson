@@ -50,6 +50,7 @@ rules: ## Check design rules on rendered output and patches
 	python3 -m unittest hack/test_release_notes.py
 	hack/test_sbom.sh
 	python3 -m unittest hack/test_kustomize_check.py
+	python3 -m unittest tests/e2e/test_dashboard_retry.py
 	python3 hack/check_rules.py --rendered $(RENDER_DIR) --patches $(CHART)/patches --repo . --templates $(CHART)/templates
 
 namespaces: upstream-cache ## Check module namespaces: lists against upstream kustomize build output (pinned kustomize)

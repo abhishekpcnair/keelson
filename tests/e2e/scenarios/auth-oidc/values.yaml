@@ -1,0 +1,16 @@
+# Test-only values for tests/e2e/auth_oidc.sh (#43). Added on top of tests/golden/kind-core/values.yaml.
+# One OIDC connector. The issuer is the Kind API server (kind-up sets service-account-issuer to this URL).
+# insecureSkipVerify: the in-cluster API server certificate is not signed by a CA that Dex trusts.
+# The Secret dex-e2e-oidc is made by the script, with random values.
+domain: kubeflow.example.com
+auth:
+  dex:
+    connectors:
+      - type: oidc
+        id: kind-api
+        name: Kind API server
+        issuer: https://kubernetes.default.svc
+        secretRef:
+          name: dex-e2e-oidc
+        extraConfig:
+          insecureSkipVerify: true
