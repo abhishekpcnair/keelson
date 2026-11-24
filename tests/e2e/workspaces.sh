@@ -29,7 +29,7 @@ ok()   { echo "ok   $*"; }
 fail() { echo "FAIL $*"; exit 1; }
 [[ -f "$FIXTURE" ]] || fail "$FIXTURE not found; run 'make upstream-cache'"
 
-app() { kubectl -n "$ARGOCD_NS" get application "$1" -o "jsonpath=$2"; }
+app() { kubectl -n "$ARGOCD_NS" get applications.argoproj.io "$1" -o "jsonpath=$2"; }
 
 # On a Workspace failure, print what decides the result into the job log: the namespace labels (sidecar
 # injection), the Istio policies, the Pod's probes (Istio rewrites them), its events and its logs.
@@ -113,7 +113,7 @@ bash "$UP/tests/workspaces_test.sh" "$PROFILE" >/dev/null 2>&1 && ok "workspaces
 # 5. No caBundle fight: force a sync, then the webhook still has a CA and the app stays Synced.
 before="$(app workspaces '{.status.operationState.startedAt}')"
 rev="$(app workspaces '{.spec.source.targetRevision}')"
-kubectl -n "$ARGOCD_NS" patch application workspaces --type merge \
+kubectl -n "$ARGOCD_NS" patch applications.argoproj.io workspaces --type merge \
   -p "{\"operation\":{\"initiatedBy\":{\"username\":\"keelson-workspaces-smoke\"},\"sync\":{\"revision\":\"$rev\"}}}" >/dev/null
 start=$(date +%s); phase=""
 while (( $(date +%s) - start < SYNC_TIMEOUT )); do
