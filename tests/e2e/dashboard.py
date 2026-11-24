@@ -59,7 +59,7 @@ def ca_bundles():
 
 
 def app(jsonpath):
-    return kubectl("-n", ARGOCD_NS, "get", "application", "dashboard", "-o", f"jsonpath={jsonpath}")
+    return kubectl("-n", ARGOCD_NS, "get", "applications.argoproj.io", "dashboard", "-o", f"jsonpath={jsonpath}")
 
 
 SMOKE_USER = "keelson-dashboard-smoke"
@@ -77,7 +77,7 @@ def force_sync():
     if app("{.status.operationState.phase}") == "Running":
         return "Blocked: an earlier ArgoCD operation was still running after the timeout"
     before = app("{.status.operationState.startedAt}")
-    kubectl("-n", ARGOCD_NS, "patch", "application", "dashboard", "--type", "merge", "-p",
+    kubectl("-n", ARGOCD_NS, "patch", "applications.argoproj.io", "dashboard", "--type", "merge", "-p",
             json.dumps({"operation": {"initiatedBy": {"username": SMOKE_USER},
                                       "sync": {"revision": app("{.spec.source.targetRevision}")}}}))
     while time.time() < deadline:
