@@ -32,6 +32,18 @@ port_forward_gateway
 VENV="$(mktemp -d)"
 created_profile=0
 cleanup() {
+  local rc=$?
+  if [[ "$rc" != 0 ]]; then
+    # Diagnostics for a failed run: is the backend reachable from the gateway (#12)?
+    {
+      echo "---- pipelines.sh failed (rc=$rc): kubeflow pods, endpoints, sidecars"
+      kubectl -n kubeflow get pods -o custom-columns='NAME:.metadata.name,READY:.status.containerStatuses[*].ready,CONTAINERS:.spec.containers[*].name' 2>&1 | grep -E 'NAME|ml-pipeline|metadata|seaweed|mysql' || true
+      kubectl -n kubeflow get endpoints ml-pipeline-ui ml-pipeline 2>&1 || true
+      kubectl -n kubeflow get virtualservice,destinationrule,peerauthentication,authorizationpolicy 2>&1 | head -30 || true
+      kubectl -n kubeflow logs deploy/ml-pipeline-ui -c istio-proxy --tail=30 2>&1 || true
+      kubectl -n istio-system logs -l app=istio-ingressgateway --tail=30 2>&1 | grep -i -E 'pipeline|503|UF|URX' || true
+    } >&2
+  fi
   kill "$E2E_PF_PID" 2>/dev/null || true
   rm -rf "$VENV"
   kubectl delete namespace "$UNAUTH_NS" --ignore-not-found --wait=false >/dev/null 2>&1 || true
