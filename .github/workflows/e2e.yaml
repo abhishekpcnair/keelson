@@ -43,8 +43,10 @@ jobs:
       - run: make e2e MODULES=core
         env:
           E2E_INSTALL: ${{ github.event_name == 'pull_request' && 'helm' || 'root-app' }}
-      # Dex opens an OIDC connector that Keelson configured (#43). Runs on the same cluster.
-      - run: tests/e2e/auth_oidc.sh
+      # Dex opens an OIDC connector that Keelson configured (#43). It upgrades the Helm release, so it
+      # runs only in the helm install mode (pull requests). main and nightly use the root Application.
+      - if: github.event_name == 'pull_request'
+        run: tests/e2e/auth_oidc.sh
       - if: failure()
         uses: actions/upload-artifact@v7
         with:
