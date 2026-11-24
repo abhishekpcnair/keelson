@@ -120,7 +120,7 @@ storage:
   external: { endpoint: "", bucket: "", secretRef: {} }
 database:
   mode: bundled                      # bundled | external
-policy:
+policy:                              # Kyverno only if #67 needs it
   kyverno: { enabled: true, install: false }   # install=false → use an existing Kyverno
 argocd:
   namespace: argocd
@@ -195,7 +195,7 @@ A module is accepted only if it has a golden test scenario, a smoke test (or a d
 
 ## 9. Policy (Kyverno)
 
-- **Pod Security baseline:** no policy engine. Upstream's `kubeflow-pss` overlay (dashboard module) labels every profile namespace `pod-security.kubernetes.io/enforce: baseline`, and Kubernetes Pod Security Admission enforces it. `tests/e2e/pss.sh` proves it. Values can't lower it.
+- **Pod Security baseline:** no policy engine. Upstream's `kubeflow-pss` overlay (dashboard module) labels every profile namespace `pod-security.kubernetes.io/enforce: baseline`, and Kubernetes Pod Security Admission enforces it. `tests/e2e/pss.sh` proves it. The CI `kind` job runs it after the core smoke tests. Values can't lower it.
 - **Default labels:** upstream's profile controller sets them. `profileNamespaceLabels` adds labels through a patch on its `profiles-namespace-labels-data` ConfigMap (#11).
 - **Secret copy:** KFP's profile controller already creates a per-namespace object-store Secret through the store's IAM API. Kyverno is needed only for external stores without an IAM API, if at all. That is decided after the #12 external-storage spike. If Kyverno is kept, it is optional, can use an existing install (`policy.kyverno.install: false`), and CI tests two current minor versions.
 
@@ -240,7 +240,7 @@ A module is accepted only if it has a golden test scenario, a smoke test (or a d
 - `docs/migrating-from-deploykf.md`: covers a side-by-side install and data migration for the Pipelines database and artifacts. In-place migration is not supported.
 
 ## 16. Roadmap
-- **v0.1:** core + auth + profiles + Kyverno + Pipelines + Workspaces, Kind + AKS docs
+- **v0.1:** core + auth + profiles (+ Kyverno only if #67 needs it) + Pipelines + Workspaces, Kind + AKS docs
 - **v0.2:** KServe (+ Knative), Katib, Trainer, deployKF converter
 - **v0.3:** MLflow module (per-profile tracking servers, SSO through oauth2-proxy), Hub/Model Registry
 - **v0.4+:** Airflow module (only with a co-maintainer), Spark, Keycloak/Authentik optional IdP

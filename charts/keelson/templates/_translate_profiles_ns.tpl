@@ -14,9 +14,17 @@ when profileNamespaceLabels is empty.
 {{- $patches := list -}}
 {{- if $user -}}
 {{- $upstream := .root.Files.Get "restated/profile-namespace-labels.yaml" | fromYaml -}}
+{{- if not (hasKey $upstream "pod-security.kubernetes.io/enforce") -}}
+{{- fail "restated/profile-namespace-labels.yaml is missing or has no pod-security.kubernetes.io/enforce label" -}}
+{{- end -}}
 {{- range $k := keys $user | sortAlpha -}}
 {{- if hasPrefix "pod-security.kubernetes.io/" $k -}}
 {{- fail (printf "profileNamespaceLabels.%s: Pod Security labels can't be set here; upstream enforces baseline" $k) -}}
+{{- end -}}
+{{- if contains "/" $k -}}
+{{- if gt (len (index (splitList "/" $k) 0)) 253 -}}
+{{- fail (printf "profileNamespaceLabels.%s: the prefix before '/' is longer than 253 characters" $k) -}}
+{{- end -}}
 {{- end -}}
 {{- if hasKey $upstream $k -}}
 {{- fail (printf "profileNamespaceLabels.%s: upstream already sets this label (%s); it can't be overridden" $k (join ", " (keys $upstream | sortAlpha))) -}}

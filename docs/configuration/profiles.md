@@ -18,6 +18,7 @@ The profile controller (`dashboard` module) then creates:
 - Names are unique.
 - Names can't be system namespaces: `kubeflow`, `istio-system`, `auth`, `oauth2-proxy`, `cert-manager`, `argocd.namespace`, or `kube-*`.
 - The `dashboard` module must be on.
+- Pod Security and extra namespace labels: see [Profile namespaces](profile-namespaces.md).
 - `groups` is not supported yet. See [#28](https://github.com/abhishekpcnair/keelson/issues/28).
 - Contributors and viewers come in a later release (#9).
 

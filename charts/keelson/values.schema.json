@@ -128,7 +128,7 @@
     "global": { "type": "object", "description": "Helm global values. Allowed so parent charts and --set global.* keep working." },
     "storage": { "type": "object", "description": "Placeholder; defined by #12 and #38" },
     "database": { "type": "object", "description": "Placeholder; defined by #12 and #39" },
-    "policy": { "type": "object", "description": "Placeholder; defined by #11" },
+    "policy": { "type": "object", "description": "Placeholder; defined by #67" },
     "upstream": {
       "type": "object",
       "required": ["manifestsRepo", "manifestsRef"],
@@ -308,7 +308,7 @@
     },
     "profileNamespaceLabels": {
       "type": "object",
-      "description": "Extra labels on every profile namespace. Pod Security and upstream label keys are rejected. An empty value removes the label.",
+      "description": "Extra labels on every profile namespace. Pod Security and upstream label keys are rejected. An empty value removes the label. See docs/configuration/profile-namespaces.md.",
       "propertyNames": {
         "maxLength": 317,
         "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?[A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?$",
