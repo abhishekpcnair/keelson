@@ -1,0 +1,9 @@
+# expect: not allowed for a Keelson component
+# A Keelson component source can't be overridden.
+profiles:
+  - {name: t, owner: a@x.com}
+advanced:
+  modules:
+    keelson-profiles:
+      appSpecOverride:
+        source: {path: x}

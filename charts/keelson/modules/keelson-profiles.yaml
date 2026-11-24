@@ -4,11 +4,12 @@ source:
   type: keelson            # Keelson-owned resources, chart component mode (ADR 0004)
   component: profiles      # templates/components/profiles.yaml
   values: [profiles]       # values keys copied into helm.valuesObject; all empty → no Application
+  namespacesFrom: profiles # each profiles[].name is a destination (contributor RoleBindings live there)
 namespace: kubeflow
 namespaces: [kubeflow]
 # The Profile CRD and profile controller come from the dashboard module.
 dependsOn: [dashboard]
 defaultEnabled: true
 translations: []
-smokeTest: none  # tests/e2e/profiles.py lands with contributors (#9, part 2) and the e2e harness (#4)
+smokeTest: tests/e2e/profiles.sh
 upstreamHelmChart: none  # Keelson-owned; no upstream chart

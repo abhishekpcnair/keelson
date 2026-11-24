@@ -1,5 +1,158 @@
 ---
 # Source: keelson/templates/components/profiles.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: user-bob-example-com-clusterrole-edit
+  namespace: kubeflow-user-example-com
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: keelson-profiles
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    # KFAM lists bindings by these two annotations.
+    user: "bob@example.com"
+    role: edit
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kubeflow-edit
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: User
+    name: "bob@example.com"
+
+---
+# Source: keelson/templates/components/profiles.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: user-carol-smith-ml-example-com-clusterrole-edit
+  namespace: team-vision
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: keelson-profiles
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    # KFAM lists bindings by these two annotations.
+    user: "Carol.Smith+ml@Example.com"
+    role: edit
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kubeflow-edit
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: User
+    name: "Carol.Smith+ml@Example.com"
+
+---
+# Source: keelson/templates/components/profiles.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: user-dave-example-com-clusterrole-view
+  namespace: team-vision
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: keelson-profiles
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    # KFAM lists bindings by these two annotations.
+    user: "dave@example.com"
+    role: view
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kubeflow-view
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: User
+    name: "dave@example.com"
+
+---
+# Source: keelson/templates/components/profiles.yaml
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  # KFAM deletes by name: same name as the RoleBinding.
+  name: user-bob-example-com-clusterrole-edit
+  namespace: kubeflow-user-example-com
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: keelson-profiles
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    user: "bob@example.com"
+    role: edit
+spec:
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account
+              - cluster.local/ns/kubeflow/sa/ml-pipeline-ui
+      when:
+        - key: request.headers[kubeflow-userid]
+          values:
+            - "bob@example.com"
+
+---
+# Source: keelson/templates/components/profiles.yaml
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  # KFAM deletes by name: same name as the RoleBinding.
+  name: user-carol-smith-ml-example-com-clusterrole-edit
+  namespace: team-vision
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: keelson-profiles
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    user: "Carol.Smith+ml@Example.com"
+    role: edit
+spec:
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account
+              - cluster.local/ns/kubeflow/sa/ml-pipeline-ui
+      when:
+        - key: request.headers[kubeflow-userid]
+          values:
+            - "Carol.Smith+ml@Example.com"
+
+---
+# Source: keelson/templates/components/profiles.yaml
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  # KFAM deletes by name: same name as the RoleBinding.
+  name: user-dave-example-com-clusterrole-view
+  namespace: team-vision
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: keelson-profiles
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    user: "dave@example.com"
+    role: view
+spec:
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account
+              - cluster.local/ns/kubeflow/sa/ml-pipeline-ui
+      when:
+        - key: request.headers[kubeflow-userid]
+          values:
+            - "dave@example.com"
+
+---
+# Source: keelson/templates/components/profiles.yaml
 apiVersion: kubeflow.org/v1
 kind: Profile
 metadata:

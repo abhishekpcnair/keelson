@@ -1,0 +1,5 @@
+# expect: is already used by profiles[0]
+# Profile names are unique.
+profiles:
+  - {name: t, owner: a@x.com}
+  - {name: t, owner: b@x.com}

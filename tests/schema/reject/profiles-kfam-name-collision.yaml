@@ -1,0 +1,6 @@
+# expect: give the same KFAM binding name
+# Two emails with the same role give the same KFAM name.
+profiles:
+  - name: team-a
+    owner: o@x.com
+    contributors: [bob.x@a.com, bob-x@a.com]

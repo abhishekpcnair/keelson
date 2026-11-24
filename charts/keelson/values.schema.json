@@ -279,6 +279,8 @@
         "properties": {
           "name": { "type": "string", "maxLength": 63, "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$", "description": "Profile and namespace name (DNS-1123 label)." },
           "owner": { "type": "string", "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", "description": "Owner email: the kubeflow-userid header value." },
+          "contributors": { "type": "array", "items": { "type": "string", "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$" }, "description": "Emails with edit access (ClusterRole kubeflow-edit), as the dashboard's Manage contributors adds them." },
+          "viewers": { "type": "array", "items": { "type": "string", "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$" }, "description": "Emails with view access (ClusterRole kubeflow-view)." },
           "groups": { "description": "Not supported yet. Rejected at render time; see issue #28." }
         }
       }

@@ -1,0 +1,5 @@
+# expect: /keelson/selfSource/targetRevision
+# selfSource needs an exact version.
+keelson:
+  selfSource:
+    targetRevision: "1.2"

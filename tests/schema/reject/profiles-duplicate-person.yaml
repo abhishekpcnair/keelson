@@ -1,0 +1,6 @@
+# expect: is listed more than once
+# The owner is also a contributor, in a different case.
+profiles:
+  - name: team-a
+    owner: A@x.com
+    contributors: [a@X.com]

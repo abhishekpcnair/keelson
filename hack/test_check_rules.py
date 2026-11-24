@@ -10,7 +10,7 @@ import os  # noqa: E402
 import tempfile  # noqa: E402
 from unittest import mock  # noqa: E402
 
-from check_rules import check_symlinks, check_templates, patch_sets_image  # noqa: E402
+from check_rules import check_app, check_resource, check_symlinks, check_templates, patch_sets_image  # noqa: E402
 
 FAILS = {
     "json6902 replace image (issue #24)":
@@ -163,6 +163,57 @@ class CheckTemplates(unittest.TestCase):
                 '{{/* keelson.a: one. */}}\n{{- define "keelson.a" -}}\n{{- end -}}\n'
                 '{{/* keelson.b: two. */}}\n{{- define "keelson.b" -}}\n{{- end -}}\n')
             self.assertEqual(check_templates(pathlib.Path(d), errors), (2, 1))
+        self.assertEqual(errors, [])
+
+
+class CheckAppTest(unittest.TestCase):
+    """R1, R2 and R5 for Applications that use a Helm chart source (#9, plan tests T1)."""
+
+    ALLOWED = ["ghcr.io/x/charts", "oci://ghcr.io/x/charts"]
+
+    def run_app(self, **source):
+        src = {"chart": "keelson", "repoURL": "ghcr.io/x/charts", "targetRevision": "0.1.0-alpha.1"}
+        src.update(source)
+        app = {"metadata": {"name": "a", "annotations": {"argocd.argoproj.io/sync-wave": "1"}}, "spec": {"source": src}}
+        errors = []
+        check_app("f", app, self.ALLOWED, errors)
+        return errors
+
+    def test_exact_version_passes(self):
+        self.assertEqual(self.run_app(), [])
+
+    def test_range_fails_r2(self):
+        errors = self.run_app(targetRevision="1.*")
+        self.assertTrue(any("R2" in e and "is not an exact SemVer version" in e for e in errors), errors)
+
+    def test_digest_fails_r2(self):
+        errors = self.run_app(targetRevision="sha256:" + "a" * 64)
+        self.assertTrue(any("R2" in e and "is not an exact SemVer version" in e for e in errors), errors)
+
+    def test_oci_scheme_fails_r1(self):
+        errors = self.run_app(repoURL="oci://ghcr.io/x/charts")
+        self.assertTrue(any("R1" in e and "must be Helm OCI form" in e for e in errors), errors)
+
+    def test_chart_with_path_fails_r1(self):
+        errors = self.run_app(path=".")
+        self.assertTrue(any("R1" in e and "must be Helm OCI form" in e for e in errors), errors)
+
+    def test_image_in_values_object_fails_r5(self):
+        errors = self.run_app(helm={"valuesObject": {"a": {"image": "x"}}})
+        self.assertTrue(any("R5" in e and "helm.valuesObject sets an image" in e for e in errors), errors)
+
+
+class CheckResourceTest(unittest.TestCase):
+    """R5 for the output of a Keelson component (no workloads)."""
+
+    def test_image_in_component_output_fails_r5(self):
+        errors = []
+        check_resource("f", {"kind": "Profile", "metadata": {"name": "p"}, "spec": {"image": "x"}}, errors)
+        self.assertTrue(any("R5" in e and "Keelson-owned resource sets an image" in e for e in errors), errors)
+
+    def test_clean_profile_passes(self):
+        errors = []
+        check_resource("f", {"kind": "Profile", "metadata": {"name": "p"}, "spec": {"owner": {"kind": "User", "name": "a@x.com"}}}, errors)
         self.assertEqual(errors, [])
 
 

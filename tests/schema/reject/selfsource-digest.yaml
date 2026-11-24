@@ -1,0 +1,5 @@
+# expect: /keelson/selfSource/targetRevision
+# A digest is not allowed.
+keelson:
+  selfSource:
+    targetRevision: sha256:0000000000000000000000000000000000000000000000000000000000000000

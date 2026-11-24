@@ -1,0 +1,4 @@
+# expect: /profiles/0/owner
+# The owner must be an email address.
+profiles:
+  - {name: t, owner: alice}

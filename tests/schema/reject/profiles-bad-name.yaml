@@ -1,0 +1,4 @@
+# expect: /profiles/0/name
+# The name must be a DNS label.
+profiles:
+  - {name: Team_Vision, owner: a@x.com}

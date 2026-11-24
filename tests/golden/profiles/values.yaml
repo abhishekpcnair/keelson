@@ -5,3 +5,4 @@ platform: kind
 profiles:
   - name: kubeflow-user-example-com
     owner: user@example.com
+    contributors: [bob@example.com]
