@@ -55,7 +55,9 @@ Set `AUTH_OIDC_ISSUER` to try another issuer. A bad URL makes the script fail at
 
 ## When it fails
 
-`run.sh` exits non-zero and writes diagnostics to `.cache/e2e/diagnostics/`: Application status, pods that aren't running, events, and Dex, oauth2-proxy and ArgoCD controller logs. In CI they are uploaded as the `e2e-diagnostics` artifact.
+`run.sh` exits non-zero and writes diagnostics to `.cache/e2e/diagnostics/`: Application status, pods that aren't running, events, and Dex, oauth2-proxy and ArgoCD controller logs. For gateway denials (#139) it also writes `istio-pods.txt`, `istiod.log`, `istio-ingressgateway.log` and `gateway-stats-<pod>.txt` (Envoy `rbac` counters; Istio does not expose `jwt_authn` or `ext_authz` filter stats by default). In CI they are uploaded as the `e2e-diagnostics` artifact.
+
+`dashboard.py` retries `GET /api/workgroup/env-info` up to 5 times, 5 seconds apart, but only for `403 RBAC: access denied`. A retry is never silent: it prints a `WARN` line and a GitHub `::warning` annotation, and the final JSON line has `env-info-tries`. If the warning shows in 3 or more runs, open a product issue (see #139); the retry is not the fix. Unit test: `tests/e2e/test_dashboard_retry.py` (run by `make rules`).
 
 ## Add a smoke test for a module
 

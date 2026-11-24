@@ -11,7 +11,8 @@ Dex login uses upstream's DexSessionManager from
 Checks:
   1. GET / returns 200 HTML (the dashboard, reached through oauth2-proxy).
   2. GET /api/workgroup/env-info returns JSON whose `user` is the Dex user, which proves
-     the kubeflow-userid header path through Istio.
+     the kubeflow-userid header path through Istio. A `403 RBAC: access denied` right after the
+     login is retried (5 tries, 5 s apart, never silent; #139). Any other status fails at once.
   3. Every PodDefault webhook has a non-empty caBundle, and still has one after a forced
      sync of the `dashboard` Application (a sync re-applies the upstream caBundle: "", so this
      is what proves RespectIgnoreDifferences works); the Application stays Synced.
@@ -36,6 +37,9 @@ DEX_PASSWORD = os.environ.get("KEELSON_DEX_PASSWORD", "12341234")      # upstrea
 ARGOCD_NS = os.environ.get("KEELSON_ARGOCD_NAMESPACE", "argocd")
 WEBHOOK = "poddefaults-webhook-mutating-webhook-configuration"
 SYNC_TIMEOUT_SECONDS = int(os.environ.get("KEELSON_SYNC_TIMEOUT_SECONDS", "300"))
+ENV_INFO_TRIES = 5
+ENV_INFO_WAIT_SECONDS = 5
+GATEWAY_DENY_BODY = "RBAC: access denied"
 
 
 def load_upstream_dex():
@@ -103,6 +107,39 @@ def get_json(r):
         return {}
 
 
+def get_env_info(get, sleep=time.sleep, tries=ENV_INFO_TRIES, wait=ENV_INFO_WAIT_SECONDS):
+    """GET env-info once, retrying only a gateway `403 RBAC: access denied` (#139).
+
+    `get` is a no-argument callable that returns a requests-like response. Returns
+    (response, number of tries). Every retry prints a WARN line, and a retry that
+    ended in 200 also writes a GitHub annotation, so a flake is never silent.
+    Any other status, and a 403 with another body, is returned at once.
+    """
+    statuses = []
+    for n in range(1, tries + 1):
+        r = get()
+        statuses.append(r.status_code)
+        if r.status_code != 403 or r.text.strip() != GATEWAY_DENY_BODY:
+            break
+        if n < tries:
+            print(f"WARN env-info try {n}/{tries}: 403 {GATEWAY_DENY_BODY}", flush=True)
+            sleep(wait)
+    else:
+        h = r.headers
+        print(f"env-info statuses: {statuses}; last: server={h.get('server')!r} "
+              f"www-authenticate={h.get('www-authenticate')!r} content-type={h.get('content-type')!r}", flush=True)
+        return r, tries
+    if r.status_code != 200:
+        h = r.headers
+        print(f"env-info {r.status_code}: content-type={h.get('content-type')!r} "
+              f"www-authenticate={h.get('www-authenticate')!r} server={h.get('server')!r} "
+              f"body={r.text[:200]!r}", flush=True)
+    elif n > 1:
+        print(f"WARN env-info needed {n} tries", flush=True)
+        print(f"::warning title=dashboard env-info needed {n} tries::see #139", flush=True)
+    return r, n
+
+
 def main():
     cookies = load_upstream_dex()(ENDPOINT, DEX_USER, DEX_PASSWORD).get_session_cookies()
     check(bool(cookies), "Dex login returned session cookies")
@@ -113,7 +150,8 @@ def main():
     check(r.status_code == 200 and "text/html" in r.headers.get("content-type", ""),
           f"GET / -> {r.status_code} {r.headers.get('content-type', '')}")
 
-    r = requests.get(f"{ENDPOINT}/api/workgroup/env-info", headers=headers, timeout=15, allow_redirects=False)
+    r, env_tries = get_env_info(
+        lambda: requests.get(f"{ENDPOINT}/api/workgroup/env-info", headers=headers, timeout=15, allow_redirects=False))
     user = get_json(r).get("user") if r.status_code == 200 else None
     check(user == DEX_USER, f"GET /api/workgroup/env-info -> {r.status_code}, user={user!r}")
 
@@ -125,7 +163,7 @@ def main():
     check(bool(bundles) and all(bundles), "caBundle still set on every webhook after the forced sync")
     sync = app("{.status.sync.status}")
     check(sync == "Synced", f"dashboard Application sync status: {sync}")
-    print(json.dumps({"dashboard-smoke": "passed"}))
+    print(json.dumps({"dashboard-smoke": "passed", "env-info-tries": env_tries}))
 
 
 if __name__ == "__main__":
