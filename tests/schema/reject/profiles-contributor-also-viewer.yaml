@@ -1,0 +1,7 @@
+# expect: is listed more than once
+# A person has two roles.
+profiles:
+  - name: team-a
+    owner: o@x.com
+    contributors: [b@x.com]
+    viewers: [B@x.com]

@@ -1,0 +1,4 @@
+# expect: looks like a parent release
+# component is internal; only the engine sets it.
+component: profiles
+domain: kubeflow.example.com

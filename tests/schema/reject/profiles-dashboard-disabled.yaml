@@ -1,0 +1,6 @@
+# expect: depends on dashboard, which is disabled
+# Profiles need the dashboard module.
+profiles:
+  - {name: t, owner: a@x.com}
+modules:
+  dashboard: {enabled: false}

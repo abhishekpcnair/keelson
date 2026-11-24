@@ -1,0 +1,4 @@
+# expect: is a system namespace
+# A profile can't take a system namespace.
+profiles:
+  - {name: kubeflow, owner: a@x.com}
