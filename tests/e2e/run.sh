@@ -86,13 +86,13 @@ collect_diagnostics() {
   kd -n oauth2-proxy logs -l app.kubernetes.io/name=oauth2-proxy --all-containers --tail=500 >"$DIAG/oauth2-proxy.log" 2>&1 || true
   kd -n "$ARGOCD_NS" logs statefulset/argocd-application-controller --tail=500 >"$DIAG/argocd-application-controller.log" 2>&1 || true
   # Gateway path (#139): why was a request denied? Pods, istiod, gateway logs, and the Envoy
-  # rbac / jwt_authn / ext_authz counters of each gateway pod.
+  # rbac counters of each gateway pod.
   kd -n istio-system get pods -o wide >"$DIAG/istio-pods.txt" 2>&1 || true
   kd -n istio-system logs -l app=istiod --tail=500 >"$DIAG/istiod.log" 2>&1 || true
   kd -n istio-system logs -l app=istio-ingressgateway --all-containers --tail=200 >"$DIAG/istio-ingressgateway.log" 2>&1 || true
   for pod in $(kd -n istio-system get pods -l app=istio-ingressgateway -o name 2>/dev/null); do
     kd -n istio-system exec "$pod" -c istio-proxy -- pilot-agent request GET stats 2>&1 \
-      | grep -E 'rbac|jwt_authn|ext_authz' >"$DIAG/gateway-stats-${pod#pod/}.txt" || true
+      | grep -E 'rbac|error|Error' >"$DIAG/gateway-stats-${pod#pod/}.txt" || true
   done
   sed 's/^/  /' "$DIAG/applications.txt" >&2 || true
 }
