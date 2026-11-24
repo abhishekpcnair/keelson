@@ -66,6 +66,10 @@ keelson:
     targetRevision: ""                       # empty = this chart's version; or an exact version
 # Internal: set only by the engine in component Applications. Never set it.
 component: ""
+# Extra labels on every profile namespace, e.g. {cost-center: ml}. Upstream's
+# labels (including the Pod Security baseline) always stay. "" removes a label.
+# See docs/configuration/profile-namespaces.md.
+profileNamespaceLabels: {}
 # Turn modules on or off by name: `modules.<name>.enabled`. Defaults come from
 # charts/keelson/modules/<name>.yaml (defaultEnabled). See docs/modules/README.md.
 modules: {}

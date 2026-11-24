@@ -158,7 +158,7 @@ intent leaves the module with nothing to install (for example workspaces.kinds: 
 */}}
 {{- define "keelson.translations" -}}
 {{- $skip := false -}}
-{{- $known := list "domain" "auth" "workspaceKinds" -}}
+{{- $known := list "domain" "auth" "workspaceKinds" "profileNamespaceLabels" -}}
 {{- $patches := list -}}
 {{- range .module.translations -}}
 {{- if not (has . $known) -}}

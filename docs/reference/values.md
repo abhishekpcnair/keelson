@@ -117,7 +117,13 @@ For the full default values, see `charts/keelson/values.yaml`.
 
 | Key | Type | Default | Allowed | Description |
 |---|---|---|---|---|
-| `policy` | object | — | — | Placeholder; defined by #11 |
+| `policy` | object | — | — | Placeholder; defined by #67 |
+
+## `profileNamespaceLabels`
+
+| Key | Type | Default | Allowed | Description |
+|---|---|---|---|---|
+| `profileNamespaceLabels` | object | — | names max length 317; names match `^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?[A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?$`; names not matching `^pod-security\.kubernetes\.io/` | Extra labels on every profile namespace. Pod Security and upstream label keys are rejected. An empty value removes the label. See docs/configuration/profile-namespaces.md. |
 
 ## `profiles`
 

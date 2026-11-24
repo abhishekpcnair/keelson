@@ -50,6 +50,8 @@ configuration, so Keelson keeps it as is for v0.1.
 
 ## Users and namespaces
 
+`profileNamespaceLabels` adds labels to every profile namespace. See [Profile namespaces](../configuration/profile-namespaces.md).
+
 A user who logs in has no namespace until a `Profile` exists for them. Keelson creates profiles from
 `profiles` in values ([#9](https://github.com/abhishekpcnair/keelson/issues/9)). It doesn't use upstream's `common/user-namespace`.
 

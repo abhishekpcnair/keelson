@@ -1,0 +1,4 @@
+# expect: /profileNamespaceLabels/cost-center
+# A value that is not a valid Kubernetes label value.
+profileNamespaceLabels:
+  cost-center: "a b"

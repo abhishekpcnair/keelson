@@ -36,6 +36,7 @@ For each contributor and viewer, Keelson renders a `RoleBinding` and an Istio `A
 - Two emails with the same role can't give the same KFAM name. KFAM changes every run of characters other than letters and digits to `-`, so `bob.x@a.com` and `bob-x@a.com` collide when both are contributors, or both are viewers. The render fails. The names end in `-edit` or `-view`, so the same two emails with different roles do not collide.
 - Names can't be system namespaces: `kubeflow`, `istio-system`, `auth`, `oauth2-proxy`, `cert-manager`, `argocd.namespace`, or `kube-*`.
 - The `dashboard` module must be on.
+- Pod Security and extra namespace labels: see [Profile namespaces](profile-namespaces.md).
 - `groups` is not supported yet. See [#28](https://github.com/abhishekpcnair/keelson/issues/28).
 
 ## Remove a profile
