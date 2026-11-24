@@ -78,6 +78,30 @@ wait_for 180 "Secret mlpipeline-minio-artifact in $KF_PROFILE (the KFP profile c
 # As upstream's tests/kubeflow_profile_install.sh does, after the namespace is reconciled.
 kubectl label namespace "$KF_PROFILE" pod-security.kubernetes.io/enforce=baseline --overwrite >/dev/null
 
+# A PR run installs with helm, so there are no sync waves: pipelines pods can start before istiod's
+# injector is ready and then have no sidecar. Upstream's DestinationRules require mesh mTLS, so the
+# gateway gets "TLS_error WRONG_VERSION_NUMBER" (503) from such a pod. The root Application install
+# (main, nightly) orders the waves and does not need this. Restart the Deployments that miss the sidecar.
+restart_without_sidecar() {
+  local deploys
+  deploys="$(kubectl -n kubeflow get pods -o json | python3 -c '
+import json, sys
+names = set()
+for p in json.load(sys.stdin)["items"]:
+    if p["metadata"].get("ownerReferences", [{}])[0].get("kind") != "ReplicaSet" or p["status"].get("phase") != "Running":
+        continue
+    c = [x["name"] for x in p["spec"].get("containers", []) + p["spec"].get("initContainers", [])]
+    if "istio-proxy" not in c:
+        names.add(p["metadata"]["ownerReferences"][0]["name"].rsplit("-", 1)[0])
+print(" ".join(sorted(names)))
+')"
+  [[ -n "$deploys" ]] || return 0
+  log "restarting Deployments with no istio-proxy sidecar: $deploys"
+  for d in $deploys; do kubectl -n kubeflow rollout restart "deployment/$d" >/dev/null; done
+  for d in $deploys; do kubectl -n kubeflow rollout status "deployment/$d" --timeout=300s >/dev/null; done
+}
+restart_without_sidecar
+
 python3 -m venv "$VENV"
 "$VENV/bin/pip" install --quiet "kfp==$KFP_VERSION" "kfp-kubernetes==$KFP_VERSION"
 
