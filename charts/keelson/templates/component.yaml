@@ -1,0 +1,4 @@
+{{- /* Component mode guard (ADR 0004). Resources: templates/components/*.yaml. */}}
+{{- with .Values.component }}
+{{- include "keelson.component.check" $ }}
+{{- end }}

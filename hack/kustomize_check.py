@@ -35,6 +35,26 @@ KUSTOMIZE = os.environ.get("KUSTOMIZE", "kustomize")
 KFILES = ("kustomization.yaml", "kustomization.yml", "Kustomization")
 DEX_MANAGED = {"connectors", "enablePasswordDB", "staticPasswords"}  # keys Keelson may change
 
+# Modules that wrap an upstream path with extra objects and delete the rest:
+# after all patches, only these kinds may remain (#14). Catches new upstream objects at bump time.
+ONLY_KINDS = {"workspace-kinds": {"WorkspaceKind"}}
+# The values.schema.json enum for workspaces.kinds must name exactly the WorkspaceKinds upstream ships.
+SCHEMA = pathlib.Path(__file__).resolve().parents[1] / "charts/keelson/values.schema.json"
+
+
+TEMPLATE = SCHEMA.parent / "templates/_translate_workspaceKinds.tpl"
+
+
+def schema_kinds():
+    import json
+    return set(json.loads(SCHEMA.read_text())["properties"]["workspaces"]["properties"]["kinds"]["items"]["enum"])
+
+
+def template_kinds():
+    """Names in the keelson.workspaceKinds.all define (Helm can't read the schema, so it keeps a copy)."""
+    m = re.search(r'define "keelson\.workspaceKinds\.all" -}}\n(.*?)\{\{- end', TEMPLATE.read_text(), re.S)
+    return {line.strip()[2:] for line in m.group(1).splitlines() if line.strip().startswith("- ")} if m else set()
+
 
 def checked_apps(rendered: pathlib.Path):
     files = sorted(rendered.glob("*.yaml")) if rendered.is_dir() else [rendered]
@@ -153,6 +173,15 @@ def main():
             if rc:
                 errors.append(f"{where}: unpatched build fails: {base.strip()}")
                 continue
+            if where.split(":")[-1] == "workspace-kinds":
+                shipped = {d["metadata"]["name"] for d in yaml.safe_load_all(base)
+                           if isinstance(d, dict) and d.get("kind") == "WorkspaceKind"}
+                if shipped != schema_kinds():
+                    errors.append(f"{where}: upstream ships WorkspaceKinds {sorted(shipped)}, "
+                                  f"values.schema.json lists {sorted(schema_kinds())}")
+                if template_kinds() != schema_kinds():
+                    errors.append(f"{where}: {TEMPLATE.name} lists {sorted(template_kinds())}, "
+                                  f"values.schema.json lists {sorted(schema_kinds())}")
             check_ignore_differences(where, base, ignore, errors, src["path"])
             if not patches:
                 checked += 1
@@ -166,6 +195,11 @@ def main():
             rc, out = build(tree, src["path"], patches)
             if rc:
                 errors.append(f"{where}: patches together fail: {out.strip()}")
+            elif (allowed := ONLY_KINDS.get(where.split(":")[-1])) is not None:
+                left = sorted({f"{d.get('kind')}/{d.get('metadata', {}).get('name')}"
+                               for d in yaml.safe_load_all(out) if isinstance(d, dict) and d.get("kind") not in allowed})
+                if left:
+                    errors.append(f"{where}: only {sorted(allowed)} may remain after patches, found {left}")
             else:
                 check_dex_config(where, base, out, errors)
             checked += 1

@@ -48,7 +48,7 @@ Keelson combines the engine from the third project, the phasing from the second 
 
 These are binding rules, and the factory enforces them (see `docs/development-factory.md`).
 
-1. **Wrap, don't copy.** Every workload comes from an upstream source (a `kubeflow/manifests` path at a pinned tag, or an upstream Helm chart at a pinned version). Keelson contributes only Application objects, Kustomize patches and Helm values.
+1. **Wrap, don't copy.** Every workload comes from an upstream source (a `kubeflow/manifests` path at a pinned tag, or an upstream Helm chart at a pinned version). Keelson contributes only Application objects, Kustomize patches and Helm values, plus Keelson-authored **configuration** resources that upstream doesn't ship (Profiles, RBAC, Istio and Kyverno policies, cert-manager issuers), rendered in component mode (ADR 0004). Never workloads or images.
 2. **Upstream is the source of truth.** If a change can't be expressed as a small patch, open an upstream issue or PR first, and carry the patch only with a link to it.
 3. **Pinned everything.** No `HEAD`, `master` or floating tags. CI fails on unpinned sources.
 4. **Every patch has a reason.** Each patch file starts with a comment giving its purpose, the upstream issue link (if any) and the removal condition.
@@ -76,7 +76,7 @@ These are binding rules, and the factory enforces them (see `docs/development-fa
 ```
 
 ### 5.1 Layer 3: engine
-- A **module registry** (`charts/keelson/modules/*.yaml`, loaded with `.Files.Glob`) declares, for each module: name, sync wave, source type (`kustomize` | `helm`), upstream path or chart, dependencies, and a default enabled state.
+- A **module registry** (`charts/keelson/modules/*.yaml`, loaded with `.Files.Glob`) declares, for each module: name, sync wave, source type (`kustomize` | `helm` | `keelson`), upstream path or chart (or, for `keelson`, the component this chart renders in component mode, ADR 0004), dependencies, and a default enabled state.
 - One template iterates over the registry and renders an `Application` for each enabled module. A shared `defaultAppSpec` provides ServerSideApply, CreateNamespace, retries with backoff and automated sync. A per-module `appSpecOverride` is the escape hatch.
 - An `AppProject` restricts source repos to an allowlist (upstream `kubeflow/manifests`, pinned Helm repos, and the user's own repo for patches).
 - A `raw:` escape hatch lets users add arbitrary manifests. It is unsupported but available.
@@ -127,8 +127,9 @@ argocd:
   project: keelson
 modules:
   pipelines: { enabled: true }
-  workspaces: { enabled: true }
-  notebooks-v1: { enabled: false }   # keys are module names (kebab-case); legacy, upstream EOL notice
+  workspaces: { enabled: true }      # keys are module names (kebab-case)
+workspaces:
+  kinds: [jupyterlab]                # upstream sample WorkspaceKinds to install (#14)
 advanced:
   modules: {}                        # per-module appSpecOverride / extra patches (unsupported)
 ```
@@ -149,7 +150,8 @@ advanced:
 | 10 | profiles (Keelson-generated) | rendered from `profiles[]` | ✓ |
 | 20 | pipelines | `applications/pipeline/overlays` | ✓ |
 | 20 | workspaces | `applications/workspaces/overlays/istio` | ✓ |
-| 20 | notebooks-v1 (legacy, off) | `applications/notebooks-v1/...` | opt-in |
+| 25 | workspace-kinds | `applications/workspaces/upstream/controller/samples` (delete patches keep the kinds in `workspaces.kinds`) | ✓ |
+| — | notebooks-v1 | not offered (Q5) | ✗ |
 | 30 | knative-serving, cluster-local-gateway | `common/knative/knative-serving/overlays/gateways`, `common/istio/cluster-local-gateway/base` | v0.2 (KServe) |
 | 40 | kserve, kserve-ui | `applications/kserve/kserve`, `applications/kserve/kserve-ui` | v0.2 |
 | 40 | katib, trainer, spark, hub | see `example/kustomization.yaml` | v0.2+ |
@@ -164,8 +166,9 @@ Each module file (`charts/keelson/modules/<name>.yaml`) must declare:
 name: pipelines
 wave: 20
 source:
-  type: kustomize                 # kustomize | helm
+  type: kustomize                 # kustomize | helm | keelson
   path: applications/pipeline/overlays
+  # component: profiles; values: [profiles]   # when type=keelson (ADR 0004)
   # helm: { repo: ..., chart: ..., version: ... }  # when type=helm
   # platformPaths: { kind: <path> }  # optional; chosen by values `platform`
 namespace: kubeflow               # Application destination namespace
@@ -224,7 +227,7 @@ A module is accepted only if it has a golden test scenario, a smoke test (or a d
 - Published as an OCI artifact to `ghcr.io/<org>/charts/keelson`, signed with cosign (keyless, GitHub OIDC).
 - Images referenced by the release:
   - Prereleases attach an image list (`images.txt`, `images.json`), attested with cosign to the chart digest.
-  - `0.1.0` and later releases attach a full SBOM for each referenced upstream image (#61).
+  - `0.1.0` and later: the `sbom` job makes a CycloneDX SBOM for each referenced upstream image, attests each to the chart digest and attaches `sbom.tar.gz` (#61).
 - A support policy: the current and previous upstream release, documented in `docs/support-matrix.md`.
 
 ## 14. Security
@@ -257,7 +260,7 @@ A module is accepted only if it has a golden test scenario, a smoke test (or a d
 - ~~**Q2** ArgoCD: should v0.1 ship a bootstrap script that installs ArgoCD, or only document "bring your own ArgoCD"?~~ **Resolved:** a bootstrap script installs ArgoCD for Kind, dev and CI only; everywhere else is bring-your-own ArgoCD. See [ADR 0003](../adr/0003-kind-bootstrap-installs-argocd.md).
 - **Q3** Kyverno vs `ValidatingAdmissionPolicy` for the Pod Security baseline.
 - **Q4** Production object store on Azure (which S3-compatible option to document).
-- **Q5** Should notebooks-v1 be offered at all in v0.1, given upstream's EOL notice and that Workspaces is the default in 26.10?
+- **Q5** *(resolved, #14)* Do not offer notebooks-v1 in v0.1, not even opt-in. Upstream removes it in Kubeflow 27.03 (`example/kustomization.yaml` at 26.10.0). Workspaces is the default.
 
 ## 19. Attribution
 Design ideas, and possibly code under Apache-2.0 with attribution in `NOTICE`, come from deployKF, treebeardtech/kubeflow-bootstrap and TheCodingSheikh/helm-charts.

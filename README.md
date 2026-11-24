@@ -29,7 +29,15 @@ cosign verify ghcr.io/abhishekpcnair/charts/keelson:0.1.0-alpha.1 \
   --certificate-identity-regexp '^https://github.com/abhishekpcnair/keelson/\.github/workflows/release\.yaml@refs/tags/v'
 ```
 
-To try Keelson on a laptop, see [Local Kind cluster](CONTRIBUTING.md#local-kind-cluster). What each release is tested with is in the [support matrix](docs/support-matrix.md).
+From `0.1.0`, each release also has a CycloneDX SBOM for each upstream image (`sbom.tar.gz` on the release, and attestations on the chart digest). Check the attestations:
+
+```sh
+cosign verify-attestation --type cyclonedx ghcr.io/abhishekpcnair/charts/keelson:0.1.0 \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --certificate-identity-regexp '^https://github.com/abhishekpcnair/keelson/\.github/workflows/release\.yaml@refs/tags/v'
+```
+
+To try Keelson on a laptop, follow the [Kind quickstart](docs/quickstart-kind.md). For production on AKS, see the [AKS guide](docs/guides/aks.md). To work on Keelson, see [Local Kind cluster](CONTRIBUTING.md#local-kind-cluster). What each release is tested with is in the [support matrix](docs/support-matrix.md).
 
 Licensed under [Apache-2.0](LICENSE).
 

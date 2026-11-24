@@ -14,6 +14,10 @@ make kind-down
 
 A full Kubeflow install needs about 16 GB of RAM. On a smaller machine, run only `MODULES=core`, and use CI for anything heavier: add the `needs-e2e` label to the PR, or run `gh workflow run e2e.yaml --ref <branch>`.
 
+## Cleanup helper
+
+Scripts that create state in the cluster or start a process register the cleanup with `on_exit <command>` (from `lib.sh`). Each call adds to one list, and all the commands run in reverse order when the script exits, even on failure. Example: `on_exit 'kubectl delete -f "$fixture" --ignore-not-found'` before the `apply`.
+
 ## Environment variables
 
 | Variable | Default | Meaning |
@@ -21,6 +25,18 @@ A full Kubeflow install needs about 16 GB of RAM. On a smaller machine, run only
 | `E2E_TIMEOUT` | `30m` | How long to wait for Synced + Healthy. Takes an `s`, `m` or `h` suffix. |
 | `KEEP` | `0` | `1` keeps a gateway port-forward on `localhost:8080` open after a passing run, so you can look around. Press Ctrl-C to stop it. |
 | `GATEWAY_PORT` | `8080` | Local port for the gateway port-forward. `dex-login.sh` needs `8080`. |
+| `E2E_INSTALL` | `helm` | `helm` runs `helm upgrade --install`. `root-app` installs through a root ArgoCD Application that pulls the chart from an in-cluster OCI registry, then asserts the sync-wave order. CI uses `root-app` on `main`, nightly and `workflow_dispatch`; PRs use `helm`. |
+| `E2E_REG_PORT` | `5555` | Local port for the push to the in-cluster registry (`root-app` only). |
+
+## Root-Application mode (`E2E_INSTALL=root-app`)
+
+1. `tests/e2e/registry.yaml` deploys a test-only OCI registry (`registry:2.8.3`, pinned by digest) in `e2e-registry`.
+2. The chart under test is packaged as `<Chart.version>-e2e.<short-sha>` and pushed to it.
+3. A test-only repository Secret tells ArgoCD about the registry over plain HTTP.
+4. A root Application `keelson-root` (project `default`) renders the chart with the same values as `helm` mode.
+5. After every Application is Synced and Healthy, the harness checks that no Application in a higher wave started its first deploy before every lower-wave Application had finished. On failure it prints a table of wave, application, start and end times.
+
+Run it from a branch with `gh workflow run e2e.yaml --ref <branch>`. The `kind` job uses `root-app` for any event that is not a pull request.
 
 ## Scenarios
 

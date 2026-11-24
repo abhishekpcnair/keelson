@@ -6,12 +6,14 @@ Module files are data only. Put no template logic here.
 
 Fields:
 - `name`, `wave`, `defaultEnabled`, `dependsOn`
-- `source.type` (`kustomize` only for now, see ADR 0002), `source.path`, and optional `source.platformPaths` (keyed by `platform`)
+- `source.type`: `kustomize` (ADR 0002) or `keelson` (ADR 0004)
+  - `kustomize`: `source.path`, and optional `source.platformPaths` (keyed by `platform`)
+  - `keelson`: `source.component` (renders `templates/components/<component>.yaml`) and `source.values` (the values keys copied into `helm.valuesObject`). If every one of those keys is empty, the module renders no Application. Add the component name to the `component` enum in `values.schema.json`.
 - `namespace`: the Application destination namespace
 - `namespaces`: every namespace the path writes to, which builds the AppProject allowlist (checked by `make namespaces`)
 - `translations`: names of translation helpers (`templates/_translate_<name>.tpl`). The engine calls
   `keelson.translate.<name>` for each and appends the returned patches to `spec.source.kustomize.patches`.
-  Unknown names fail the render. Known: `domain`, `auth`.
+  Unknown names fail the render. Known: `domain`, `auth`, `workspaceKinds`. A helper can return `skip: true`; then the module renders no Application. A skipped module still counts as enabled for `dependsOn`.
 - `smokeTest`, `upstreamHelmChart`
 - `ignoreDifferences` (optional): ArgoCD `ignoreDifferences` entries for fields another controller owns, such as a cert-manager-injected `caBundle`. Each entry needs `kind` and a non-empty `jsonPointers`, `jqPathExpressions` or `managedFieldsManagers`. The engine adds `RespectIgnoreDifferences=true`, and overrides can't remove these entries. `make kustomize-check` checks that each entry names a resource in the built upstream overlay.
 

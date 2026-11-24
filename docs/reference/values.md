@@ -60,6 +60,12 @@ For the full default values, see `charts/keelson/values.yaml`.
 | `auth.staticUsers` | object | — | — | Static user settings. |
 | `auth.staticUsers.enabled` | boolean | — | — | Upstream static user user@example.com. Kind and dev only. |
 
+## `component`
+
+| Key | Type | Default | Allowed | Description |
+|---|---|---|---|---|
+| `component` | string | — | one of ``, `profiles` | Internal. Only the engine sets it, in component Applications (ADR 0004). |
+
 ## `database`
 
 | Key | Type | Default | Allowed | Description |
@@ -84,6 +90,16 @@ For the full default values, see `charts/keelson/values.yaml`.
 |---|---|---|---|---|
 | `global` | object | — | — | Helm global values. Allowed so parent charts and --set global.* keep working. |
 
+## `keelson`
+
+| Key | Type | Default | Allowed | Description |
+|---|---|---|---|---|
+| `keelson` | object | — | — | Settings for Keelson's own chart, used by component Applications (ADR 0004). |
+| `keelson.selfSource` | object | — | — | Where component Applications pull this chart from (ADR 0004). |
+| `keelson.selfSource.chart` | string, required | — | pattern `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$` | Chart name in the registry. |
+| `keelson.selfSource.repoURL` | string, required | — | pattern `^[A-Za-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._-]+)*$` | OCI registry path, no scheme (e.g. ghcr.io/org/charts). |
+| `keelson.selfSource.targetRevision` | string | — | pattern `^$\|^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$` | Empty: this chart's version. Otherwise an exact SemVer version. |
+
 ## `modules`
 
 | Key | Type | Default | Allowed | Description |
@@ -107,7 +123,10 @@ For the full default values, see `charts/keelson/values.yaml`.
 
 | Key | Type | Default | Allowed | Description |
 |---|---|---|---|---|
-| `profiles` | array | — | — | Placeholder; defined by #9 |
+| `profiles` | array | — | — | Kubeflow profiles as code. Names must be unique (checked at render time). |
+| `profiles[].groups` |  | — | — | Not supported yet. Rejected at render time; see issue #28. |
+| `profiles[].name` | string, required | — | max length 63; pattern `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$` | Profile and namespace name (DNS-1123 label). |
+| `profiles[].owner` | string, required | — | pattern `^[^@\s]+@[^@\s]+\.[^@\s]+$` | Owner email: the kubeflow-userid header value. |
 
 ## `storage`
 
@@ -131,6 +150,13 @@ For the full default values, see `charts/keelson/values.yaml`.
 | `upstream` | object, required | — | — | The pinned upstream Kubeflow manifests that every Application uses. |
 | `upstream.manifestsRef` | string, required | — | pattern `^[0-9]{2}\.[0-9]{2}(\.[0-9]+)?$` | Pinned kubeflow/manifests release tag, e.g. 26.10.0. Branches and HEAD are not allowed. |
 | `upstream.manifestsRepo` | string, required | — | format `uri` | Git URL of the upstream Kubeflow manifests. Every Application pulls from it. |
+
+## `workspaces`
+
+| Key | Type | Default | Allowed | Description |
+|---|---|---|---|---|
+| `workspaces` | object | — | — | Settings for the workspaces and workspace-kinds modules. |
+| `workspaces.kinds` | array | ["jupyterlab"] | unique items | Upstream sample WorkspaceKinds to install (workspace-kinds module): any of codeserver, jupyterlab, rstudio. [] installs none. |
 
 ## Rules
 

@@ -1,0 +1,4 @@
+# workspaces-all-kinds: every upstream sample WorkspaceKind; only the 5 sample-object deletes remain.
+platform: kind
+workspaces:
+  kinds: [jupyterlab, codeserver, rstudio]
