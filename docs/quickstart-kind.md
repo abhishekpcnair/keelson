@@ -1,9 +1,9 @@
 # Quickstart: Keelson on Kind
 
-Install Keelson on a Kind cluster on your laptop. In CI, the same steps take about 6 minutes.
+Install Keelson on a Kind cluster on your laptop.
 
-You get the **core** modules (cert-manager, Istio, oauth2-proxy, Dex and the Kubeflow namespaces and roles) and the **dashboard** module.
-That is 11 ArgoCD Applications. Workspaces, pipelines and profiles are not on `main` yet.
+You get the **core** modules (cert-manager, Istio, oauth2-proxy, Dex and the Kubeflow namespaces and roles), the **dashboard**,
+**workspaces** and **pipelines** modules. That is 14 ArgoCD Applications.
 See [What is not here yet](#what-is-not-here-yet).
 
 Use Kind for trying Keelson and for development only. For a real cluster, see the [AKS guide](guides/aks.md).
@@ -23,8 +23,8 @@ You need these tools on your `PATH`:
 
 The scripts never download tools and never use `sudo`.
 
-Plan for RAM. A full Kubeflow install needs about 16 GB for Docker. Core needs less.
-CI runs core on a runner with 16 GB RAM, and the Applications are Healthy in about 4 minutes.
+Plan for RAM. This install needs about 16 GB for Docker: Pipelines alone needs about 3.5 GiB of RAM and 35 GB of disk.
+CI runs it on a runner with 16 GB RAM and 4 CPUs.
 On Linux, `make kind-up` warns when the inotify limits are low.
 
 ## 1. Get the code
@@ -65,13 +65,15 @@ This creates the ArgoCD Applications. ArgoCD then installs Kubeflow from the pin
 ## 4. Wait until the Applications are Healthy
 
 ```sh
-kubectl -n argocd get applications -l app.kubernetes.io/part-of=keelson
+kubectl -n argocd get applications.argoproj.io -l app.kubernetes.io/part-of=keelson
 ```
 
-Run it again every minute. Wait until all 11 Applications show `Synced` and `Healthy`.
+Run it again every minute. Wait until all 14 Applications show `Synced` and `Healthy`.
+Use the full name `applications.argoproj.io`: Pipelines installs a second `Application` kind (`applications.app.k8s.io`), and plain `applications` can pick that one.
 The core modules are in [`docs/modules/core.md`](modules/core.md). The dashboard is in [`docs/modules/dashboard.md`](modules/dashboard.md).
 
 `istio` can show `Degraded` for a short time while it starts. This is normal.
+If `/pipeline` later returns `503`, some pods started before Istio was ready. See [Istio sidecar](modules/pipelines.md#istio-sidecar).
 
 ## 5. Open the dashboard
 
@@ -133,8 +135,7 @@ This deletes the Kind cluster.
 
 | Part | Status |
 |---|---|
-| Workspaces (Notebooks v2) | Module #14 (PR #72) |
-| Pipelines with bundled storage | Module #12 |
+| A sample pipeline run on this page | #111 |
 | Profiles | #9 |
 
 This page grows when each part lands on `main`: create a workspace, run a sample pipeline.

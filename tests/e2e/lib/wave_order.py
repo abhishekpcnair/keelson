@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Reads `kubectl get applications -o json` on stdin. Prints a table of sync waves and deploy times,
+# Reads `kubectl get applications.argoproj.io -o json` on stdin. Prints a table of sync waves and deploy times,
 # then exits 1 if any Application in a higher wave started its first deploy before every
 # Application in a lower wave had finished its first deploy (#22).
 # The first deploy is the history entry with the lowest id, so a later self-heal sync cannot
