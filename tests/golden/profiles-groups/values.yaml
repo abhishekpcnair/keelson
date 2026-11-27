@@ -1,0 +1,21 @@
+# profiles-groups: the chart in component mode with profiles[].groups (#66, option a
+# from #28), as the keelson-profiles Application renders it (ADR 0004).
+# platform kind: the namespace RequestAuthentication lists Dex plus the two Kind
+# service-account issuers. A profile without groups gets no group resources.
+component: profiles
+platform: kind
+profiles:
+  - name: team-vision
+    owner: alice@example.com
+    groups:
+      - name: ml-vision
+        role: edit
+      - name: ml-viewers
+        role: view
+  - name: team-nlp
+    owner: bob@example.com
+    contributors: [carol@example.com]
+  - name: team-github
+    owner: erin@example.com
+    groups:
+      - name: "acme:ML Platform"   # GitHub org:team; role defaults to edit

@@ -1,0 +1,5 @@
+# expect: is listed more than once; give each group one role
+# The same group twice, with different roles.
+platform: kind
+profiles:
+  - {name: t, owner: a@x.com, groups: [{name: ml, role: edit}, {name: ml, role: view}]}

@@ -27,6 +27,12 @@ auth:
     #   issuer: https://idp.example.com
     #   secretRef: { name: dex-corp }   # keys clientID, clientSecret, in namespace auth
     connectors: []
+  # Service-account token issuers that profile namespaces with groups accept (m2m tokens).
+  # Empty: the two Kind issuers on platform kind. Required on platform generic when a
+  # profile has groups. See docs/configuration/profiles.md.
+  # - issuer: https://kubernetes.default.svc.cluster.local
+  #   jwksUri: https://...   # optional; default: the issuer's OIDC discovery
+  serviceAccountIssuers: []
   # Production secrets. Empty names keep upstream's public literals (Kind and dev only).
   # With environment=production both names are required. Make the Secrets yourself:
   # docs/configuration/authentication.md.
@@ -55,6 +61,8 @@ argocd:
 #     owner: alice@example.com
 #     contributors: [bob@example.com]   # edit access
 #     viewers: [carol@example.com]      # view access
+#     groups:                           # IdP groups: RBAC, Workspaces, workload access
+#       - { name: ml-vision, role: edit }   # role: edit (default) | view
 profiles: []
 # Where component Applications (keelson-profiles, ...) pull this chart from
 # (ADR 0004). The default works only for a published release. Set it for a

@@ -4,6 +4,7 @@ source:
   type: keelson            # Keelson-owned resources, chart component mode (ADR 0004)
   component: profiles      # templates/components/profiles.yaml
   values: [profiles]       # values keys copied into helm.valuesObject; all empty → no Application
+  context: [platform, auth.serviceAccountIssuers]  # also copied; never enables the component (groups, #66)
   namespacesFrom: profiles # each profiles[].name is a destination (contributor RoleBindings live there)
 namespace: kubeflow
 namespaces: [kubeflow]

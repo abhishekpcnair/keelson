@@ -28,7 +28,7 @@ Other checks:
 - [ ] `main` CI green: verify, the e2e run on `main` (the nightly run is opt-in: repository variable `NIGHTLY_E2E`), upstream-watch shows no pending bump older than four weeks
 - [ ] AKS manual test with the `aks-entra-external` scenario:
   - [ ] Fresh AKS cluster, existing ArgoCD, `helm install` from the release candidate
-  - [ ] Log in with Entra ID; group → profile mapping works (applies once #28 settles how groups map to profiles)
+  - [ ] Log in with Entra ID; group → profile mapping works: `kubectl auth can-i` and Workspaces for a group member (#66)
   - [ ] Create a workspace; run the sample pipeline; artifacts land in the external object store
   - [ ] Upgrade from the previous minor release: Applications return to Healthy without manual steps
 - [ ] Support matrix updated (`docs/support-matrix.md`)

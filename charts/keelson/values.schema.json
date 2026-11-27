@@ -208,6 +208,19 @@
             }
           }
         },
+        "serviceAccountIssuers": {
+          "type": "array",
+          "description": "Kubernetes service-account token issuers that profile namespaces with groups accept, so m2m tokens don't get 401. Empty on platform kind means the two Kind issuers. Required on platform generic when a profile has groups (checked at render time). See docs/configuration/profiles.md.",
+          "items": {
+            "type": "object",
+            "required": ["issuer"],
+            "additionalProperties": false,
+            "properties": {
+              "issuer": { "type": "string", "format": "uri", "pattern": "^https?://[^\\s]+$", "description": "The iss claim of the cluster's service-account tokens (kubectl get --raw /.well-known/openid-configuration)." },
+              "jwksUri": { "type": "string", "format": "uri", "pattern": "^https?://[^\\s]+$", "description": "Where Istio fetches the signing keys. Omit it to use the issuer's OIDC discovery." }
+            }
+          }
+        },
         "dex": {
           "type": "object",
           "additionalProperties": false,
@@ -281,7 +294,19 @@
           "owner": { "type": "string", "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", "description": "Owner email: the kubeflow-userid header value." },
           "contributors": { "type": "array", "items": { "type": "string", "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$" }, "description": "Emails with edit access (ClusterRole kubeflow-edit), as the dashboard's Manage contributors adds them." },
           "viewers": { "type": "array", "items": { "type": "string", "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$" }, "description": "Emails with view access (ClusterRole kubeflow-view)." },
-          "groups": { "description": "Not supported yet. Rejected at render time; see issue #28." }
+          "groups": {
+            "type": "array",
+            "description": "IdP groups with access to this namespace: Kubernetes RBAC, Workspaces and workload network access. Not the dashboard namespace list or Pipelines. Names must be unique in the profile (checked at render time). See docs/configuration/profiles.md.",
+            "items": {
+              "type": "object",
+              "required": ["name"],
+              "additionalProperties": false,
+              "properties": {
+                "name": { "type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[^*].*[^*]$|^[^*]$", "description": "Group name exactly as the IdP emits it in the groups claim. Can't start or end with *: Istio reads that as a wildcard." },
+                "role": { "type": "string", "enum": ["edit", "view"], "default": "edit", "description": "edit (ClusterRole kubeflow-edit) or view (ClusterRole kubeflow-view)." }
+              }
+            }
+          }
         }
       }
     },

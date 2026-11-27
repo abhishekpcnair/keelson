@@ -1,0 +1,5 @@
+# expect: set auth.serviceAccountIssuers on platform generic
+# On platform generic, Keelson can't guess the service-account issuer (#66 D3).
+platform: generic
+profiles:
+  - {name: t, owner: a@x.com, groups: [{name: ml}]}

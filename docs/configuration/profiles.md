@@ -37,7 +37,72 @@ For each contributor and viewer, Keelson renders a `RoleBinding` and an Istio `A
 - Names can't be system namespaces: `kubeflow`, `istio-system`, `auth`, `oauth2-proxy`, `cert-manager`, `argocd.namespace`, or `kube-*`.
 - The `dashboard` module must be on.
 - Pod Security and extra namespace labels: see [Profile namespaces](profile-namespaces.md).
-- `groups` is not supported yet. See [#28](https://github.com/abhishekpcnair/keelson/issues/28).
+- Group names are unique in a profile. See [Groups](#groups).
+
+## Groups
+Give a whole IdP group access to a profile namespace:
+
+```yaml
+profiles:
+  - name: team-vision
+    owner: alice@example.com
+    groups:
+      - name: ml-vision      # exactly as the IdP puts it in the groups claim
+        role: edit           # edit (default) or view
+```
+
+For a profile with `groups`, Keelson renders in the profile namespace:
+- one `RoleBinding` for each group (`kind: Group`, ClusterRole `kubeflow-edit` or `kubeflow-view`);
+- a `RequestAuthentication` named `keelson-groups`, for the whole namespace. It checks Dex tokens and the cluster's service-account tokens;
+- an `AuthorizationPolicy` named `keelson-groups`. It allows requests whose Dex token has one of the groups.
+
+Profiles without `groups` get none of these.
+
+### What works and what doesn't (v0.1)
+Groups grant Kubernetes RBAC, Workspaces and workload network access.
+The dashboard namespace list and Pipelines still need per-user bindings.
+
+| Works with groups | Needs `contributors` or `viewers` |
+|---|---|
+| `kubectl` and other Kubernetes API access (RBAC) | The dashboard namespace list and its namespace picker |
+| Workspaces (the backend reads the groups header) | **Manage contributors** in the dashboard (KFAM) |
+| Requests to workloads in the namespace (Istio) | Pipelines (KFP checks access per user) |
+
+The cause is upstream: KFAM, the dashboard and Pipelines don't read groups at 26.10.0 ([#28](https://github.com/abhishekpcnair/keelson/issues/28)).
+
+A user in two or more groups may reach the Workspaces backend with one joined value, such as `a,b` (#28). Until the e2e check in #66 confirms the behaviour, test Workspaces access for such users.
+
+### Group names
+Use the name your connector sends. Dex passes it on unchanged.
+
+| IdP | Example |
+|---|---|
+| `microsoft` connector (Entra ID) | `ml-vision` (the group name) |
+| Entra ID as a generic `oidc` connector | `3f2a…` (the group object ID) |
+| `github` connector | `acme:ml-team` (`org:team`) |
+| Keycloak | `ml-vision`, or `/parent/ml-vision` when the client's group mapper sends the full path |
+
+Names can't start or end with `*`. Istio reads a `*` there as a wildcard.
+
+### Service-account issuers
+The namespace `RequestAuthentication` rejects tokens from issuers it doesn't list. So it must also list the issuer of the cluster's service-account tokens, or machine-to-machine requests get `401`.
+- `platform: kind`: Keelson uses the two Kind issuers. You don't need to set anything.
+- `platform: generic`: set `auth.serviceAccountIssuers` when any profile has `groups`. The render fails without it.
+
+Find the issuer:
+
+```sh
+kubectl get --raw /.well-known/openid-configuration
+```
+
+Then set it:
+
+```yaml
+auth:
+  serviceAccountIssuers:
+    - issuer: https://<the "issuer" field from the command above>
+      # jwksUri: https://...   # optional; default: the issuer's OIDC discovery
+```
 
 ## Remove a profile
 Removing an entry does **not** delete the namespace or its data. `Profile`s have `Prune=false`, so ArgoCD shows them as needing a prune and keeps them.
