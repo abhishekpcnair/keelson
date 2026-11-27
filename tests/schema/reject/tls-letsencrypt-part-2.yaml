@@ -1,5 +1,0 @@
-# expect: lands in part 2
-# letsencrypt is in the enum, but the ACME ClusterIssuer is part 2 of #23.
-domain: kubeflow.example.com
-tls:
-  issuer: letsencrypt

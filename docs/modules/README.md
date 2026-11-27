@@ -77,7 +77,7 @@ source:
 
 | Module | Wave | Renders | Needs |
 |---|---|---|---|
-| `keelson-tls` | -85 | a cert-manager `Certificate` for `domain`, with `tls.issuer: selfsigned` ([domain-and-tls.md](../configuration/domain-and-tls.md)) | `cert-manager-kubeflow` |
+| `keelson-tls` | -85 | with `tls.issuer: selfsigned` or `letsencrypt`: a cert-manager `Certificate` for `domain`, plus an ACME `ClusterIssuer` for `letsencrypt` ([domain-and-tls.md](../configuration/domain-and-tls.md)) | `cert-manager-kubeflow` |
 | `keelson-profiles` | 10 | a `Profile` per `profiles[]` entry ([profiles.md](../configuration/profiles.md)) | `dashboard` |
 
 ## Turning a module off leaves its resources running

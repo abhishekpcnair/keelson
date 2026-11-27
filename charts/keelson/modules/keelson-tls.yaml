@@ -7,7 +7,7 @@ source:
 namespace: istio-system  # the Gateway reads its credentialName Secret from the ingress gateway namespace
 namespaces: [istio-system]
 # The Certificate CRD comes from cert-manager. selfsigned uses upstream's ClusterIssuer
-# kubeflow-self-signing-issuer from cert-manager-kubeflow.
+# kubeflow-self-signing-issuer from cert-manager-kubeflow; letsencrypt adds its own ClusterIssuer.
 dependsOn: [cert-manager-kubeflow]
 defaultEnabled: true
 # The domain translation returns skip unless tls.issuer is selfsigned or letsencrypt:

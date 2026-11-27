@@ -130,6 +130,9 @@ spec:
         component: tls
         domain: kubeflow.example.com
         tls:
+          acme:
+            email: ""
+            server: staging
           issuer: selfsigned
           secretRef:
             name: ""

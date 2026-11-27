@@ -98,7 +98,7 @@ upstream:
 domain: kubeflow.example.com
 platform: generic                  # generic | kind; selects platform-specific upstream overlays
 tls:
-  issuer: existing                  # none | existing | external | selfsigned (letsencrypt: #23 part 2)
+  issuer: existing                  # none | existing | external | selfsigned | letsencrypt
   secretRef: { name: kubeflow-tls } # issuer=existing: kubernetes.io/tls Secret in istio-system
 environment: production            # dev | production
 auth:

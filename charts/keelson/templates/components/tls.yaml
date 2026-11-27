@@ -3,14 +3,61 @@ keelson-tls component (#23, ADR 0004): the certificate that the Kubeflow Gateway
 serves for `domain`. The domain translation points the Gateway's credentialName
 at the Secret keelson-tls. selfsigned: upstream's ClusterIssuer
 kubeflow-self-signing-issuer (common/cert-manager/overlays/kubeflow).
+letsencrypt: a Keelson ACME ClusterIssuer with a DNS-01 Azure DNS solver
+(cert-manager.io/v1 fields checked against the upstream CRD at 26.10.0).
 */}}
-{{- if eq (.Values.tls).issuer "letsencrypt" }}
-{{- fail "tls.issuer: letsencrypt is not supported yet; it lands in part 2 of #23. Use selfsigned, existing or external" }}
+{{- /* Both render modes: the parent render fails at helm install, not at sync time. */}}
+{{- with dig "acme" "dns01" "azureDNS" nil (.Values.tls | default dict) }}
+{{- if and (eq $.Values.tls.issuer "letsencrypt") (eq (hasKey . "managedIdentity") (hasKey . "clientSecretRef")) }}
+{{- fail "tls.acme.dns01.azureDNS: set exactly one of managedIdentity or clientSecretRef" }}
+{{- end }}
 {{- end }}
 {{- if eq .Values.component "tls" }}
 {{- $issuer := (.Values.tls).issuer | default "none" }}
 {{- if not (has $issuer (include "keelson.tls.issued" . | fromYamlArray)) }}
 {{- fail (printf "component \"tls\": tls.issuer is %q; the component issues a certificate only for %s" $issuer (include "keelson.tls.issued" . | fromYamlArray | join " or ")) }}
+{{- end }}
+{{- $issuerName := "kubeflow-self-signing-issuer" }}
+{{- if eq $issuer "letsencrypt" }}
+{{- $issuerName = "keelson-letsencrypt" }}
+{{- $acme := .Values.tls.acme }}
+{{- $server := $acme.server | default "staging" }}
+{{- $az := $acme.dns01.azureDNS }}
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: keelson-letsencrypt
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: keelson-tls
+  annotations:
+    # Before the Certificate that uses it.
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  acme:
+    email: {{ $acme.email | quote }}
+    server: {{ get (dict "staging" "https://acme-staging-v02.api.letsencrypt.org/directory" "production" "https://acme-v02.api.letsencrypt.org/directory") $server }}
+    # cert-manager creates the account key in this Secret (cert-manager namespace). One account per server.
+    privateKeySecretRef:
+      name: keelson-letsencrypt-{{ $server }}
+    solvers:
+      - dns01:
+          azureDNS:
+            subscriptionID: {{ $az.subscriptionID | quote }}
+            resourceGroupName: {{ $az.resourceGroupName | quote }}
+            hostedZoneName: {{ $az.hostedZoneName | quote }}
+            {{- with $az.managedIdentity }}
+            managedIdentity:
+              clientID: {{ .clientID | quote }}
+            {{- end }}
+            {{- with $az.clientSecretRef }}
+            clientID: {{ $az.clientID | quote }}
+            tenantID: {{ $az.tenantID | quote }}
+            clientSecretSecretRef:
+              name: {{ .name | quote }}
+              key: {{ .key | default "client-secret" | quote }}
+            {{- end }}
 {{- end }}
 ---
 apiVersion: cert-manager.io/v1
@@ -28,5 +75,5 @@ spec:
   issuerRef:
     group: cert-manager.io
     kind: ClusterIssuer
-    name: kubeflow-self-signing-issuer
+    name: {{ $issuerName }}
 {{- end }}
