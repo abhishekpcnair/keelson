@@ -1,0 +1,11 @@
+# expect: /auth/dex/connectors/0/enterprise/hostName
+# hostName is a host, not a URL: Dex builds https://<hostName>/api/v3 (#46).
+domain: kubeflow.example.com
+auth:
+  dex:
+    connectors:
+      - type: github
+        id: ghe
+        secretRef: { name: dex-ghe }
+        orgs: [{ name: my-org }]
+        enterprise: { hostName: "https://ghe.example.com" }

@@ -53,6 +53,25 @@
         },
         "teamNameField": { "type": "string", "enum": ["name", "slug", "both"], "default": "slug", "description": "github: how teams appear in groups: team name, team slug or both. Keelson default: slug." },
         "useLoginAsID": { "type": "boolean", "default": false, "description": "github: use the GitHub login as the user ID, not the numeric ID." },
+        "enterprise": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["hostName"],
+          "description": "github: GitHub Enterprise Server. Without it, the connector uses github.com.",
+          "properties": {
+            "hostName": { "type": "string", "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*(:[0-9]{1,5})?$", "description": "Host name of the server, lowercase. No scheme and no path. A :port is allowed." },
+            "rootCASecretRef": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name"],
+              "description": "Optional. Secret in namespace auth with the server's CA certificate. Without it, Dex uses the system CAs. The Secret must exist, or Dex does not start.",
+              "properties": {
+                "name": { "type": "string", "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$", "maxLength": 253, "description": "Secret in namespace auth. A name only." },
+                "key": { "type": "string", "pattern": "^[-._a-zA-Z0-9]+$", "default": "ca.crt", "description": "Key of the PEM CA certificate in the Secret." }
+              }
+            }
+          }
+        },
         "extraConfig": {
           "type": "object",
           "propertyNames": { "pattern": "^[A-Za-z0-9_]+$", "not": { "pattern": "(?i)secret|password|token|key" } },
@@ -62,13 +81,13 @@
       "allOf": [
         {
           "if": { "properties": { "type": { "const": "oidc" } } },
-          "then": { "required": ["issuer"], "propertyNames": { "not": { "enum": ["tenant", "allowedGroups", "onlySecurityGroups", "groupNameFormat", "emailToLowercase", "orgs", "teamNameField", "useLoginAsID"] } } }
+          "then": { "required": ["issuer"], "propertyNames": { "not": { "enum": ["tenant", "allowedGroups", "onlySecurityGroups", "groupNameFormat", "emailToLowercase", "orgs", "teamNameField", "useLoginAsID", "enterprise"] } } }
         },
         {
           "if": { "properties": { "type": { "const": "microsoft" } } },
           "then": {
             "required": ["tenant"],
-            "propertyNames": { "not": { "enum": ["issuer", "scopes", "groupsClaim", "orgs", "teamNameField", "useLoginAsID"] } },
+            "propertyNames": { "not": { "enum": ["issuer", "scopes", "groupsClaim", "orgs", "teamNameField", "useLoginAsID", "enterprise"] } },
             "properties": { "extraConfig": { "propertyNames": { "not": { "pattern": "(?i)^(tenant|groups|useGroupsAsWhitelist)$" } } } }
           }
         },

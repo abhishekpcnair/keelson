@@ -68,6 +68,11 @@ staticClients:
 {{- $_ := set $cfg "orgs" $c.orgs -}}
 {{- $_ := set $cfg "teamNameField" ($c.teamNameField | default "slug") -}}
 {{- $_ := set $cfg "useLoginAsID" (dig "useLoginAsID" false $c) -}}
+{{- with $c.enterprise -}}
+{{- $_ := set $cfg "hostName" .hostName -}}
+{{- /* Dex reads rootCA as a file; keelson.translate.auth mounts the Secret there. */ -}}
+{{- if .rootCASecretRef -}}{{- $_ := set $cfg "rootCA" (printf "/etc/dex/ca/%s/ca.crt" $c.id) -}}{{- end -}}
+{{- end -}}
 {{- else -}}
 {{- fail (printf "auth.dex.connectors[%s]: unsupported type %q" $c.id $c.type) -}}
 {{- end -}}
@@ -94,6 +99,8 @@ upstream (static users on, no connectors).
 {{- $seen := dict -}}
 {{- $list := list -}}
 {{- $env := list -}}
+{{- $volumes := list -}}
+{{- $mounts := list -}}
 {{- range $connectors -}}
 {{- if hasKey $seen .id -}}{{- fail (printf "auth.dex.connectors: duplicate id %q" .id) -}}{{- end -}}
 {{- $_ := set $seen .id true -}}
@@ -102,11 +109,19 @@ upstream (static users on, no connectors).
 {{- $ref := .secretRef -}}
 {{- $env = append $env (dict "name" (printf "%s_CLIENT_ID" $p) "valueFrom" (dict "secretKeyRef" (dict "name" $ref.name "key" ($ref.clientIDKey | default "clientID")))) -}}
 {{- $env = append $env (dict "name" (printf "%s_CLIENT_SECRET" $p) "valueFrom" (dict "secretKeyRef" (dict "name" $ref.name "key" ($ref.clientSecretKey | default "clientSecret")))) -}}
+{{- $ca := dig "enterprise" "rootCASecretRef" dict . -}}
+{{- if $ca -}}
+{{- /* "ca-<id>" can pass the 63-character volume name limit: use a short hash of the id.
+       Not optional: a missing Secret stops Dex loudly, not one connector quietly. */ -}}
+{{- $vol := printf "ca-%s" (trunc 8 (sha256sum .id)) -}}
+{{- $volumes = append $volumes (dict "name" $vol "secret" (dict "secretName" $ca.name "items" (list (dict "key" ($ca.key | default "ca.crt") "path" "ca.crt")))) -}}
+{{- $mounts = append $mounts (dict "name" $vol "mountPath" (printf "/etc/dex/ca/%s" .id) "readOnly" true) -}}
+{{- end -}}
 {{- end -}}
 {{- if $list -}}{{- $_ := set $cfg "connectors" $list -}}{{- end -}}
 {{- $patches = append $patches (dict "patch" (include "keelson.translate.auth.config" $cfg) "target" (dict "version" "v1" "kind" "ConfigMap" "name" "dex")) -}}
 {{- /* Dex reads config.yaml only at start: the config hash restarts it on change. */ -}}
-{{- $deploy := dict "env" $env "hash" (toYaml $cfg | sha256sum) -}}
+{{- $deploy := dict "env" $env "volumes" $volumes "mounts" $mounts "hash" (toYaml $cfg | sha256sum) -}}
 {{- $patches = append $patches (dict "patch" (include "keelson.translate.auth.deployment" $deploy) "target" (dict "group" "apps" "version" "v1" "kind" "Deployment" "name" "dex")) -}}
 {{- end -}}
 {{- /* Production secrets (#27): oauth2-proxy and Dex read the user's Secrets, not upstream's public literals. */ -}}
@@ -198,7 +213,7 @@ envFrom[1] (dex-passwords) stays.
 {{- end -}}
 
 {{- define "keelson.translate.auth.deployment" -}}
-# purpose: restart Dex when its config changes; pass connector client IDs and secrets from the user's Secret
+# purpose: restart Dex when its config changes; pass connector client IDs and secrets from the user's Secret{{ if .volumes }}; mount GitHub Enterprise CA Secrets{{ end }}
 # upstream: none
 # remove-when: never (Keelson intent: auth.dex.connectors[].secretRef)
 apiVersion: apps/v1
@@ -210,11 +225,21 @@ spec:
     metadata:
       annotations:
         keelson.io/dex-config: {{ .hash | quote }}
-    {{- if .env }}
+    {{- if or .env .volumes }}
     spec:
       containers:
         - name: dex
+          {{- with .env }}
           env:
-            {{- toYaml .env | nindent 12 }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .mounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
     {{- end }}
 {{- end -}}
