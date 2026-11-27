@@ -49,10 +49,10 @@ spec:
   source:
     repoURL: https://github.com/abhishekpcnair/keelson
     path: charts/keelson
-    targetRevision: v0.1.0-alpha   # example: a Keelson release tag; never a branch
+    targetRevision: v0.1.0-alpha.1 # example: a Keelson release tag; never a branch
     helm:
       valuesObject:
-        platform: kind
+        platform: kind             # only on Kind; leave it out on other clusters (default: generic)
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd
@@ -60,7 +60,7 @@ spec:
     automated: { prune: true, selfHeal: true }
 ```
 
-The first Keelson release (`v0.1.0-alpha`) is planned in [#15](https://github.com/abhishekpcnair/keelson/issues/15). Until then, use a commit SHA for `targetRevision`.
+The first Keelson release is `v0.1.0-alpha.1` ([#63](https://github.com/abhishekpcnair/keelson/issues/63)). Use a release tag or a commit SHA for `targetRevision`.
 
 With a plain `helm install`, ArgoCD creates every Application at once. They still converge,
 because each Application retries with backoff, but nothing waits for the waves.
