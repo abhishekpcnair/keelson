@@ -29,7 +29,7 @@ Other checks:
 - [ ] Groups on Kind, by hand (CI does not run it): `make e2e MODULES=profiles && tests/e2e/groups.sh` passes. Check its `comma-caveat` line against `docs/configuration/profiles.md`
 - [ ] AKS manual test with the `aks-entra-external` scenario:
   - [ ] Fresh AKS cluster, existing ArgoCD, `helm install` from the release candidate
-  - [ ] Log in with Entra ID; group → profile mapping works (`profiles[].groups`, #66)
+  - [ ] Groups (#66): add a profile with `groups` and `auth.serviceAccountIssuers` from the AKS OIDC issuer (`docs/guides/aks.md` section 8). Log in with Entra ID as a member of that group and open Workspaces in the namespace
   - [ ] Create a workspace; run the sample pipeline; artifacts land in the external object store
   - [ ] Upgrade from the previous minor release: Applications return to Healthy without manual steps
   - [ ] Let's Encrypt staging issuance (#23): `tls.issuer: letsencrypt`, `acme.server: staging`, Azure DNS. The `Certificate` `keelson-tls` gets Ready, and `curl -k https://<domain>/` shows a certificate from the staging CA. CI can't test this: it has no public DNS

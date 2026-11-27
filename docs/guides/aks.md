@@ -261,10 +261,12 @@ database:
 ```
 
 **Azure Database for MySQL is not supported yet.** Its flexible server requires TLS by default
-([`require_secure_transport`](https://learn.microsoft.com/azure/mysql/flexible-server/how-to-connect-tls-ssl)),
-and at `26.10.0` Kubeflow Pipelines has no setting for a TLS connection to MySQL. This is tracked in
+([`require_secure_transport`](https://learn.microsoft.com/en-us/azure/mysql/flexible-server/how-to-connect-tls-ssl)),
+and at `26.10.0` the upstream manifests have no setting for a TLS connection to MySQL. This is tracked in
 [#146](https://github.com/abhishekpcnair/keelson/issues/146). Don't turn TLS off on a production server to work around it.
-Until #146 is done, use a MySQL server that you run without TLS inside your network, or stay on the bundled database for evaluation.
+Until #146 is done, external MySQL on AKS means a server that accepts plain TCP. Run it inside the
+cluster's mesh, where Istio mTLS protects the connection, and keep it off any network that other systems
+share. Otherwise stay on the bundled database for evaluation.
 
 Switching an existing install from bundled to external deletes the bundled data. Read the warning in
 [Pipelines](../modules/pipelines.md#external-mysql) first.
@@ -277,7 +279,6 @@ Give an Entra group access to a profile namespace with `profiles[].groups`. With
 connector, use the group **name** (section 4):
 
 ```yaml
-platform: generic
 auth:
   serviceAccountIssuers:
     - issuer: <issuer URL from step 2 below>
@@ -291,17 +292,21 @@ profiles:
 ```
 
 A profile with `groups` gets a namespace policy that checks Dex tokens and the cluster's service-account tokens.
-On AKS, Keelson needs the cluster's OIDC issuer for that, or the render fails:
+On `platform: generic` (the default), the render fails without `auth.serviceAccountIssuers`. On AKS, use the
+cluster's OIDC issuer: istiod can't read the API server's keys anonymously.
 
-1. Turn on the [AKS OIDC issuer](https://learn.microsoft.com/azure/aks/use-oidc-issuer) (`az aks update --enable-oidc-issuer`).
+1. Turn on the [AKS OIDC issuer](https://learn.microsoft.com/en-us/azure/aks/use-oidc-issuer):
+   `az aks update -n <cluster> -g <resource-group> --enable-oidc-issuer`. Read that page first if the cluster already runs workloads.
 2. Read its URL with `az aks show -n <cluster> -g <resource-group> --query oidcIssuerProfile.issuerUrl -o tsv`.
-3. Read the `jwks_uri` from `curl -s <issuer URL>.well-known/openid-configuration` (the issuer URL ends with `/`).
+3. Read the keys URL with `curl -s <issuer URL>.well-known/openid-configuration | jq -r .jwks_uri` (the issuer URL ends with `/`).
 4. Put both in `auth.serviceAccountIssuers`, as above. The details are in
    [Profiles: service-account issuers](../configuration/profiles.md#service-account-issuers).
 
 Groups give access to Workspaces and the namespace, but not everything: the dashboard's namespace list
-and Pipelines still need `contributors` or `viewers`, and a user in two or more groups may not match.
+and Pipelines still need `contributors` or `viewers`, and Workspaces may not match a user in two or more groups.
 See [what works and what doesn't](../configuration/profiles.md#what-works-and-what-doesnt-v01).
+In a namespace with `groups`, a Bearer JWT from any other issuer, such as an Entra access token that an app
+sends to a workload, gets `401` ([service-account issuers](../configuration/profiles.md#service-account-issuers)).
 `kubectl` with AKS Entra integration sees group **object IDs**, not the names Dex sends.
 
 ## What is not here yet
