@@ -42,6 +42,7 @@ e2e_registry_push() {
     fail "helm push to the e2e registry failed"
   fi
   kill "$pf" 2>/dev/null || true
+  E2E_REG_PF=
   log "Pushed keelson $ver to the e2e registry"
   E2E_CHART_VERSION="$ver"
 
@@ -75,13 +76,13 @@ root_app_install() {
   local ver="$E2E_CHART_VERSION"
 
   # The root Application renders the chart under test with the same values as the helm mode.
-  py - "$SCENARIO" "$ARGOCD_NS" "$ver" <<'PYEOF' | kubectl apply -f - >/dev/null || fail "could not apply the root Application"
+  py - "$SCENARIO" "$ARGOCD_NS" "$ver" "$E2E_REG_REPO" <<'PYEOF' | kubectl apply -f - >/dev/null || fail "could not apply the root Application"
 import json, sys, yaml
-scenario, ns, ver = sys.argv[1], sys.argv[2], sys.argv[3]
+scenario, ns, ver, repo = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 values = yaml.safe_load(open(scenario)) or {}
 # Component Applications (ADR 0004) pull the chart from the same registry (#129).
 values.setdefault("keelson", {}).setdefault("selfSource", {}).update(
-    {"repoURL": "registry.e2e-registry.svc:5000/charts", "targetRevision": ver})
+    {"repoURL": repo, "targetRevision": ver})
 root = {
     "apiVersion": "argoproj.io/v1alpha1",
     "kind": "Application",
@@ -89,7 +90,7 @@ root = {
     "spec": {
         "project": "default",
         "source": {
-            "repoURL": "registry.e2e-registry.svc:5000/charts",
+            "repoURL": repo,
             "chart": "keelson",
             "targetRevision": ver,
             "helm": {"releaseName": "keelson", "valuesObject": values},
