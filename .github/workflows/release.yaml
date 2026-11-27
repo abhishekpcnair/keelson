@@ -83,12 +83,15 @@ jobs:
         id: push
         env:
           OWNER: ${{ github.repository_owner }}
+          # The token and actor come from env, not from expressions in the script text (#141).
+          GH_TOKEN: ${{ github.token }}
+          GH_ACTOR: ${{ github.actor }}
         run: |
           helm package charts/keelson -d dist
           if [ "$DRY_RUN" = true ]; then
             registry=localhost:5000; flags=(--plain-http)
           else
-            echo "${{ github.token }}" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
+            echo "$GH_TOKEN" | helm registry login ghcr.io -u "$GH_ACTOR" --password-stdin
             registry="ghcr.io/${OWNER,,}"; flags=()
           fi
           out=$(helm push dist/keelson-*.tgz "oci://${registry}/charts" "${flags[@]}" 2>&1); echo "$out"
