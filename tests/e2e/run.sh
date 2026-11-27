@@ -3,7 +3,7 @@
 # for example from `make kind-up`), wait until every Keelson Application is Synced
 # and Healthy, then run each enabled module's smoke test.
 #
-# Usage: tests/e2e/run.sh <core|all> [extra helm args...]
+# Usage: tests/e2e/run.sh <core|profiles|all> [extra helm args...]
 #
 # docs/quickstart-kind.md documents steps 3 and 4 below (install, wait) with the same commands.
 # If you change them here, change the page too.
@@ -32,8 +32,9 @@ CHART="$E2E_ROOT/charts/keelson"
 # 2. Scenario: e2e installs exactly what the golden snapshot shows.
 case "$MODULES" in
   core) SCENARIO="$E2E_ROOT/tests/golden/kind-core/values.yaml" ;;
+  profiles) SCENARIO="$E2E_ROOT/tests/golden/profiles/values.yaml" ;;
   all)  fail "MODULES=all has no scenario yet; it maps to a broader golden scenario once one exists" ;;
-  *)    fail "unknown MODULES '$MODULES' (use core or all)" ;;
+  *)    fail "unknown MODULES '$MODULES' (use core, profiles or all)" ;;
 esac
 
 to_seconds() {
@@ -98,9 +99,12 @@ collect_diagnostics() {
 }
 run_exit_diagnostics() {
   local rc=$?
+  if [[ -n "${E2E_REG_PF:-}" ]]; then kill "$E2E_REG_PF" 2>/dev/null || true; fi   # registry port-forward (#129)
   if (( rc != 0 )); then collect_diagnostics; fi
   exit "$rc"
 }
+# A plain trap, not on_exit: nothing in this process calls on_exit. If that changes, move this to
+# on_exit, or the first on_exit call replaces it (and the registry port-forward cleanup with it).
 trap run_exit_diagnostics EXIT
 
 # 3. Install.
@@ -110,7 +114,13 @@ if [[ "$E2E_INSTALL" == root-app ]]; then
   expected="$(helm template "$RELEASE" "$CHART" -n "$ARGOCD_NS" -f "$SCENARIO" "$@" | grep -c '^kind: Application$' || true)"
 else
   log "Installing Keelson ($MODULES: ${SCENARIO#"$E2E_ROOT"/}) into namespace '$ARGOCD_NS'"
-  helm upgrade --install "$RELEASE" "$CHART" -n "$ARGOCD_NS" -f "$SCENARIO" "$@" >/dev/null
+  self_source=()
+  if [[ "$MODULES" == profiles ]]; then
+    # The profiles scenario has a component Application: serve the chart under test from the registry.
+    e2e_registry_push
+    self_source=(--set "keelson.selfSource.repoURL=$E2E_REG_REPO" --set "keelson.selfSource.targetRevision=$E2E_CHART_VERSION")
+  fi
+  helm upgrade --install "$RELEASE" "$CHART" -n "$ARGOCD_NS" -f "$SCENARIO" ${self_source[@]+"${self_source[@]}"} "$@" >/dev/null
   expected="$(helm get manifest "$RELEASE" -n "$ARGOCD_NS" | grep -c '^kind: Application$' || true)"
 fi
 (( expected > 0 )) || fail "the release rendered no Applications"
