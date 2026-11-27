@@ -3,7 +3,7 @@
 ## Prereleases (alpha, beta)
 
 Before the tag:
-- [ ] `main` CI green: verify, and the nightly e2e
+- [ ] `main` CI green: verify, and the e2e run on `main` (the nightly run is opt-in: repository variable `NIGHTLY_E2E`)
 - [ ] The `release` workflow dry run is green on the latest commit that touched it (it runs on pull requests, and with `gh workflow run release.yaml --ref main`)
 - [ ] Support matrix is current (`docs/support-matrix.md`)
 

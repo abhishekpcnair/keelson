@@ -5,7 +5,7 @@ on:
   pull_request:
     types: [labeled, synchronize, opened]
   schedule:
-    - cron: "17 2 * * *"   # nightly
+    - cron: "17 2 * * *"   # nightly, opt-in: set the repository variable NIGHTLY_E2E to true
   workflow_dispatch:
 permissions:
   contents: read
@@ -13,9 +13,12 @@ permissions:
 jobs:
   kind:
     # On a labeled event, run only when the label just added is needs-e2e.
+    # The nightly run is opt-in: it runs only when the repository variable NIGHTLY_E2E is 'true'.
     if: >-
-      github.event_name != 'pull_request' ||
-      (contains(github.event.pull_request.labels.*.name, 'needs-e2e') &&
+      (github.event_name == 'schedule' && vars.NIGHTLY_E2E == 'true') ||
+      github.event_name == 'push' || github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' &&
+       contains(github.event.pull_request.labels.*.name, 'needs-e2e') &&
        (github.event.action != 'labeled' || github.event.label.name == 'needs-e2e'))
     # Job-level, so a skipped run can't cancel a real one. Only PR runs share a group;
     # main, schedule and dispatch runs get a unique group and are never cancelled.

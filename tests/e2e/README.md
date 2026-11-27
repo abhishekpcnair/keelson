@@ -80,4 +80,4 @@ A component Application (`keelson-profiles`) pulls this chart from `keelson.self
 
 The override exists only in the harness. No chart default or golden scenario sets `keelson.selfSource`, and `check_rules.py` is unchanged.
 
-CI runs `profiles` on `main`, nightly, on manual runs, and on PRs that change the profiles component, the component engine (`source.type: keelson`), the e2e harness or its workflow. Other PRs run `core`.
+CI runs `profiles` on `main`, nightly (only when the repository variable `NIGHTLY_E2E` is `true`), on manual runs, and on PRs that change the profiles component, the component engine (`source.type: keelson`), the e2e harness or its workflow. Other PRs run `core`.
