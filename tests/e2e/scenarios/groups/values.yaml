@@ -1,0 +1,26 @@
+# Test-only values for tests/e2e/groups.sh (#66). Added on top of the installed values of
+# `make e2e MODULES=profiles` (tests/golden/profiles/values.yaml plus the keelson.selfSource override).
+# One OIDC connector to upstream's test Keycloak (tests/keycloak at the pinned tag, started by
+# tests/e2e/idp-keycloak.sh). Keycloak rejects the scope `groups`, so the scopes leave it out; its
+# client mapper still puts groups in the ID token. The Secret dex-e2e-keycloak is made by the script.
+domain: kubeflow.example.com
+auth:
+  dex:
+    connectors:
+      - type: oidc
+        id: keycloak
+        name: Keycloak (e2e)
+        issuer: http://keycloak.keycloak.svc.cluster.local:8081/realms/kubeflow
+        scopes: [openid, profile, email]
+        secretRef:
+          name: dex-e2e-keycloak
+profiles:
+  # As in tests/golden/profiles/values.yaml: Helm replaces the whole list.
+  - name: kubeflow-user-example-com
+    owner: user@example.com
+    contributors: [bob@example.com]
+  # The group member user@example.com is not the owner, a contributor or a viewer here.
+  - name: keelson-e2e-groups
+    owner: owner@example.com
+    groups:
+      - name: kubeflow-users   # upstream realm.json: the mapper sends the name, not the full path
