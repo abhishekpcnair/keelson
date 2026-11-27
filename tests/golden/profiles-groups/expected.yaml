@@ -243,12 +243,22 @@ spec:
     - issuer: "http://dex.auth.svc.cluster.local:5556/dex"
       jwksUri: "http://dex.auth.svc.cluster.local:5556/dex/keys"
       forwardOriginalToken: true
+      # As upstream's dex-jwt and m2m-token-issuer: the Authorization header only.
+      fromHeaders:
+        - name: Authorization
+          prefix: "Bearer "
     - issuer: "https://kubernetes.default.svc.cluster.local"
       jwksUri: "http://cluster-jwks-proxy.istio-system.svc.cluster.local/openid/v1/jwks"
       forwardOriginalToken: true
+      fromHeaders:
+        - name: Authorization
+          prefix: "Bearer "
     - issuer: "https://kubernetes.default.svc"
       jwksUri: "http://cluster-jwks-proxy.istio-system.svc.cluster.local/openid/v1/jwks"
       forwardOriginalToken: true
+      fromHeaders:
+        - name: Authorization
+          prefix: "Bearer "
 
 ---
 # Source: keelson/templates/components/profiles.yaml
@@ -268,9 +278,19 @@ spec:
     - issuer: "http://dex.auth.svc.cluster.local:5556/dex"
       jwksUri: "http://dex.auth.svc.cluster.local:5556/dex/keys"
       forwardOriginalToken: true
+      # As upstream's dex-jwt and m2m-token-issuer: the Authorization header only.
+      fromHeaders:
+        - name: Authorization
+          prefix: "Bearer "
     - issuer: "https://kubernetes.default.svc.cluster.local"
       jwksUri: "http://cluster-jwks-proxy.istio-system.svc.cluster.local/openid/v1/jwks"
       forwardOriginalToken: true
+      fromHeaders:
+        - name: Authorization
+          prefix: "Bearer "
     - issuer: "https://kubernetes.default.svc"
       jwksUri: "http://cluster-jwks-proxy.istio-system.svc.cluster.local/openid/v1/jwks"
       forwardOriginalToken: true
+      fromHeaders:
+        - name: Authorization
+          prefix: "Bearer "

@@ -1,0 +1,20 @@
+# profiles-groups-parent: the parent release on platform generic with
+# profiles[].groups (#66). auth.serviceAccountIssuers is explicit: one issuer with
+# jwksUri, one without (Istio then uses the issuer's OIDC discovery). A profile
+# with `groups: []` gets no group resources. profiles-groups-generic renders the
+# same values in component mode. Here the keelson-profiles Application carries
+# auth.serviceAccountIssuers and platform in helm.valuesObject (source.context).
+platform: generic
+auth:
+  serviceAccountIssuers:
+    - issuer: https://oidc.prod-aks.azure.com/00000000-0000-0000-0000-000000000000/
+      jwksUri: https://oidc.prod-aks.azure.com/00000000-0000-0000-0000-000000000000/openid/v1/jwks
+    - issuer: https://kubernetes.default.svc.cluster.local
+profiles:
+  - name: team-vision
+    owner: alice@example.com
+    groups:
+      - name: ml-vision
+  - name: team-empty
+    owner: bob@example.com
+    groups: []

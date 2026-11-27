@@ -57,9 +57,9 @@ For the full default values, see `charts/keelson/values.yaml`.
 | `auth.oidcClient` | object | — | — | The OIDC client that oauth2-proxy uses to log in with Dex. Both components must read the same client ID and secret. |
 | `auth.oidcClient.secretRef` | object | — | — | Secret with keys client-id and client-secret. Create it in both namespaces auth and oauth2-proxy. Keelson never creates it. Required with environment production. |
 | `auth.oidcClient.secretRef.name` | string | — | not matching `^(oauth2-proxy\|dex-oidc-client)$` | Secret name. Not oauth2-proxy and not dex-oidc-client: those names are upstream's generated Secrets. |
-| `auth.serviceAccountIssuers` | array | — | — | Kubernetes service-account token issuers that profile namespaces with groups accept, so m2m tokens don't get 401. Empty on platform kind means the two Kind issuers. Required on platform generic when a profile has groups (checked at render time). See docs/configuration/profiles.md. |
+| `auth.serviceAccountIssuers` | array | — | unique items | Kubernetes service-account token issuers that profile namespaces with groups accept, so m2m tokens don't get 401. Empty on platform kind means the two Kind issuers. Required on platform generic when a profile has groups (checked at render time). See docs/configuration/profiles.md. |
 | `auth.serviceAccountIssuers[].issuer` | string, required | — | format `uri`; pattern `^https?://[^\s]+$` | The iss claim of the cluster's service-account tokens (kubectl get --raw /.well-known/openid-configuration). |
-| `auth.serviceAccountIssuers[].jwksUri` | string | — | format `uri`; pattern `^https?://[^\s]+$` | Where Istio fetches the signing keys. Omit it to use the issuer's OIDC discovery. |
+| `auth.serviceAccountIssuers[].jwksUri` | string | — | format `uri`; pattern `^https?://[^\s]+$` | Where istiod fetches the signing keys, without authentication. Omit it to use the jwks_uri from the issuer's OIDC discovery, which istiod must also reach without authentication. |
 | `auth.staticUsers` | object | — | — | Static user settings. |
 | `auth.staticUsers.enabled` | boolean | — | — | Upstream static user user@example.com. Kind and dev only. |
 

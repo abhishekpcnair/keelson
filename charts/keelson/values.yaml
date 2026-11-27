@@ -31,7 +31,7 @@ auth:
   # Empty: the two Kind issuers on platform kind. Required on platform generic when a
   # profile has groups. See docs/configuration/profiles.md.
   # - issuer: https://kubernetes.default.svc.cluster.local
-  #   jwksUri: https://...   # optional; default: the issuer's OIDC discovery
+  #   jwksUri: https://...   # the jwks_uri; istiod must fetch it without credentials
   serviceAccountIssuers: []
   # Production secrets. Empty names keep upstream's public literals (Kind and dev only).
   # With environment=production both names are required. Make the Secrets yourself:

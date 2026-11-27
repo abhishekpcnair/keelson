@@ -22,21 +22,26 @@ principals:
 {{- end -}}
 
 {{/*
-Dex and Kind constants for group access (#66, #28). Upstream sources at 26.10.0:
-- Dex issuer: common/oauth2-proxy/components/istio-external-auth/requestauthentication.dex-jwt.yaml
-  (JWKS is <issuer>/keys, served in-cluster by the dex Service).
-- Kind service-account issuers: common/oauth2-proxy/overlays/m2m-dex-and-kind/kustomization.yaml.
-Check them at every upstream bump.
+Dex and Kind constants for group access (#66, #28).
+- Dex issuer: from keelson.dex.upstreamConfig, which `make kustomize-check` keeps
+  equal to upstream. Its JWKS is <issuer>/keys, served in-cluster by the dex Service.
+- Kind service-account issuers: upstream common/oauth2-proxy/overlays/m2m-dex-and-kind,
+  RequestAuthentication m2m-token-issuer. `make kustomize-check` fails if the
+  built jwtRules (issuer, jwksUri) differ from kindServiceAccountIssuers.
 */}}
+{{- define "keelson.profiles.kindServiceAccountIssuers" -}}
+- issuer: https://kubernetes.default.svc.cluster.local
+  jwksUri: http://cluster-jwks-proxy.istio-system.svc.cluster.local/openid/v1/jwks
+- issuer: https://kubernetes.default.svc
+  jwksUri: http://cluster-jwks-proxy.istio-system.svc.cluster.local/openid/v1/jwks
+{{- end -}}
+
+{{/* keelson.profiles.groupAuth: the Dex issuer and JWKS URL, and the Kind issuers. YAML map. */}}
 {{- define "keelson.profiles.groupAuth" -}}
-dex:
-  issuer: http://dex.auth.svc.cluster.local:5556/dex
-  jwksUri: http://dex.auth.svc.cluster.local:5556/dex/keys
-kindServiceAccountIssuers:
-  - issuer: https://kubernetes.default.svc.cluster.local
-    jwksUri: http://cluster-jwks-proxy.istio-system.svc.cluster.local/openid/v1/jwks
-  - issuer: https://kubernetes.default.svc
-    jwksUri: http://cluster-jwks-proxy.istio-system.svc.cluster.local/openid/v1/jwks
+{{- $issuer := (include "keelson.dex.upstreamConfig" . | fromYaml).issuer -}}
+{{- $out := dict "dex" (dict "issuer" $issuer "jwksUri" (printf "%s/keys" $issuer)) -}}
+{{- $_ := set $out "kindServiceAccountIssuers" (include "keelson.profiles.kindServiceAccountIssuers" . | fromYamlArray) -}}
+{{- toYaml $out -}}
 {{- end -}}
 
 {{/*
@@ -91,6 +96,17 @@ modes, so a bad profile fails at `helm install`, not at sync time.
 {{- /* argocd.namespace is a parent-only value: the component render sees the default, so the parent render checks it. */ -}}
 {{- $reserved := list "kubeflow" "istio-system" "auth" "oauth2-proxy" "cert-manager" -}}
 {{- if not .Values.component -}}{{- $reserved = append $reserved .Values.argocd.namespace -}}{{- end -}}
+{{- $dexIssuer := (include "keelson.profiles.groupAuth" . | fromYaml).dex.issuer -}}
+{{- $issuers := dict -}}
+{{- range $i, $s := (.Values.auth).serviceAccountIssuers -}}
+{{- if eq (trimSuffix "/" $s.issuer) $dexIssuer -}}
+{{- fail (printf "auth.serviceAccountIssuers[%d].issuer: %q is the Dex issuer; Keelson adds it itself. List only service-account issuers" $i $s.issuer) -}}
+{{- end -}}
+{{- if hasKey $issuers $s.issuer -}}
+{{- fail (printf "auth.serviceAccountIssuers[%d].issuer: %q is already listed at [%d]" $i $s.issuer (get $issuers $s.issuer)) -}}
+{{- end -}}
+{{- $_ := set $issuers $s.issuer $i -}}
+{{- end -}}
 {{- range $i, $p := .Values.profiles -}}
 {{- $w := printf "profiles[%d]" $i -}}
 {{- if and $p.groups (not (include "keelson.profiles.serviceAccountIssuers" $ | fromYamlArray)) -}}
@@ -259,12 +275,19 @@ spec:
     - issuer: {{ $ga.dex.issuer | quote }}
       jwksUri: {{ $ga.dex.jwksUri | quote }}
       forwardOriginalToken: true
+      # As upstream's dex-jwt and m2m-token-issuer: the Authorization header only.
+      fromHeaders:
+        - name: Authorization
+          prefix: "Bearer "
 {{- range $sa }}
     - issuer: {{ .issuer | quote }}
 {{- with .jwksUri }}
       jwksUri: {{ . | quote }}
 {{- end }}
       forwardOriginalToken: true
+      fromHeaders:
+        - name: Authorization
+          prefix: "Bearer "
 {{- end }}
 ---
 apiVersion: security.istio.io/v1beta1

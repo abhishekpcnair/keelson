@@ -210,6 +210,7 @@
         },
         "serviceAccountIssuers": {
           "type": "array",
+          "uniqueItems": true,
           "description": "Kubernetes service-account token issuers that profile namespaces with groups accept, so m2m tokens don't get 401. Empty on platform kind means the two Kind issuers. Required on platform generic when a profile has groups (checked at render time). See docs/configuration/profiles.md.",
           "items": {
             "type": "object",
@@ -217,7 +218,7 @@
             "additionalProperties": false,
             "properties": {
               "issuer": { "type": "string", "format": "uri", "pattern": "^https?://[^\\s]+$", "description": "The iss claim of the cluster's service-account tokens (kubectl get --raw /.well-known/openid-configuration)." },
-              "jwksUri": { "type": "string", "format": "uri", "pattern": "^https?://[^\\s]+$", "description": "Where Istio fetches the signing keys. Omit it to use the issuer's OIDC discovery." }
+              "jwksUri": { "type": "string", "format": "uri", "pattern": "^https?://[^\\s]+$", "description": "Where istiod fetches the signing keys, without authentication. Omit it to use the jwks_uri from the issuer's OIDC discovery, which istiod must also reach without authentication." }
             }
           }
         },

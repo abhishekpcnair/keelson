@@ -70,6 +70,8 @@ Set `AUTH_OIDC_ISSUER` to try another issuer. A bad URL makes the script fail at
 make e2e MODULES=profiles && tests/e2e/groups.sh
 ```
 
+CI does not run `groups.sh`: it starts Keycloak and logs in twice, which adds a lot to the `profiles` job. Run it by hand for each release (`docs/release-checklist.md`) and for any PR that changes group access.
+
 ## When it fails
 
 `run.sh` exits non-zero and writes diagnostics to `.cache/e2e/diagnostics/`: Application status, pods that aren't running, events, and Dex, oauth2-proxy and ArgoCD controller logs. For gateway denials (#139) it also writes `istio-pods.txt`, `istiod.log`, `istio-ingressgateway.log` and `gateway-stats-<pod>.txt` (Envoy `rbac` counters; Istio does not expose `jwt_authn` or `ext_authz` filter stats by default). In CI they are uploaded as the `e2e-diagnostics` artifact.

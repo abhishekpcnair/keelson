@@ -59,18 +59,20 @@ For a profile with `groups`, Keelson renders in the profile namespace:
 Profiles without `groups` get none of these.
 
 ### What works and what doesn't (v0.1)
-Groups grant Kubernetes RBAC, Workspaces and workload network access.
+Groups grant Workspaces access, workload network access, and Kubernetes RBAC for checks made with the groups Dex sends.
 The dashboard namespace list and Pipelines still need per-user bindings.
 
 | Works with groups | Needs `contributors` or `viewers` |
 |---|---|
-| `kubectl` and other Kubernetes API access (RBAC) | The dashboard namespace list and its namespace picker |
+| Kubernetes RBAC checks made with the forwarded groups (Workspaces); `kubectl` only if the cluster's API server sees the same group names | The dashboard namespace list and its namespace picker |
 | Workspaces (the backend reads the groups header) | **Manage contributors** in the dashboard (KFAM) |
 | Requests to workloads in the namespace (Istio) | Pipelines (KFP checks access per user) |
 
 The cause is upstream: KFAM, the dashboard and Pipelines don't read groups at 26.10.0 ([#28](https://github.com/abhishekpcnair/keelson/issues/28)).
 
-A user in two or more groups may reach the Workspaces backend with one joined value, such as `a,b` (#28). Until the e2e check in #66 confirms the behaviour, test Workspaces access for such users.
+Workspaces access works for users in one group only. A user in two or more groups may reach the Workspaces backend with one joined value, such as `a,b`, which may match no group RoleBinding (#28). Give such users access with `contributors` or `viewers`. `tests/e2e/groups.sh` prints the measured result as a `comma-caveat` line.
+
+`kubectl` uses the groups that the API server authenticates, not the Dex groups. They are often different: AKS with Entra ID integration sends group object IDs, while the `microsoft` connector sends group names.
 
 ### Group names
 Use the name your connector sends. Dex passes it on unchanged.
@@ -89,6 +91,8 @@ The namespace `RequestAuthentication` rejects tokens from issuers it doesn't lis
 - `platform: kind`: Keelson uses the two Kind issuers. You don't need to set anything.
 - `platform: generic`: set `auth.serviceAccountIssuers` when any profile has `groups`. The render fails without it.
 
+Workloads in a namespace with `groups` that receive a Bearer JWT from any other issuer, such as a workload-identity token, now get `401`.
+
 Find the issuer:
 
 ```sh
@@ -101,8 +105,10 @@ Then set it:
 auth:
   serviceAccountIssuers:
     - issuer: https://<the "issuer" field from the command above>
-      # jwksUri: https://...   # optional; default: the issuer's OIDC discovery
+      jwksUri: https://<the "jwks_uri" field from the same output>
 ```
+
+istiod fetches the keys from `jwksUri`, without credentials and without the cluster CA. If you omit `jwksUri`, istiod reads the issuer's discovery document, which must be reachable the same way. If istiod can't fetch the keys, Istio rejects every service-account token from that issuer with `401`. On `platform: generic`, Keelson does not run the `cluster-jwks-proxy` that Kind uses. So use a public issuer URL. For example, on AKS enable the OIDC issuer (`az aks update --enable-oidc-issuer`) and use its URL; without it the issuer is the API server, which istiod can't read anonymously.
 
 ## Remove a profile
 Removing an entry does **not** delete the namespace or its data. `Profile`s have `Prune=false`, so ArgoCD shows them as needing a prune and keeps them.

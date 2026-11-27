@@ -38,7 +38,7 @@ The mechanism must:
          profiles: [ ... ]              # a copy of only the subtree this component needs
    ```
    Component Applications also set `SkipDryRunOnMissingResource=true`. The first sync then doesn't fail its dry run while the CRD is still being installed.
-3. **Copy the subtree.** `valuesObject` contains a copy of the values the component needs, not a reference to the parent release. It's explicit, and it shows up in golden diffs.
+3. **Copy the subtree.** `valuesObject` contains a copy of the values the component needs, not a reference to the parent release. It's explicit, and it shows up in golden diffs. The module's `source.values` keys decide whether the component renders. Its `source.context` keys (for example `platform`, `auth.serviceAccountIssuers`) are copied too, but never enable a component (#66).
 4. **Component mode renders only that component.** When `component` is set, the chart renders that component's resources and nothing else: no AppProject and no Applications. A component can't render further Applications.
 5. **`component` is internal and validated.** `values.schema.json` restricts `component` to an enum of the registered `source.type: keelson` modules, and the chart calls `fail` on any other value. Users never set it. Only the engine writes it into `valuesObject`.
 6. **Missing CRD modules fail at render time.** `dependsOn` is enforced when the chart renders, as it is for upstream modules. For example, enabling `keelson-profiles` while `dashboard` is disabled is a render-time `fail` naming both modules, not an ArgoCD sync that retries forever. A component whose values are empty (for example `profiles: []`) renders **no Application at all**.
