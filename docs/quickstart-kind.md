@@ -70,7 +70,7 @@ kubectl -n argocd get applications.argoproj.io -l app.kubernetes.io/part-of=keel
 
 Run it again every minute. Wait until all 14 Applications show `Synced` and `Healthy`.
 Use the full name `applications.argoproj.io`: Pipelines installs a second `Application` kind (`applications.app.k8s.io`), and plain `applications` can pick that one.
-The core modules are in [`docs/modules/core.md`](modules/core.md). The dashboard is in [`docs/modules/dashboard.md`](modules/dashboard.md).
+The core modules are in [`docs/modules/core.md`](modules/core.md). The dashboard is in [`docs/modules/dashboard.md`](modules/dashboard.md), Workspaces in [`docs/modules/workspaces.md`](modules/workspaces.md) and Pipelines in [`docs/modules/pipelines.md`](modules/pipelines.md).
 
 `istio` can show `Degraded` for a short time while it starts. This is normal.
 If `/pipeline` later returns `503`, some pods started before Istio was ready. See [Istio sidecar](modules/pipelines.md#istio-sidecar).
@@ -97,11 +97,60 @@ To use your own identity provider, see [Authentication](configuration/authentica
 
 After the login, the Kubeflow central dashboard opens. CI checks this login and the dashboard on every run.
 
-A new user has no namespace yet. Namespaces come from `Profile` resources, and Keelson creates them from the
-`profiles` value. That value is not on `main` yet (#9).
+A new user has no namespace yet. Step 6 makes one.
 
 If you turn the dashboard module off, there is no web app at `/`, and the gateway answers `403 RBAC: access denied`.
 See the notes in [`docs/modules/core.md`](modules/core.md).
+
+## 6. Make a profile namespace
+
+Kubeflow gives each user a namespace through a `Profile`. On a real cluster you list profiles in the
+`profiles` value ([Profiles](configuration/profiles.md)). That needs a published Keelson chart, so on a git
+checkout use upstream's test Profile instead. It makes `kubeflow-user-example-com`, owned by `user@example.com`:
+
+```sh
+TAG="$(sed -nE 's/^  manifestsRef: "(.*)"/\1/p' charts/keelson/values.yaml)"   # the pinned Kubeflow release
+kubectl apply -k ".cache/upstream/$TAG/common/user-namespace/base"
+kubectl -n kubeflow-user-example-com get serviceaccount default-editor
+```
+
+`make kind-up` fetched `.cache/upstream/$TAG`. The last command fails until the profile controller has made the
+namespace; run it again after a few seconds. Reload the dashboard: it now shows the namespace.
+
+## 7. Start a workspace
+
+Workspaces (Notebooks v2) run in a profile namespace. Start upstream's test Workspace, a JupyterLab:
+
+```sh
+kubectl apply -f ".cache/upstream/$TAG/tests/workspace.test.kubeflow-user-example-com.yaml"
+kubectl -n kubeflow-user-example-com get workspace test -o jsonpath='{.status.state}{"\n"}'
+```
+
+Run the second command until it prints `Running`. The first start pulls a large image and can take several
+minutes. It can show `Error` for up to 3 minutes while the readiness probe waits; then it changes to `Running`.
+The dashboard menu links to `/workspaces/`, where you can open it. See [Workspaces](modules/workspaces.md).
+
+Delete it when you are done:
+
+```sh
+kubectl delete -f ".cache/upstream/$TAG/tests/workspace.test.kubeflow-user-example-com.yaml"
+```
+
+## 8. Run a sample pipeline
+
+Run upstream's pipeline test in the profile namespace. It uses the KFP SDK at the version upstream's CI pins,
+and it talks to Kubeflow Pipelines through the gateway on `localhost:8080`, so keep the port-forward from step 5 open:
+
+```sh
+python3 -m venv .cache/kfp-venv
+.cache/kfp-venv/bin/pip install "kfp==2.18.0" "kfp-kubernetes==2.18.0"
+TOKEN="$(kubectl -n kubeflow-user-example-com create token default-editor)"
+.cache/kfp-venv/bin/python ".cache/upstream/$TAG/tests/pipeline_v2_test.py" run_pipeline "$TOKEN" kubeflow-user-example-com
+```
+
+It submits a small v2 pipeline and waits until the run succeeds. The run also shows in the Pipelines UI at
+`http://localhost:8080/pipeline/`. If `/pipeline` returns `503`, see [Istio sidecar](modules/pipelines.md#istio-sidecar).
+Pipelines is described in [Pipelines](modules/pipelines.md). Its bundled MySQL and SeaweedFS are for evaluation only.
 
 ## Run the checks in one command
 
@@ -111,8 +160,8 @@ Steps 3 and 4 have a shortcut. This command installs Keelson, waits for the Appl
 make e2e MODULES=core
 ```
 
-It runs the same commands as steps 3 and 4. It also forwards the gateway to port 8080 for its smoke tests,
-and the dashboard smoke test needs port 8080 (it uses upstream's login test).
+It runs the same commands as steps 3 and 4, then the smoke test of each module, which includes steps 6, 7 and 8.
+It forwards the gateway to port 8080 for its smoke tests, and several of them need port 8080 (they use upstream's tests).
 Stop the port-forward from step 5 first (press Ctrl-C), or the command fails with "port-forward exited".
 
 Add `KEEP=1` to keep the gateway port-forward open after the checks pass:
@@ -135,7 +184,6 @@ This deletes the Kind cluster.
 
 | Part | Status |
 |---|---|
-| A sample pipeline run on this page | #111 |
-| Profiles | #9 |
+| KServe, Katib, Trainer, Model Registry | v0.2 and later (design 0001, §3) |
 
 This page grows when each part lands on `main`: create a workspace, run a sample pipeline.
