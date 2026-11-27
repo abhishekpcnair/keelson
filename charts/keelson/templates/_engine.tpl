@@ -9,7 +9,8 @@ Returns YAML `{modules: [...]}`; use with fromYaml. Fails on unknown module
 names, unmet dependsOn, a wave not above its dependencies' waves,
 non-kustomize sources, and a bad appSpecOverride (checked for every module in
 advanced.modules, also a disabled one).
-A `keelson` component with only empty values is never enabled.
+A `keelson` component with only empty values, or whose translation returns
+skip, is never enabled.
 */}}
 {{- define "keelson.modules" -}}
 {{- $registry := dict -}}
@@ -78,6 +79,8 @@ A `keelson` component with only empty values is never enabled.
 {{- /* A component with only empty values renders no Application (ADR 0004 point 6). */ -}}
 {{- $data := false -}}
 {{- range $m.source.values -}}{{- if get $.Values . -}}{{- $data = true -}}{{- end -}}{{- end -}}
+{{- /* Nor does one whose translation skips it (keelson-tls with tls.issuer none), so its dependsOn is not checked. */ -}}
+{{- if and $enabled $data (include "keelson.translations" (dict "root" $ "module" $m) | fromYaml).skip -}}{{- $data = false -}}{{- end -}}
 {{- $enabled = and $enabled $data -}}
 {{- end -}}
 {{- $p := $m.source.path | default "" -}}

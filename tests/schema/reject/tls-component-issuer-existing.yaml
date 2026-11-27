@@ -1,0 +1,8 @@
+# expect: the component issues a certificate only for selfsigned or letsencrypt
+# The engine never renders the tls component for another issuer.
+component: tls
+domain: kubeflow.example.com
+tls:
+  issuer: existing
+  secretRef:
+    name: kubeflow-tls

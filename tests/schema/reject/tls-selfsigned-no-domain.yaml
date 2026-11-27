@@ -1,0 +1,4 @@
+# expect: at '/domain': minLength: got 0, want 1
+# selfsigned issues a certificate for domain, so domain is required.
+tls:
+  issuer: selfsigned

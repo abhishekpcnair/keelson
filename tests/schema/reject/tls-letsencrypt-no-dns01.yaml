@@ -1,0 +1,7 @@
+# expect: at '/tls/acme': missing property 'dns01'
+# letsencrypt needs a DNS-01 solver; v0.1 has no HTTP-01.
+domain: kubeflow.example.com
+tls:
+  issuer: letsencrypt
+  acme:
+    email: platform-team@example.com

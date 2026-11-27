@@ -1,0 +1,6 @@
+# Test-only values for tests/e2e/tls_selfsigned.sh (#23). Added on top of the installed values
+# (tests/golden/kind-core/values.yaml for MODULES=core). Keelson issues a self-signed certificate
+# for kubeflow.test through the keelson-tls component Application.
+domain: kubeflow.test
+tls:
+  issuer: selfsigned

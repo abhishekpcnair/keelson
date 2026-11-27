@@ -1,0 +1,6 @@
+# tls-selfsigned-component: the chart in component mode, as the keelson-tls
+# Application renders it (ADR 0004). One Certificate; no Applications.
+component: tls
+domain: kubeflow.example.com
+tls:
+  issuer: selfsigned

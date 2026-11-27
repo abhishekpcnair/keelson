@@ -1,0 +1,15 @@
+# expect: invalid propertyName 'clientID'
+# With managedIdentity, clientID and tenantID would be dropped. The schema rejects them.
+domain: kubeflow.example.com
+tls:
+  issuer: letsencrypt
+  acme:
+    email: platform-team@example.com
+    dns01:
+      azureDNS:
+        subscriptionID: 00000000-0000-0000-0000-000000000000
+        resourceGroupName: dns-zones
+        hostedZoneName: example.com
+        managedIdentity: { clientID: 11111111-1111-1111-1111-111111111111 }
+        clientID: 22222222-2222-2222-2222-222222222222
+        tenantID: 33333333-3333-3333-3333-333333333333

@@ -31,5 +31,6 @@ Other checks:
   - [ ] Log in with Entra ID; group → profile mapping works (applies once #28 settles how groups map to profiles)
   - [ ] Create a workspace; run the sample pipeline; artifacts land in the external object store
   - [ ] Upgrade from the previous minor release: Applications return to Healthy without manual steps
+  - [ ] Let's Encrypt staging issuance (#23): `tls.issuer: letsencrypt`, `acme.server: staging`, Azure DNS. The `Certificate` `keelson-tls` gets Ready, and `curl -k https://<domain>/` shows a certificate from the staging CA. CI can't test this: it has no public DNS
 - [ ] Support matrix updated (`docs/support-matrix.md`)
 - [ ] Release notes: upstream version, breaking changes, migration notes

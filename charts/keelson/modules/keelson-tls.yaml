@@ -1,0 +1,20 @@
+name: keelson-tls
+wave: -55
+source:
+  type: keelson          # Keelson-owned resources, chart component mode (ADR 0004)
+  component: tls         # templates/components/tls.yaml
+  values: [domain, tls]  # values keys copied into helm.valuesObject
+namespace: istio-system  # the Gateway reads its credentialName Secret from the ingress gateway namespace
+namespaces: [istio-system]
+# The Certificate CRD comes from cert-manager. selfsigned uses upstream's ClusterIssuer
+# kubeflow-self-signing-issuer from cert-manager-kubeflow; letsencrypt adds its own ClusterIssuer.
+# istio-namespace creates istio-system: a component Application gets no CreateNamespace (ADR 0004).
+# Wave -55: after istio and auth, just before kubeflow-istio-resources (-50, the Gateway). The parent
+# waits for each child to be Healthy, so a slow or failing issuance holds back only wave -50 and later.
+dependsOn: [cert-manager-kubeflow, istio-namespace]
+defaultEnabled: true
+# The domain translation returns skip unless tls.issuer is selfsigned or letsencrypt:
+# then there is no Application and dependsOn is not checked.
+translations: [domain]
+smokeTest: none  # tests/e2e/tls_selfsigned.sh checks it after `make e2e`; it upgrades the release
+upstreamHelmChart: none  # Keelson-owned; no upstream chart

@@ -69,7 +69,7 @@ For the full default values, see `charts/keelson/values.yaml`.
 
 | Key | Type | Default | Allowed | Description |
 |---|---|---|---|---|
-| `component` | string | — | one of ``, `profiles` | Internal. Only the engine sets it, in component Applications (ADR 0004). |
+| `component` | string | — | one of ``, `profiles`, `tls` | Internal. Only the engine sets it, in component Applications (ADR 0004). |
 
 ## `database`
 
@@ -164,9 +164,24 @@ For the full default values, see `charts/keelson/values.yaml`.
 | Key | Type | Default | Allowed | Description |
 |---|---|---|---|---|
 | `tls` | object | — | — | Where HTTPS ends. See docs/configuration/domain-and-tls.md. |
-| `tls.issuer` | string | "none" | one of `none`, `existing`, `external` | none: HTTP. existing: Istio terminates TLS with secretRef. external: TLS ends in front of the cluster; cookies are secure. |
+| `tls.acme` | object | — | — | Let's Encrypt settings for issuer letsencrypt. See docs/configuration/domain-and-tls.md. |
+| `tls.acme.dns01` | object | — | — | DNS-01 solver. v0.1 supports Azure DNS only. Required for letsencrypt. |
+| `tls.acme.dns01.azureDNS` | object | — | — | Azure DNS zone that holds domain. Set exactly one of managedIdentity or clientSecretRef. |
+| `tls.acme.dns01.azureDNS.clientID` | string | — | min length 1 | Service principal: application (client) ID. Needs clientSecretRef. |
+| `tls.acme.dns01.azureDNS.clientSecretRef` | object | — | — | Service principal: the Secret in the cert-manager namespace that holds the client secret. A name only. |
+| `tls.acme.dns01.azureDNS.clientSecretRef.key` | string | — | min length 1 | Key in the Secret. Empty: client-secret. |
+| `tls.acme.dns01.azureDNS.clientSecretRef.name` | string, required | — | min length 1 | Secret name in the cert-manager namespace. |
+| `tls.acme.dns01.azureDNS.hostedZoneName` | string, required | — | min length 1 | Name of the DNS zone, for example example.com. |
+| `tls.acme.dns01.azureDNS.managedIdentity` | object | — | — | Log in with a managed identity. No Secret. |
+| `tls.acme.dns01.azureDNS.managedIdentity.clientID` | string, required | — | min length 1 | Client ID of the managed identity that may change the DNS zone. |
+| `tls.acme.dns01.azureDNS.resourceGroupName` | string, required | — | min length 1 | Resource group of the DNS zone. |
+| `tls.acme.dns01.azureDNS.subscriptionID` | string, required | — | min length 1 | Azure subscription ID of the DNS zone. |
+| `tls.acme.dns01.azureDNS.tenantID` | string | — | min length 1 | Service principal: Microsoft Entra tenant ID. Needs clientSecretRef. |
+| `tls.acme.email` | string | — | pattern `^$\|^[^@\s]+@[^@\s]+\.[^@\s]+$` | Contact email of the ACME account. Let's Encrypt sends expiry notices to it. Required for letsencrypt. |
+| `tls.acme.server` | string | "staging" | one of `staging`, `production` | staging: Let's Encrypt staging, not trusted by browsers, high rate limits. production: trusted certificates. Test with staging first. |
+| `tls.issuer` | string | "none" | one of `none`, `existing`, `external`, `selfsigned`, `letsencrypt` | none: HTTP. existing: Istio terminates TLS with secretRef. external: TLS ends in front of the cluster; cookies are secure. selfsigned: Keelson issues a self-signed certificate (Secret keelson-tls). letsencrypt: Keelson issues a Let's Encrypt certificate with acme (Secret keelson-tls). |
 | `tls.secretRef` | object | — | — | TLS Secret for issuer existing. A name only. |
-| `tls.secretRef.name` | string | — | — | kubernetes.io/tls Secret in istio-system (issuer=existing). A name only, never key material. |
+| `tls.secretRef.name` | string | — | — | kubernetes.io/tls Secret in istio-system (issuer=existing). A name only, never key material. Not keelson-tls: Keelson owns that name. |
 
 ## `upstream`
 
@@ -191,8 +206,13 @@ The chart fails to render when one of these rules is broken.
 - If `auth.staticUsers.enabled` is `false`, then `auth.dex.connectors` has at least 1 item.
 - If `auth.dex.connectors` has at least 1 item, then `domain` is not empty.
 - If `database.mode` is `external`, then `database.external.host` is set; `database.external.secretRef` is set.
-- If `tls.issuer` is `existing`, then `domain` is not empty; `tls.secretRef.name` is not empty.
+- If `tls.issuer` is `existing`, then `domain` is not empty; `tls.secretRef.name` is not empty and is not `keelson-tls`.
 - If `tls.issuer` is `external`, then `domain` is not empty.
+- If `tls.issuer` is `selfsigned`, then `domain` is not empty.
+- If `tls.issuer` is `letsencrypt`, then `domain` is not empty; `tls.acme.dns01.azureDNS` is set; `tls.acme.email` is not empty.
+- If `tls.acme.dns01.azureDNS` has none of the keys `managedIdentity`, `clientSecretRef`, then `tls.acme.dns01.azureDNS.managedIdentity` is set.
+- If `tls.acme.dns01.azureDNS.managedIdentity` is set, then `tls.acme.dns01.azureDNS` has none of the keys `clientID`, `tenantID`, `clientSecretRef`.
+- If `tls.acme.dns01.azureDNS.clientSecretRef` is set, then `tls.acme.dns01.azureDNS` has none of the keys `managedIdentity`; `tls.acme.dns01.azureDNS.clientID` is set; `tls.acme.dns01.azureDNS.tenantID` is set.
 - If `auth.dex.connectors[].type` is `oidc`, then `auth.dex.connectors[]` has none of the keys `tenant`, `allowedGroups`, `onlySecurityGroups`, `groupNameFormat`, `emailToLowercase`, `orgs`, `teamNameField`, `useLoginAsID`, `enterprise`; `auth.dex.connectors[].issuer` is set.
 - If `auth.dex.connectors[].type` is `microsoft`, then `auth.dex.connectors[]` has none of the keys `issuer`, `scopes`, `groupsClaim`, `orgs`, `teamNameField`, `useLoginAsID`, `enterprise`; `auth.dex.connectors[].extraConfig` has no key matching `(?i)^(tenant\|groups\|useGroupsAsWhitelist)$`; `auth.dex.connectors[].tenant` is set.
 - If `auth.dex.connectors[].type` is `github`, then `auth.dex.connectors[]` has none of the keys `issuer`, `scopes`, `groupsClaim`, `tenant`, `allowedGroups`, `onlySecurityGroups`, `groupNameFormat`, `emailToLowercase`; `auth.dex.connectors[].extraConfig` has no key matching `(?i)^(orgs?\|hostName\|rootCA)$`; `auth.dex.connectors[].orgs` is set.

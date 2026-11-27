@@ -1,0 +1,8 @@
+# expect: tls.issuer=selfsigned needs module keelson-tls; use tls.issuer=existing to bring your own Secret
+# The Gateway would serve the Secret keelson-tls, but nothing would issue it.
+domain: kubeflow.example.com
+tls:
+  issuer: selfsigned
+modules:
+  keelson-tls:
+    enabled: false

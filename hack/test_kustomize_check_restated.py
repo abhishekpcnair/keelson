@@ -1,4 +1,4 @@
-"""Unit tests for the restated-file drift guard in hack/kustomize_check.py. Run: python3 -m unittest hack/test_kustomize_check_restated.py"""
+"""Unit tests for the restated-file and upstream-name guards in hack/kustomize_check.py. Run: python3 -m unittest hack/test_kustomize_check_restated.py"""
 import pathlib
 import sys
 import tempfile
@@ -46,6 +46,34 @@ class CheckRestated(unittest.TestCase):
     def test_upstream_file_missing_fails(self):
         (self.upstream / THEIRS).unlink()
         self.assertIn("missing", self.check(UPSTREAM)[0])
+
+
+
+class CheckUpstreamRefs(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.upstream = pathlib.Path(self.tmp.name) / "26.10.0"
+        (self.upstream / "overlay").mkdir(parents=True)
+        self._refs = kustomize_check.UPSTREAM_REFS
+        kustomize_check.UPSTREAM_REFS = {("overlay", "ClusterIssuer", "issuer-a"): "templates/x.yaml"}
+
+    def tearDown(self):
+        kustomize_check.UPSTREAM_REFS = self._refs
+        self.tmp.cleanup()
+
+    def check(self, text):
+        (self.upstream / "overlay/issuer.yaml").write_text(text)
+        return kustomize_check.check_upstream_refs(self.upstream)
+
+    def test_present_passes(self):
+        self.assertEqual(self.check("kind: ClusterIssuer\nmetadata: {name: issuer-a}\n"), [])
+
+    def test_renamed_fails(self):
+        self.assertIn("ClusterIssuer/issuer-a", self.check("kind: ClusterIssuer\nmetadata: {name: issuer-b}\n")[0])
+
+    def test_directory_missing_fails(self):
+        kustomize_check.UPSTREAM_REFS = {("gone", "ClusterIssuer", "issuer-a"): "templates/x.yaml"}
+        self.assertIn("not in gone", kustomize_check.check_upstream_refs(self.upstream)[0])
 
 
 if __name__ == "__main__":

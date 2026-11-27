@@ -3,7 +3,7 @@
 # for example from `make kind-up`), wait until every Keelson Application is Synced
 # and Healthy, then run each enabled module's smoke test.
 #
-# Usage: tests/e2e/run.sh <core|profiles|all> [extra helm args...]
+# Usage: tests/e2e/run.sh <core|profiles|tls|all> [extra helm args...]
 #
 # docs/quickstart-kind.md documents steps 3 and 4 below (install, wait) with the same commands.
 # If you change them here, change the page too.
@@ -34,8 +34,11 @@ case "$MODULES" in
   core) SCENARIO="$E2E_ROOT/tests/golden/kind-core/values.yaml" ;;
   profiles) SCENARIO="$E2E_ROOT/tests/golden/profiles/values.yaml" ;;
   external-mysql) SCENARIO="$E2E_ROOT/tests/golden/pipelines-external-mysql/values.yaml" ;;
+  # tls: a fresh install with tls.issuer selfsigned from the start (#23), so the keelson-tls wave
+  # must come after istio-system exists. kind-core plus the tls_selfsigned.sh overlay.
+  tls) SCENARIO="$E2E_CACHE/tls-fresh-values.yaml" ;;
   all)  fail "MODULES=all has no scenario yet; it maps to a broader golden scenario once one exists" ;;
-  *)    fail "unknown MODULES '$MODULES' (use core, profiles, external-mysql or all)" ;;
+  *)    fail "unknown MODULES '$MODULES' (use core, profiles, external-mysql, tls or all)" ;;
 esac
 
 to_seconds() {
@@ -62,6 +65,15 @@ if [[ ! -x "$E2E_VENV/bin/python" ]]; then
   python3 -m venv "$E2E_VENV"
 fi
 "$E2E_VENV/bin/pip" install -q --disable-pip-version-check -r "$E2E_ROOT/tests/e2e/requirements.txt"
+if [[ "$MODULES" == tls ]]; then
+  py - "$E2E_ROOT/tests/golden/kind-core/values.yaml" "$E2E_ROOT/tests/e2e/scenarios/tls-selfsigned/values.yaml" >"$SCENARIO" <<'EOF'
+import sys, yaml
+values = {}
+for f in sys.argv[1:]:
+    values.update(yaml.safe_load(open(f)) or {})  # the two files share no top-level key
+print(yaml.safe_dump(values, sort_keys=False), end="")
+EOF
+fi
 
 ARGOCD_NS="$(py - "$CHART/values.yaml" "$SCENARIO" <<'EOF'
 import sys, yaml
@@ -120,8 +132,8 @@ if [[ "$E2E_INSTALL" == root-app ]]; then
 else
   log "Installing Keelson ($MODULES: ${SCENARIO#"$E2E_ROOT"/}) into namespace '$ARGOCD_NS'"
   self_source=()
-  if [[ "$MODULES" == profiles ]]; then
-    # The profiles scenario has a component Application: serve the chart under test from the registry.
+  if [[ "$MODULES" == profiles || "$MODULES" == tls ]]; then
+    # The scenario has a component Application: serve the chart under test from the registry.
     e2e_registry_push
     self_source=(--set "keelson.selfSource.repoURL=$E2E_REG_REPO" --set "keelson.selfSource.targetRevision=$E2E_CHART_VERSION")
   fi

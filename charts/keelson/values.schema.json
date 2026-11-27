@@ -138,13 +138,49 @@
         "required": ["domain"],
         "properties": {
           "domain": { "minLength": 1 },
-          "tls": { "required": ["secretRef"], "properties": { "secretRef": { "required": ["name"], "properties": { "name": { "minLength": 1 } } } } }
+          "tls": {
+            "required": ["secretRef"],
+            "properties": {
+              "secretRef": {
+                "required": ["name"],
+                "properties": { "name": { "minLength": 1, "$comment": "keelson-tls is the Secret that Keelson issues for selfsigned and letsencrypt.", "not": { "const": "keelson-tls" } } }
+              }
+            }
+          }
         }
       }
     },
     {
       "if": { "required": ["tls"], "properties": { "tls": { "required": ["issuer"], "properties": { "issuer": { "const": "external" } } } } },
       "then": { "required": ["domain"], "properties": { "domain": { "minLength": 1 } } }
+    },
+    {
+      "if": { "required": ["tls"], "properties": { "tls": { "required": ["issuer"], "properties": { "issuer": { "const": "selfsigned" } } } } },
+      "then": { "required": ["domain"], "properties": { "domain": { "minLength": 1 } } }
+    },
+    {
+      "if": { "required": ["tls"], "properties": { "tls": { "required": ["issuer"], "properties": { "issuer": { "const": "letsencrypt" } } } } },
+      "then": {
+        "required": ["domain"],
+        "properties": {
+          "domain": { "minLength": 1 },
+          "tls": { "required": ["acme"], "properties": { "acme": { "required": ["email", "dns01"], "properties": { "email": { "minLength": 1 }, "dns01": { "required": ["azureDNS"] } } } } }
+        }
+      }
+    },
+    {
+      "$comment": "Azure DNS needs a login: managedIdentity, or a service principal.",
+      "if": { "required": ["tls"], "properties": { "tls": { "required": ["acme"], "properties": { "acme": { "required": ["dns01"], "properties": { "dns01": { "required": ["azureDNS"], "properties": { "azureDNS": { "propertyNames": { "not": { "enum": ["managedIdentity", "clientSecretRef"] } } } } } } } } } } },
+      "then": { "properties": { "tls": { "properties": { "acme": { "properties": { "dns01": { "properties": { "azureDNS": { "required": ["managedIdentity"] } } } } } } } } }
+    },
+    {
+      "$comment": "A managed identity takes no service principal fields; the template would drop them.",
+      "if": { "required": ["tls"], "properties": { "tls": { "required": ["acme"], "properties": { "acme": { "required": ["dns01"], "properties": { "dns01": { "required": ["azureDNS"], "properties": { "azureDNS": { "required": ["managedIdentity"] } } } } } } } } },
+      "then": { "properties": { "tls": { "properties": { "acme": { "properties": { "dns01": { "properties": { "azureDNS": { "propertyNames": { "not": { "enum": ["clientID", "tenantID", "clientSecretRef"] } } } } } } } } } } }
+    },
+    {
+      "if": { "required": ["tls"], "properties": { "tls": { "required": ["acme"], "properties": { "acme": { "required": ["dns01"], "properties": { "dns01": { "required": ["azureDNS"], "properties": { "azureDNS": { "required": ["clientSecretRef"] } } } } } } } } },
+      "then": { "properties": { "tls": { "properties": { "acme": { "properties": { "dns01": { "properties": { "azureDNS": { "required": ["clientID", "tenantID"], "propertyNames": { "not": { "enum": ["managedIdentity"] } } } } } } } } } } }
     }
   ],
   "properties": {
@@ -285,16 +321,65 @@
       "properties": {
         "issuer": {
           "type": "string",
-          "enum": ["none", "existing", "external"],
+          "enum": ["none", "existing", "external", "selfsigned", "letsencrypt"],
           "default": "none",
-          "description": "none: HTTP. existing: Istio terminates TLS with secretRef. external: TLS ends in front of the cluster; cookies are secure."
+          "description": "none: HTTP. existing: Istio terminates TLS with secretRef. external: TLS ends in front of the cluster; cookies are secure. selfsigned: Keelson issues a self-signed certificate (Secret keelson-tls). letsencrypt: Keelson issues a Let's Encrypt certificate with acme (Secret keelson-tls)."
         },
         "secretRef": {
           "type": "object",
           "additionalProperties": false,
           "description": "TLS Secret for issuer existing. A name only.",
           "properties": {
-            "name": { "type": "string", "description": "kubernetes.io/tls Secret in istio-system (issuer=existing). A name only, never key material." }
+            "name": { "type": "string", "description": "kubernetes.io/tls Secret in istio-system (issuer=existing). A name only, never key material. Not keelson-tls: Keelson owns that name." }
+          }
+        },
+        "acme": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Let's Encrypt settings for issuer letsencrypt. See docs/configuration/domain-and-tls.md.",
+          "properties": {
+            "email": { "type": "string", "pattern": "^$|^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", "description": "Contact email of the ACME account. Let's Encrypt sends expiry notices to it. Required for letsencrypt." },
+            "server": { "type": "string", "enum": ["staging", "production"], "default": "staging", "description": "staging: Let's Encrypt staging, not trusted by browsers, high rate limits. production: trusted certificates. Test with staging first." },
+            "dns01": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "DNS-01 solver. v0.1 supports Azure DNS only. Required for letsencrypt.",
+              "properties": {
+                "azureDNS": {
+                  "type": "object",
+                  "required": ["subscriptionID", "resourceGroupName", "hostedZoneName"],
+                  "additionalProperties": false,
+                  "description": "Azure DNS zone that holds domain. Set exactly one of managedIdentity or clientSecretRef.",
+                  "$comment": "Exactly one login: managedIdentity alone, or clientSecretRef with clientID and tenantID. The root allOf rules check it.",
+                  "properties": {
+                    "subscriptionID": { "type": "string", "minLength": 1, "description": "Azure subscription ID of the DNS zone." },
+                    "resourceGroupName": { "type": "string", "minLength": 1, "description": "Resource group of the DNS zone." },
+                    "hostedZoneName": { "type": "string", "minLength": 1, "description": "Name of the DNS zone, for example example.com." },
+                    "managedIdentity": {
+                      "type": "object",
+                      "required": ["clientID"],
+                      "additionalProperties": false,
+                      "description": "Log in with a managed identity. No Secret.",
+                      "properties": {
+                        "clientID": { "type": "string", "minLength": 1, "description": "Client ID of the managed identity that may change the DNS zone." }
+                      }
+                    },
+                    "clientID": { "type": "string", "minLength": 1, "description": "Service principal: application (client) ID. Needs clientSecretRef." },
+                    "tenantID": { "type": "string", "minLength": 1, "description": "Service principal: Microsoft Entra tenant ID. Needs clientSecretRef." },
+                    "clientSecretRef": {
+                      "type": "object",
+                      "required": ["name"],
+                      "additionalProperties": false,
+                      "description": "Service principal: the Secret in the cert-manager namespace that holds the client secret. A name only.",
+                      "properties": {
+                        "name": { "type": "string", "minLength": 1, "description": "Secret name in the cert-manager namespace." },
+                        "key": { "type": "string", "minLength": 1, "description": "Key in the Secret. Empty: client-secret." }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -365,7 +450,7 @@
     },
     "component": {
       "type": "string",
-      "enum": ["", "profiles"],
+      "enum": ["", "profiles", "tls"],
       "description": "Internal. Only the engine sets it, in component Applications (ADR 0004)."
     },
     "profileNamespaceLabels": {

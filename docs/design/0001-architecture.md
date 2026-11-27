@@ -98,7 +98,7 @@ upstream:
 domain: kubeflow.example.com
 platform: generic                  # generic | kind; selects platform-specific upstream overlays
 tls:
-  issuer: existing                  # none | existing | external (selfsigned, letsencrypt: #23)
+  issuer: existing                  # none | existing | external | selfsigned | letsencrypt
   secretRef: { name: kubeflow-tls } # issuer=existing: kubernetes.io/tls Secret in istio-system
 environment: production            # dev | production
 auth:
@@ -145,6 +145,7 @@ advanced:
 | -70 | istio | `common/istio/istio-install/overlays/oauth2-proxy` | ✓ |
 | -60 | oauth2-proxy | `common/oauth2-proxy/overlays/m2m-dex-only` (`m2m-dex-and-kind` on Kind) | ✓ |
 | -60 | dex | `common/dex/overlays/oauth2-proxy` | ✓ |
+| -55 | keelson-tls (Keelson-generated) | a cert-manager `Certificate` for `domain`, rendered from `tls.issuer` (ADR 0004); needs `cert-manager-kubeflow` and `istio-namespace`, and comes just before the Gateway | ✓ |
 | -50 | kubeflow-roles, kubeflow-istio-resources | `common/kubeflow-roles/base`, `common/istio/kubeflow-istio-resources/base` | ✓ |
 | -40 | kyverno policies (optional) | Keelson-owned policies | ✓ |
 | 0 | dashboard (central dashboard, profile controller, PodDefaults) | `applications/dashboard/overlays/istio` | ✓ |

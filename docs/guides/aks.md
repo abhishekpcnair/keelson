@@ -87,7 +87,7 @@ auth:
 
 Change these things:
 - `domain`: your hostname (section 3).
-- `tls.issuer`: `external` or `existing` (section 3).
+- `tls.issuer`: `external`, `existing` or `letsencrypt` (section 3).
 - `tenant` and `allowedGroups`: your Entra tenant and groups (section 4).
 - `connectors[].secretRef.name`: the name of the Secret you create in section 4.
 - `auth.oidcClient.secretRef.name` and `auth.cookie.secretRef.name`: two Secrets with random values.
@@ -105,6 +105,7 @@ Pick where HTTPS ends. Full details are in [Domain and TLS](../configuration/dom
 |---|---|---|
 | `external` | In front of the cluster. The Gateway stays HTTP. | A service in front of AKS holds the certificate. The example above uses this. |
 | `existing` | At Istio, with a Secret you create. HTTP redirects to HTTPS. | You hold the certificate and want the cluster to serve it. |
+| `letsencrypt` | At Istio, with a Let's Encrypt certificate that cert-manager gets through Azure DNS. HTTP redirects to HTTPS. | Your domain is in an Azure DNS zone. See [Azure DNS on AKS](../configuration/domain-and-tls.md#azure-dns-on-aks). |
 
 With `external`, an Azure service in front of the cluster serves HTTPS and forwards HTTP to the
 `istio-ingressgateway` Service. One option is
@@ -125,7 +126,7 @@ tls:
 Create a `kubernetes.io/tls` Secret with that name in `istio-system` first. Keelson does not
 create it, and `secretRef` takes a name only. Never put certificate data in values.
 
-Both modes make login cookies secure, so a browser login over plain HTTP will not stick.
+All three modes make login cookies secure, so a browser login over plain HTTP will not stick.
 
 Point your DNS name at whatever serves the front end (section 5).
 
