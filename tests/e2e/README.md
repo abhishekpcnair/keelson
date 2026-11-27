@@ -46,6 +46,7 @@ Each `MODULES` value installs a golden scenario's `values.yaml`, so e2e installs
 |---|---|
 | `core` | `tests/golden/kind-core/values.yaml` |
 | `profiles` | `tests/golden/profiles/values.yaml`: `core` plus a `keelson-profiles` component Application (ADR 0004) |
+| `external-mysql` | `tests/golden/pipelines-external-mysql/values.yaml`: `database.mode: external` (#39). `tests/e2e/db-mysql.sh` first runs upstream's MySQL base in `e2e-db` and makes the Secret `kfp-db`. CI does not run this scope; run it locally. |
 | `all` | Not yet. Fails with a message until a broader scenario exists. |
 
 ## Extra checks
