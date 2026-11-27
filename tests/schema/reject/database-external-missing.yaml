@@ -1,0 +1,4 @@
+# expect: at '/database': missing property 'external'
+# mode external without the external block (#39).
+database:
+  mode: external

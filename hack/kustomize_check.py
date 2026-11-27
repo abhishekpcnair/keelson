@@ -18,6 +18,9 @@ bump that changes them fails here instead of being silently overwritten.
 Also checks every restated upstream file (charts/keelson/restated/, see
 RESTATED) against the upstream file at upstream.manifestsRef. Drift fails.
 
+External MySQL guard (#39): with database.mode external, the patched pipelines build must have
+no bundled MySQL object and no reference to upstream's mysql-secret.
+
 Usage:
   hack/kustomize_check.py --rendered <file-or-dir> [--cache .cache/upstream]
 The kustomize binary ($KUSTOMIZE, default `kustomize`) must match the version
@@ -165,6 +168,43 @@ class VersionError(Exception):
     """The kustomize version check failed. The message has no prefix; each caller adds its own."""
 
 
+BUNDLED_DB = {"Deployment/mysql", "Service/mysql", "ServiceAccount/mysql", "PersistentVolumeClaim/mysql-pv-claim",
+              "Secret/mysql-secret", "AuthorizationPolicy/mysql", "DestinationRule/ml-pipeline-mysql"}
+
+
+def external_db(patches):
+    """True when the patches include the database.mode external delete patch for bundled MySQL (#39).
+
+    Keyed on the delete patch, not on pipeline-install-config: other translations (#38) may patch
+    that ConfigMap while bundled MySQL stays."""
+    return any("mysql-secret" in str((p.get("target") or {}).get("name", "")) and "$patch: delete" in p.get("patch", "")
+               for p in patches)
+
+
+def _ids(text: str):
+    return {f"{d.get('kind')}/{(d.get('metadata') or {}).get('name')}"
+            for d in yaml.safe_load_all(text) if isinstance(d, dict)}
+
+
+def check_external_db(where, base: str, patched: str, errors):
+    """External MySQL guard (#39): exactly the bundled MySQL objects are gone, and nothing reads
+    upstream's mysql-secret.
+
+    A new upstream consumer of mysql-secret, or a new bundled object, at a bump fails here."""
+    removed = _ids(base) - _ids(patched)
+    if removed != BUNDLED_DB:
+        errors.append(f"{where}: database.mode external must remove exactly {sorted(BUNDLED_DB)}; "
+                      f"missing {sorted(BUNDLED_DB - removed)}, unexpected {sorted(removed - BUNDLED_DB)}")
+    for d in yaml.safe_load_all(patched):
+        if isinstance(d, dict) and d.get("kind") != "Secret" and "mysql-secret" in yaml.safe_dump(d):
+            errors.append(f"{where}: {d.get('kind')}/{(d.get('metadata') or {}).get('name')} still reads mysql-secret "
+                          f"after the database.mode external patches")
+    left = sorted(f"{d.get('kind')}/{(d.get('metadata') or {}).get('name')}" for d in yaml.safe_load_all(patched)
+                  if isinstance(d, dict) and f"{d.get('kind')}/{(d.get('metadata') or {}).get('name')}" in BUNDLED_DB)
+    if left:
+        errors.append(f"{where}: database.mode external leaves bundled MySQL objects: {left}")
+
+
 def check_version(upstream: pathlib.Path):
     m = re.search(r'KUSTOMIZE_VERSION="(v[0-9.]+)"', (upstream / "tests/kustomize_install.sh").read_text())
     if not m:
@@ -233,6 +273,8 @@ def main():
                     errors.append(f"{where}: only {sorted(allowed)} may remain after patches, found {left}")
             else:
                 check_dex_config(where, base, out, errors)
+                if where.split(":")[-1] == "pipelines" and external_db(patches):
+                    check_external_db(where, base, out, errors)
             checked += 1
     for e in errors:
         print(f"FAIL {e}")

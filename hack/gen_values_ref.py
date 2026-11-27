@@ -28,6 +28,7 @@ CONTEXTS = {
     "schema": {
         "$defs", "$ref", "type", "properties", "additionalProperties", "required", "items", "enum", "const",
         "default", "description", "format", "pattern", "minLength", "maxLength", "minItems", "uniqueItems", "allOf",
+        "minimum", "maximum",
         "anyOf", "not", "propertyNames",
     },
     "branch": {"enum", "const", "maxLength", "minLength", "minItems", "format", "pattern", "not", "propertyNames", "anyOf"},
@@ -130,6 +131,12 @@ def allowed(n):
         parts.append(f"min length {n['minLength']}")
     if "minItems" in n:
         parts.append(f"min {items(n['minItems'])}")
+    if "minimum" in n and "maximum" in n:
+        parts.append(f"{n['minimum']} to {n['maximum']}")
+    elif "minimum" in n:
+        parts.append(f"min {n['minimum']}")
+    elif "maximum" in n:
+        parts.append(f"max {n['maximum']}")
     if n.get("uniqueItems"):
         parts.append("unique items")
     if "format" in n:

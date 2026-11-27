@@ -1,0 +1,855 @@
+---
+# Source: keelson/templates/appproject.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: keelson
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: keelson
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1000"
+spec:
+  description: Keelson-managed Kubeflow modules (pinned upstream sources only).
+  sourceRepos:
+    - https://github.com/kubeflow/manifests
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: auth
+    - server: https://kubernetes.default.svc
+      namespace: cert-manager
+    - server: https://kubernetes.default.svc
+      namespace: istio-system
+    - server: https://kubernetes.default.svc
+      namespace: kube-system
+    - server: https://kubernetes.default.svc
+      namespace: kubeflow
+    - server: https://kubernetes.default.svc
+      namespace: kubeflow-system
+    - server: https://kubernetes.default.svc
+      namespace: kubeflow-workspaces
+    - server: https://kubernetes.default.svc
+      namespace: oauth2-proxy
+  # Upstream ships CRDs, ClusterRoles, webhooks and Namespaces.
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"
+
+---
+# Source: keelson/templates/applications.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cert-manager
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: cert-manager
+  annotations:
+    argocd.argoproj.io/sync-wave: "-100"
+spec:
+  destination:
+    namespace: cert-manager
+    server: https://kubernetes.default.svc
+  project: keelson
+  source:
+    path: common/cert-manager/base
+    repoURL: https://github.com/kubeflow/manifests
+    targetRevision: 26.10.0
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+      limit: 10
+    syncOptions:
+    - ServerSideApply=true
+    - CreateNamespace=true
+
+---
+# Source: keelson/templates/applications.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cert-manager-kubeflow
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: cert-manager-kubeflow
+  annotations:
+    argocd.argoproj.io/sync-wave: "-90"
+spec:
+  destination:
+    namespace: cert-manager
+    server: https://kubernetes.default.svc
+  project: keelson
+  source:
+    path: common/cert-manager/overlays/kubeflow
+    repoURL: https://github.com/kubeflow/manifests
+    targetRevision: 26.10.0
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+      limit: 10
+    syncOptions:
+    - ServerSideApply=true
+    - CreateNamespace=true
+
+---
+# Source: keelson/templates/applications.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: istio-crds
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: istio-crds
+  annotations:
+    argocd.argoproj.io/sync-wave: "-80"
+spec:
+  destination:
+    namespace: istio-system
+    server: https://kubernetes.default.svc
+  project: keelson
+  source:
+    path: common/istio/istio-crds/base
+    repoURL: https://github.com/kubeflow/manifests
+    targetRevision: 26.10.0
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+      limit: 10
+    syncOptions:
+    - ServerSideApply=true
+    - CreateNamespace=true
+
+---
+# Source: keelson/templates/applications.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: istio-namespace
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: istio-namespace
+  annotations:
+    argocd.argoproj.io/sync-wave: "-80"
+spec:
+  destination:
+    namespace: istio-system
+    server: https://kubernetes.default.svc
+  project: keelson
+  source:
+    path: common/istio/istio-namespace/base
+    repoURL: https://github.com/kubeflow/manifests
+    targetRevision: 26.10.0
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+      limit: 10
+    syncOptions:
+    - ServerSideApply=true
+    - CreateNamespace=true
+
+---
+# Source: keelson/templates/applications.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kubeflow-namespace
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: kubeflow-namespace
+  annotations:
+    argocd.argoproj.io/sync-wave: "-80"
+spec:
+  destination:
+    namespace: kubeflow
+    server: https://kubernetes.default.svc
+  project: keelson
+  source:
+    path: common/kubeflow-namespace/base
+    repoURL: https://github.com/kubeflow/manifests
+    targetRevision: 26.10.0
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+      limit: 10
+    syncOptions:
+    - ServerSideApply=true
+    - CreateNamespace=true
+
+---
+# Source: keelson/templates/applications.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: istio
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: istio
+  annotations:
+    argocd.argoproj.io/sync-wave: "-70"
+spec:
+  destination:
+    namespace: istio-system
+    server: https://kubernetes.default.svc
+  ignoreDifferences:
+  - group: admissionregistration.k8s.io
+    jqPathExpressions:
+    - .webhooks[]?.clientConfig.caBundle
+    - .webhooks[]?.failurePolicy
+    kind: ValidatingWebhookConfiguration
+    name: istio-validator-istio-system
+  project: keelson
+  source:
+    path: common/istio/istio-install/overlays/oauth2-proxy
+    repoURL: https://github.com/kubeflow/manifests
+    targetRevision: 26.10.0
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+      limit: 10
+    syncOptions:
+    - ServerSideApply=true
+    - CreateNamespace=true
+    - RespectIgnoreDifferences=true
+
+---
+# Source: keelson/templates/applications.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dex
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: dex
+  annotations:
+    argocd.argoproj.io/sync-wave: "-60"
+spec:
+  destination:
+    namespace: auth
+    server: https://kubernetes.default.svc
+  project: keelson
+  source:
+    path: common/dex/overlays/oauth2-proxy
+    repoURL: https://github.com/kubeflow/manifests
+    targetRevision: 26.10.0
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+      limit: 10
+    syncOptions:
+    - ServerSideApply=true
+    - CreateNamespace=true
+
+---
+# Source: keelson/templates/applications.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: oauth2-proxy
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: oauth2-proxy
+  annotations:
+    argocd.argoproj.io/sync-wave: "-60"
+spec:
+  destination:
+    namespace: oauth2-proxy
+    server: https://kubernetes.default.svc
+  project: keelson
+  source:
+    path: common/oauth2-proxy/overlays/m2m-dex-and-kind
+    repoURL: https://github.com/kubeflow/manifests
+    targetRevision: 26.10.0
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+      limit: 10
+    syncOptions:
+    - ServerSideApply=true
+    - CreateNamespace=true
+
+---
+# Source: keelson/templates/applications.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kubeflow-istio-resources
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: kubeflow-istio-resources
+  annotations:
+    argocd.argoproj.io/sync-wave: "-50"
+spec:
+  destination:
+    namespace: kubeflow
+    server: https://kubernetes.default.svc
+  ignoreDifferences:
+  - group: rbac.authorization.k8s.io
+    jsonPointers:
+    - /rules
+    kind: ClusterRole
+    name: kubeflow-istio-admin
+  project: keelson
+  source:
+    path: common/istio/kubeflow-istio-resources/base
+    repoURL: https://github.com/kubeflow/manifests
+    targetRevision: 26.10.0
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+      limit: 10
+    syncOptions:
+    - ServerSideApply=true
+    - CreateNamespace=true
+    - RespectIgnoreDifferences=true
+
+---
+# Source: keelson/templates/applications.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kubeflow-roles
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: kubeflow-roles
+  annotations:
+    argocd.argoproj.io/sync-wave: "-50"
+spec:
+  destination:
+    namespace: kubeflow
+    server: https://kubernetes.default.svc
+  ignoreDifferences:
+  - group: rbac.authorization.k8s.io
+    jsonPointers:
+    - /rules
+    kind: ClusterRole
+    name: kubeflow-admin
+  - group: rbac.authorization.k8s.io
+    jsonPointers:
+    - /rules
+    kind: ClusterRole
+    name: kubeflow-edit
+  - group: rbac.authorization.k8s.io
+    jsonPointers:
+    - /rules
+    kind: ClusterRole
+    name: kubeflow-view
+  project: keelson
+  source:
+    path: common/kubeflow-roles/base
+    repoURL: https://github.com/kubeflow/manifests
+    targetRevision: 26.10.0
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+      limit: 10
+    syncOptions:
+    - ServerSideApply=true
+    - CreateNamespace=true
+    - RespectIgnoreDifferences=true
+
+---
+# Source: keelson/templates/applications.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dashboard
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: dashboard
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  destination:
+    namespace: kubeflow
+    server: https://kubernetes.default.svc
+  ignoreDifferences:
+  - group: admissionregistration.k8s.io
+    jqPathExpressions:
+    - .webhooks[].clientConfig.caBundle
+    kind: MutatingWebhookConfiguration
+    name: poddefaults-webhook-mutating-webhook-configuration
+  - group: rbac.authorization.k8s.io
+    jsonPointers:
+    - /rules
+    kind: ClusterRole
+    name: poddefaults-webhook-kubeflow-poddefaults-admin
+  - group: rbac.authorization.k8s.io
+    jsonPointers:
+    - /rules
+    kind: ClusterRole
+    name: poddefaults-webhook-kubeflow-poddefaults-edit
+  project: keelson
+  source:
+    kustomize:
+      patches:
+      - patch: |-
+          # purpose: add profileNamespaceLabels to every profile namespace
+          # upstream: none
+          # remove-when: never (Keelson intent: profileNamespaceLabels)
+          - op: replace
+            path: /data/namespace-labels.yaml
+            value: |
+              app.kubernetes.io/part-of: "kubeflow-profile"
+              katib.kubeflow.org/metrics-collector-injection: "enabled"
+              keelson.io/e2e: "true"
+              pipelines.kubeflow.org/enabled: "true"
+              pod-security.kubernetes.io/enforce: "baseline"
+              serving.kubeflow.org/inferenceservice: "enabled"
+        target:
+          kind: ConfigMap
+          name: profiles-namespace-labels-data
+          version: v1
+    path: applications/dashboard/overlays/istio
+    repoURL: https://github.com/kubeflow/manifests
+    targetRevision: 26.10.0
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+      limit: 10
+    syncOptions:
+    - ServerSideApply=true
+    - CreateNamespace=true
+    - RespectIgnoreDifferences=true
+
+---
+# Source: keelson/templates/applications.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: pipelines
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: pipelines
+  annotations:
+    argocd.argoproj.io/sync-wave: "20"
+spec:
+  destination:
+    namespace: kubeflow
+    server: https://kubernetes.default.svc
+  ignoreDifferences:
+  - group: rbac.authorization.k8s.io
+    jsonPointers:
+    - /rules
+    kind: ClusterRole
+    name: kubeflow-pipelines-edit
+  - group: rbac.authorization.k8s.io
+    jsonPointers:
+    - /rules
+    kind: ClusterRole
+    name: kubeflow-pipelines-view
+  project: keelson
+  source:
+    kustomize:
+      patches:
+      - patch: |-
+          # purpose: point Kubeflow Pipelines at the user's external MySQL server (database.mode external)
+          # upstream: none
+          # remove-when: upstream ships an external-database overlay for applications/pipeline
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: pipeline-install-config
+          data:
+            mysqlHost: "mysql.e2e-db.svc.cluster.local"
+            mysqlPort: "3306"
+            mlmdDb: "kfp_metadata"
+        target:
+          kind: ConfigMap
+          name: pipeline-install-config
+          version: v1
+      - patch: |-
+          # purpose: ml-pipeline reads the MySQL user name and password from the user's Secret, not upstream's mysql-secret literals
+          # upstream: none
+          # remove-when: upstream ships an external-database overlay for applications/pipeline
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: ml-pipeline
+          spec:
+            template:
+              metadata:
+                annotations:
+                  keelson.io/database-config: "25a722c7b7c1092159512314103729368ad7a69087e47a0d4719e8170283bda2"
+              spec:
+                containers:
+                  - name: ml-pipeline-api-server
+                    env:
+                      - name: DBCONFIG_USER
+                        valueFrom:
+                          secretKeyRef:
+                            name: "kfp-db"
+                            key: "username"
+                      - name: DBCONFIG_PASSWORD
+                        valueFrom:
+                          secretKeyRef:
+                            name: "kfp-db"
+                            key: "password"
+                      - name: DBCONFIG_MYSQLCONFIG_USER
+                        valueFrom:
+                          secretKeyRef:
+                            name: "kfp-db"
+                            key: "username"
+                      - name: DBCONFIG_MYSQLCONFIG_PASSWORD
+                        valueFrom:
+                          secretKeyRef:
+                            name: "kfp-db"
+                            key: "password"
+        target:
+          group: apps
+          kind: Deployment
+          name: ml-pipeline
+          version: v1
+      - patch: |-
+          # purpose: cache-server reads the MySQL user name and password from the user's Secret, not upstream's mysql-secret literals
+          # upstream: none
+          # remove-when: upstream ships an external-database overlay for applications/pipeline
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: cache-server
+          spec:
+            template:
+              metadata:
+                annotations:
+                  keelson.io/database-config: "25a722c7b7c1092159512314103729368ad7a69087e47a0d4719e8170283bda2"
+              spec:
+                containers:
+                  - name: server
+                    env:
+                      - name: DBCONFIG_USER
+                        valueFrom:
+                          secretKeyRef:
+                            name: "kfp-db"
+                            key: "username"
+                      - name: DBCONFIG_PASSWORD
+                        valueFrom:
+                          secretKeyRef:
+                            name: "kfp-db"
+                            key: "password"
+        target:
+          group: apps
+          kind: Deployment
+          name: cache-server
+          version: v1
+      - patch: |-
+          # purpose: metadata-grpc-deployment reads the MySQL user name and password from the user's Secret, not upstream's mysql-secret literals
+          # upstream: none
+          # remove-when: upstream ships an external-database overlay for applications/pipeline
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: metadata-grpc-deployment
+          spec:
+            template:
+              metadata:
+                annotations:
+                  keelson.io/database-config: "25a722c7b7c1092159512314103729368ad7a69087e47a0d4719e8170283bda2"
+              spec:
+                containers:
+                  - name: container
+                    env:
+                      - name: DBCONFIG_USER
+                        valueFrom:
+                          secretKeyRef:
+                            name: "kfp-db"
+                            key: "username"
+                      - name: DBCONFIG_PASSWORD
+                        valueFrom:
+                          secretKeyRef:
+                            name: "kfp-db"
+                            key: "password"
+        target:
+          group: apps
+          kind: Deployment
+          name: metadata-grpc-deployment
+          version: v1
+      - patch: |-
+          # purpose: remove bundled MySQL (Deployment, Service, ServiceAccount, PVC, Secret, AuthorizationPolicy, DestinationRule) when database.mode is external
+          # upstream: none
+          # remove-when: upstream ships an external-database overlay for applications/pipeline
+          $patch: delete
+          apiVersion: v1
+          kind: Unused
+          metadata:
+            name: unused
+        target:
+          labelSelector: application-crd-id=kubeflow-pipelines
+          name: ^(mysql|mysql-pv-claim|mysql-secret|ml-pipeline-mysql)$
+    path: applications/pipeline/overlays
+    repoURL: https://github.com/kubeflow/manifests
+    targetRevision: 26.10.0
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+      limit: 10
+    syncOptions:
+    - ServerSideApply=true
+    - CreateNamespace=true
+    - RespectIgnoreDifferences=true
+
+---
+# Source: keelson/templates/applications.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: workspaces
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: workspaces
+  annotations:
+    argocd.argoproj.io/sync-wave: "20"
+spec:
+  destination:
+    namespace: kubeflow-workspaces
+    server: https://kubernetes.default.svc
+  ignoreDifferences:
+  - group: rbac.authorization.k8s.io
+    jsonPointers:
+    - /rules
+    kind: ClusterRole
+    name: kubeflow-workspaces-admin
+  - group: rbac.authorization.k8s.io
+    jsonPointers:
+    - /rules
+    kind: ClusterRole
+    name: kubeflow-workspaces-edit
+  - group: rbac.authorization.k8s.io
+    jsonPointers:
+    - /rules
+    kind: ClusterRole
+    name: kubeflow-workspaces-view
+  project: keelson
+  source:
+    path: applications/workspaces/overlays/istio
+    repoURL: https://github.com/kubeflow/manifests
+    targetRevision: 26.10.0
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+      limit: 10
+    syncOptions:
+    - ServerSideApply=true
+    - CreateNamespace=true
+    - RespectIgnoreDifferences=true
+
+---
+# Source: keelson/templates/applications.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: workspace-kinds
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: workspace-kinds
+  annotations:
+    argocd.argoproj.io/sync-wave: "25"
+spec:
+  destination:
+    namespace: kubeflow-workspaces
+    server: https://kubernetes.default.svc
+  project: keelson
+  source:
+    kustomize:
+      patches:
+      - patch: |-
+          # purpose: drop upstream sample PersistentVolumeClaim/workspace-home-pvc; it is not part of a Keelson install
+          # upstream: none
+          # remove-when: upstream ships an installable WorkspaceKinds overlay (then point workspace-kinds at it)
+          $patch: delete
+          apiVersion: v1
+          kind: PersistentVolumeClaim
+          metadata:
+            name: workspace-home-pvc
+        target:
+          kind: PersistentVolumeClaim
+          name: workspace-home-pvc
+          version: v1
+      - patch: |-
+          # purpose: drop upstream sample PersistentVolumeClaim/workspace-data-pvc; it is not part of a Keelson install
+          # upstream: none
+          # remove-when: upstream ships an installable WorkspaceKinds overlay (then point workspace-kinds at it)
+          $patch: delete
+          apiVersion: v1
+          kind: PersistentVolumeClaim
+          metadata:
+            name: workspace-data-pvc
+        target:
+          kind: PersistentVolumeClaim
+          name: workspace-data-pvc
+          version: v1
+      - patch: |-
+          # purpose: drop upstream sample Secret/workspace-secret; it is not part of a Keelson install
+          # upstream: none
+          # remove-when: upstream ships an installable WorkspaceKinds overlay (then point workspace-kinds at it)
+          $patch: delete
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: workspace-secret
+        target:
+          kind: Secret
+          name: workspace-secret
+          version: v1
+      - patch: |-
+          # purpose: drop upstream sample ConfigMap/workspacekind-image-source; it is not part of a Keelson install
+          # upstream: none
+          # remove-when: upstream ships an installable WorkspaceKinds overlay (then point workspace-kinds at it)
+          $patch: delete
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: workspacekind-image-source
+        target:
+          kind: ConfigMap
+          name: workspacekind-image-source
+          version: v1
+      - patch: |-
+          # purpose: drop upstream sample Workspace/jupyterlab-workspace; it is not part of a Keelson install
+          # upstream: none
+          # remove-when: upstream ships an installable WorkspaceKinds overlay (then point workspace-kinds at it)
+          $patch: delete
+          apiVersion: kubeflow.org/v1beta1
+          kind: Workspace
+          metadata:
+            name: jupyterlab-workspace
+        target:
+          group: kubeflow.org
+          kind: Workspace
+          name: jupyterlab-workspace
+          version: v1beta1
+      - patch: |-
+          # purpose: drop upstream sample WorkspaceKind/codeserver; it is not part of a Keelson install
+          # upstream: none
+          # remove-when: upstream ships an installable WorkspaceKinds overlay (then point workspace-kinds at it)
+          $patch: delete
+          apiVersion: kubeflow.org/v1beta1
+          kind: WorkspaceKind
+          metadata:
+            name: codeserver
+        target:
+          group: kubeflow.org
+          kind: WorkspaceKind
+          name: codeserver
+          version: v1beta1
+      - patch: |-
+          # purpose: drop upstream sample WorkspaceKind/rstudio; it is not part of a Keelson install
+          # upstream: none
+          # remove-when: upstream ships an installable WorkspaceKinds overlay (then point workspace-kinds at it)
+          $patch: delete
+          apiVersion: kubeflow.org/v1beta1
+          kind: WorkspaceKind
+          metadata:
+            name: rstudio
+        target:
+          group: kubeflow.org
+          kind: WorkspaceKind
+          name: rstudio
+          version: v1beta1
+    path: applications/workspaces/upstream/controller/samples
+    repoURL: https://github.com/kubeflow/manifests
+    targetRevision: 26.10.0
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+      limit: 10
+    syncOptions:
+    - ServerSideApply=true
+    - CreateNamespace=true

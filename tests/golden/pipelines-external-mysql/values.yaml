@@ -1,0 +1,16 @@
+# pipelines-external-mysql: Pipelines with an external MySQL server (#39). Bundled MySQL is deleted,
+# and the 3 consumers read credentials from the user's Secret. One database name is overridden.
+# e2e: MODULES=external-mysql installs this scenario. tests/e2e/db-mysql.sh runs upstream's MySQL in
+# namespace e2e-db and makes the Secret kfp-db first.
+platform: kind
+# As in kind-core: CI runs tests/e2e/pss.sh after every scope, and it checks this label.
+profileNamespaceLabels:
+  keelson.io/e2e: "true"
+database:
+  mode: external
+  external:
+    host: mysql.e2e-db.svc.cluster.local
+    secretRef:
+      name: kfp-db
+    databases:
+      metadata: kfp_metadata

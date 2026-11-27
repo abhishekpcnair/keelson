@@ -1,0 +1,5 @@
+# expect: missing property 'host'
+# mode external needs the server host (#39).
+database:
+  mode: external
+  external: { secretRef: { name: kfp-db } }
