@@ -1,0 +1,29 @@
+# connectors-github-enterprise: two GitHub Enterprise Server connectors (#46). One mounts a CA from a
+# Secret (rootCA), one uses the system CAs (hostName only).
+domain: kubeflow.example.com
+tls:
+  issuer: existing
+  secretRef:
+    name: kubeflow-tls
+auth:
+  dex:
+    connectors:
+      - type: github
+        id: ghe
+        name: GitHub Enterprise
+        secretRef:
+          name: dex-ghe
+        orgs:
+          - name: my-org
+        enterprise:
+          hostName: ghe.example.com
+          rootCASecretRef:
+            name: ghe-ca
+      - type: github
+        id: ghe-public-ca
+        secretRef:
+          name: dex-ghe-public
+        orgs:
+          - name: my-org
+        enterprise:
+          hostName: github.corp.example.com:8443

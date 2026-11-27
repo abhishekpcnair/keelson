@@ -1,0 +1,11 @@
+# expect: /auth/dex/connectors/0/enterprise/rootCASecretRef
+# rootCASecretRef names a Secret; no certificate text in values (rule 6) (#46).
+domain: kubeflow.example.com
+auth:
+  dex:
+    connectors:
+      - type: github
+        id: ghe
+        secretRef: { name: dex-ghe }
+        orgs: [{ name: my-org }]
+        enterprise: { hostName: ghe.example.com, rootCASecretRef: { key: ca.crt } }

@@ -1,0 +1,11 @@
+# expect: /auth/dex/connectors/0/enterprise/hostName
+# Dex rejects a hostName with a / in it (connector/github/github.go) (#46).
+domain: kubeflow.example.com
+auth:
+  dex:
+    connectors:
+      - type: github
+        id: ghe
+        secretRef: { name: dex-ghe }
+        orgs: [{ name: my-org }]
+        enterprise: { hostName: ghe.example.com/api }

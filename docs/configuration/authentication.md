@@ -180,10 +180,37 @@ auth:
 
 - Create a GitHub OAuth app with the callback URL `https://<domain>/dex/callback`.
 - `orgs` is required. Without it, any GitHub user could log in. `extraConfig` cannot set `orgs`,
-  `org`, `hostName` or `rootCA`, in any letter case.
+  `org`, `hostName` or `rootCA`, in any letter case. Use `enterprise` for those ([below](#github-enterprise-server)).
 - Dex asks for the `read:org` scope. An org owner may need to approve the app for the org.
 - Groups come back as `<org>:<team-slug>`, for example `my-org:ml-platform`.
-- GitHub Enterprise Server (`hostName`, `rootCA`) is not supported yet (#46).
+
+### GitHub Enterprise Server
+
+```yaml
+auth:
+  dex:
+    connectors:
+      - type: github
+        id: ghe
+        secretRef: { name: dex-ghe }
+        orgs: [{ name: my-org }]
+        enterprise:
+          hostName: ghe.example.com           # no scheme, no path; a :port is allowed
+          rootCASecretRef: { name: ghe-ca }   # optional; key defaults to ca.crt
+```
+
+- Create the OAuth app on the GHE server, with the callback URL `https://<domain>/dex/callback`.
+- Leave out `rootCASecretRef` when the server's certificate comes from a public CA. Dex then uses the system CAs.
+- For a private CA, make the Secret in `auth` first:
+
+  ```sh
+  kubectl -n auth create secret generic ghe-ca --from-file=ca.crt=./ca.pem
+  ```
+
+- **Warning:** the Secret is required. If it is missing, the Dex Pod does not start, and **all** logins fail,
+  static users too. This is on purpose: a quiet failure of one connector is harder to find.
+- Dex reads the CA file only at start. After you change the Secret, restart Dex:
+  `kubectl -n auth rollout restart deployment/dex`.
 
 ### Extra Dex options (unsupported)
 
