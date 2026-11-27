@@ -199,6 +199,9 @@ for t in ${smoke_tests[@]+"${smoke_tests[@]}"}; do
   log "Smoke test $t passed in $(( SECONDS - smoke_start ))s"
 done
 
+if [[ "$MODULES" == external-mysql ]]; then
+  bash "$E2E_ROOT/tests/e2e/db-mysql.sh" check || fail "external MySQL check failed"
+fi
 log "e2e ($MODULES): PASS in $(( SECONDS ))s"
 
 if [[ "${KEEP:-0}" == 1 ]]; then

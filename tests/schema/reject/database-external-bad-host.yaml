@@ -1,0 +1,5 @@
+# expect: /database/external/host
+# A host name or IPv4 address only: no scheme, port or spaces (#39).
+database:
+  mode: external
+  external: { host: 'bad host!', secretRef: { name: kfp-db } }

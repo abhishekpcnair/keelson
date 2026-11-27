@@ -18,8 +18,9 @@ All images are upstream images. Keelson sets none.
 
 ## External MySQL
 Set `database.mode: external` to use your own MySQL server. Keelson then deletes bundled MySQL
-(its Deployment, Service, PVC and upstream's `mysql-secret`) and points the KFP API server, the
-cache server and ML Metadata at your server.
+(Deployment, Service, ServiceAccount and PVC `mysql`/`mysql-pv-claim`, Secret `mysql-secret`,
+AuthorizationPolicy `mysql` and DestinationRule `ml-pipeline-mysql`) and points the KFP API server,
+the cache server and ML Metadata at your server.
 
 ```yaml
 database:
@@ -37,15 +38,21 @@ Make the Secret in namespace `kubeflow` before you sync. Keelson never creates i
 kubectl -n kubeflow create secret generic kfp-db --from-literal=username=kfp --from-literal=password='<password>'
 ```
 
-- KFP uses three databases. It creates them on first start, so the user needs `CREATE` on them,
-  or you create them first and grant `ALL` on each.
+- KFP uses three databases (`mlpipeline`, `cachedb`, `metadb` unless you rename them). It creates
+  them on first start. Either grant the user `CREATE` at global level, or create the three yourself
+  and grant `ALL` on each, for example `GRANT ALL ON mlpipeline.* TO 'kfp'@'%';`.
 - The name `mysql-secret` is rejected: it is upstream's Secret, which this mode deletes.
 - **TLS:** at `26.10.0` the upstream manifests have no setting for a TLS connection to MySQL.
   A server that requires TLS (for example Azure Database for MySQL with `require_secure_transport=ON`)
   is not supported yet (#146). Do not turn TLS off on a production server to work around it.
 - KFP pods have Istio sidecars. With the default mesh setting (`ALLOW_ANY`) they reach the server.
-  If your mesh uses `REGISTRY_ONLY`, add a `ServiceEntry` for the server's host and port.
-- Switching an existing install from bundled to external does not move data.
+  If your mesh uses `REGISTRY_ONLY`, or the server listens on a port other than 3306, add a
+  `ServiceEntry` for its host and port with `protocol: TCP`.
+- A change to `database.external` restarts the three consumers (the patches carry a hash of it).
+- **Switching an existing install from bundled to external deletes the bundled data.** ArgoCD
+  prunes the bundled MySQL, including its PVC `mysql-pv-claim`, so all pipeline runs and metadata in
+  it are gone. Nothing is moved. Dump the three databases first (for example with `mysqldump` from
+  the `mysql` pod) and load them into your server, then switch.
 
 ## Resources
 Upstream lists Pipelines at about 970m CPU, 3.5 GiB of RAM and 35 GB of storage.

@@ -6,12 +6,27 @@
 # module, and makes the Secret kfp-db in kubeflow that the scenario's database.external.secretRef
 # names. Upstream's MySQL has the user root with an empty password (MYSQL_ALLOW_EMPTY_PASSWORD),
 # so the Secret holds no secret: test only.
+#
+# Usage: tests/e2e/db-mysql.sh          start the server and the Secret (before the install)
+#        tests/e2e/db-mysql.sh check    after the install: bundled MySQL is gone, and KFP made its
+#                                       databases on the external server
 set -euo pipefail
 # shellcheck source=tests/e2e/lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
-UPSTREAM="$(upstream_dir)"
 NS=e2e-db
+if [[ "${1:-}" == check ]]; then
+  for o in deployment/mysql secret/mysql-secret service/mysql; do
+    if kubectl -n kubeflow get "$o" >/dev/null 2>&1; then fail "bundled $o still exists in kubeflow"; fi
+  done
+  dbs="$(kubectl -n "$NS" exec deploy/mysql -- mysql -uroot -N -e 'SHOW DATABASES')" || fail "could not list databases on mysql.$NS"
+  for db in mlpipeline cachedb kfp_metadata; do
+    grep -qx "$db" <<<"$dbs" || fail "database $db is missing on mysql.$NS (found: $(tr '\n' ' ' <<<"$dbs"))"
+  done
+  log "external MySQL: bundled MySQL is gone; mlpipeline, cachedb and kfp_metadata are on mysql.$NS"
+  exit 0
+fi
+UPSTREAM="$(upstream_dir)"
 BASE="$UPSTREAM/applications/pipeline/upstream/third-party/mysql/base"
 [[ -d "$BASE" ]] || fail "$BASE not found; run 'make upstream-cache'"
 
@@ -22,7 +37,7 @@ cat >"$work/kustomization.yaml" <<KEOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: $NS
-resources: ["$BASE"]
+resources: ["$(realpath --relative-to="$work" "$BASE")"]   # kustomize rejects an absolute path
 KEOF
 kubectl create namespace "$NS" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
 kubectl apply -k "$work" >/dev/null || fail "could not apply upstream MySQL into $NS"

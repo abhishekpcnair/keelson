@@ -18,6 +18,8 @@ Call with (dict "root" $ "module" $m). Returns YAML `{patches: [...]}`.
 {{- if not $ext.host -}}{{- fail "database.external.host is required when database.mode is external" -}}{{- end -}}
 {{- if not (dig "secretRef" "name" "" $ext) -}}{{- fail "database.external.secretRef.name is required when database.mode is external" -}}{{- end -}}
 {{- $ctx := dict "ext" $ext "user" (dig "secretRef" "usernameKey" "username" $ext) "password" (dig "secretRef" "passwordKey" "password" $ext) -}}
+{{- /* pipeline-install-config has no hash suffix, so a change to it alone restarts nothing: the hash rolls the consumers. */ -}}
+{{- $_ := set $ctx "hash" (toYaml $ext | sha256sum) -}}
 {{- $patches = append $patches (dict "patch" (include "keelson.translate.database.config" $ctx) "target" (dict "version" "v1" "kind" "ConfigMap" "name" "pipeline-install-config")) -}}
 {{- range $d := list (list "ml-pipeline" "ml-pipeline-api-server" (list "DBCONFIG_USER" "DBCONFIG_PASSWORD" "DBCONFIG_MYSQLCONFIG_USER" "DBCONFIG_MYSQLCONFIG_PASSWORD"))
                      (list "cache-server" "server" (list "DBCONFIG_USER" "DBCONFIG_PASSWORD"))
@@ -64,6 +66,9 @@ metadata:
   name: {{ .deployment }}
 spec:
   template:
+    metadata:
+      annotations:
+        keelson.io/database-config: {{ .hash | quote }}
     spec:
       containers:
         - name: {{ .container }}

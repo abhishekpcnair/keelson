@@ -545,6 +545,9 @@ spec:
             name: ml-pipeline
           spec:
             template:
+              metadata:
+                annotations:
+                  keelson.io/database-config: "25a722c7b7c1092159512314103729368ad7a69087e47a0d4719e8170283bda2"
               spec:
                 containers:
                   - name: ml-pipeline-api-server
@@ -584,6 +587,9 @@ spec:
             name: cache-server
           spec:
             template:
+              metadata:
+                annotations:
+                  keelson.io/database-config: "25a722c7b7c1092159512314103729368ad7a69087e47a0d4719e8170283bda2"
               spec:
                 containers:
                   - name: server
@@ -613,6 +619,9 @@ spec:
             name: metadata-grpc-deployment
           spec:
             template:
+              metadata:
+                annotations:
+                  keelson.io/database-config: "25a722c7b7c1092159512314103729368ad7a69087e47a0d4719e8170283bda2"
               spec:
                 containers:
                   - name: container
