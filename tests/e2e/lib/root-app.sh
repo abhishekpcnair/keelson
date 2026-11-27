@@ -33,12 +33,14 @@ e2e_registry_push() {
   E2E_REG_PF=$pf   # run.sh's exit handler kills it, also on an interrupt or an early exit
   local ready=0
   for _ in $(seq 1 30); do
-    if curl -fsS -o /dev/null "http://localhost:$E2E_REG_PORT/v2/"; then ready=1; break; fi
+    kill -0 "$pf" 2>/dev/null || fail "the registry port-forward exited ($(cat "$pkg/port-forward.log" 2>/dev/null))"
+    if curl -fs -o /dev/null "http://localhost:$E2E_REG_PORT/v2/"; then ready=1; break; fi
     sleep 1
   done
   (( ready )) || fail "the e2e registry did not answer on localhost:$E2E_REG_PORT after 30 tries ($(cat "$pkg/port-forward.log" 2>/dev/null))"
   if ! helm push "$tgz" "oci://localhost:$E2E_REG_PORT/charts" --plain-http >/dev/null; then
     kill "$pf" 2>/dev/null || true
+    E2E_REG_PF=
     fail "helm push to the e2e registry failed"
   fi
   kill "$pf" 2>/dev/null || true
@@ -62,12 +64,6 @@ stringData:
   enableOCI: "true"
   insecureOCIForceHttp: "true"
 EOS
-}
-
-# e2e_self_source_args: helm args that point keelson.selfSource at the e2e registry. An explicit
-# e2e override only: chart defaults and golden scenarios are unchanged (#129).
-e2e_self_source_args() {
-  printf '%s\n' --set "keelson.selfSource.repoURL=$E2E_REG_REPO" --set "keelson.selfSource.targetRevision=$E2E_CHART_VERSION"
 }
 
 # root_app_install: push the chart under test, register the registry with ArgoCD, apply the root.

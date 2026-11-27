@@ -103,6 +103,8 @@ run_exit_diagnostics() {
   if (( rc != 0 )); then collect_diagnostics; fi
   exit "$rc"
 }
+# A plain trap, not on_exit: nothing in this process calls on_exit. If that changes, move this to
+# on_exit, or the first on_exit call replaces it (and the registry port-forward cleanup with it).
 trap run_exit_diagnostics EXIT
 
 # 3. Install.
@@ -116,7 +118,7 @@ else
   if [[ "$MODULES" == profiles ]]; then
     # The profiles scenario has a component Application: serve the chart under test from the registry.
     e2e_registry_push
-    while IFS= read -r a; do self_source+=("$a"); done < <(e2e_self_source_args)
+    self_source=(--set "keelson.selfSource.repoURL=$E2E_REG_REPO" --set "keelson.selfSource.targetRevision=$E2E_CHART_VERSION")
   fi
   helm upgrade --install "$RELEASE" "$CHART" -n "$ARGOCD_NS" -f "$SCENARIO" ${self_source[@]+"${self_source[@]}"} "$@" >/dev/null
   expected="$(helm get manifest "$RELEASE" -n "$ARGOCD_NS" | grep -c '^kind: Application$' || true)"

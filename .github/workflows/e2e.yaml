@@ -56,8 +56,12 @@ jobs:
           if [ "$EVENT" != pull_request ]; then
             scope=profiles
           else
-            files="$(gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename')"
-            if printf '%s\n' "$files" | grep -Eq '^(charts/keelson/(modules/keelson-|templates/(components/|_component|component\.yaml|_translate_profiles|_engine\.tpl|applications\.yaml|appproject\.yaml)|values(\.schema)?\.(yaml|json))|tests/e2e/|tests/golden/profiles|\.github/workflows/e2e\.yaml)'; then
+            # On an API error, run profiles: it is the superset of core.
+            if ! files="$(gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename')"; then
+              echo "::warning::could not list the PR's files; running the profiles scope"
+              files="tests/e2e/"
+            fi
+            if printf '%s\n' "$files" | grep -Eq '^(charts/keelson/(modules/keelson-|templates/(components/|_component|component\.yaml|_translate_profiles|_engine\.tpl|applications\.yaml|appproject\.yaml)|values(\.schema)?\.(yaml|json))|tests/e2e/|tests/golden/profiles|\.github/workflows/e2e\.yaml|Makefile$)'; then
               scope=profiles
             fi
           fi

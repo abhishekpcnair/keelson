@@ -78,6 +78,6 @@ A component Application (`keelson-profiles`) pulls this chart from `keelson.self
 2. It creates the ArgoCD repository Secret for the registry. Only the harness makes this Secret. The chart never renders it.
 3. The helm mode passes `--set keelson.selfSource.repoURL=… --set keelson.selfSource.targetRevision=…`. The root-Application mode puts the same override in the root Application's values.
 
-The override exists only in the harness. The chart defaults, the golden scenarios and `check_rules.py` are unchanged.
+The override exists only in the harness. No chart default or golden scenario sets `keelson.selfSource`, and `check_rules.py` is unchanged.
 
 CI runs `profiles` on `main`, nightly, on manual runs, and on PRs that change the profiles component, the component engine (`source.type: keelson`), the e2e harness or its workflow. Other PRs run `core`.
