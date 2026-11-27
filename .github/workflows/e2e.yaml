@@ -9,6 +9,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  pull-requests: read   # the scope step lists a PR's changed files
 jobs:
   kind:
     # On a labeled event, run only when the label just added is needs-e2e.
@@ -40,7 +41,33 @@ jobs:
       # run.sh creates .cache/e2e/venv from tests/e2e/requirements.txt
       # PRs keep the helm install. main, the nightly run and workflow_dispatch use the root Application
       # (#22), which also asserts that the sync waves order the install.
-      - run: make e2e MODULES=core
+      # profiles is a superset of core. It runs on main, nightly, dispatch, and on PRs that change the
+      # profiles component, the component engine (source.type: keelson) or the e2e harness (#129).
+      # Other PRs run core.
+      - name: Choose the e2e scope
+        id: scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          scope=core
+          if [ "$EVENT" != pull_request ]; then
+            scope=profiles
+          else
+            # On an API error, run profiles: it is the superset of core.
+            if ! files="$(gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename')"; then
+              echo "::warning::could not list the PR's files; running the profiles scope"
+              files="tests/e2e/"
+            fi
+            if printf '%s\n' "$files" | grep -Eq '^(charts/keelson/(modules/keelson-|templates/(components/|_component|component\.yaml|_translate_profiles|_engine\.tpl|applications\.yaml|appproject\.yaml)|values(\.schema)?\.(yaml|json))|tests/e2e/|tests/golden/profiles|\.github/workflows/e2e\.yaml|Makefile$)'; then
+              scope=profiles
+            fi
+          fi
+          echo "modules=$scope" >> "$GITHUB_OUTPUT"
+          echo "e2e scope: $scope"
+      - run: make e2e MODULES=${{ steps.scope.outputs.modules }}
         env:
           E2E_INSTALL: ${{ github.event_name == 'pull_request' && 'helm' || 'root-app' }}
       # Profile namespaces get the Pod Security label and profileNamespaceLabels (#11). Needs no Helm

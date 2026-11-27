@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # E2E (#43): Dex opens an OIDC connector that Keelson configured.
-# Run it after `make e2e MODULES=core`, on the same cluster. It upgrades the Keelson release with
+# Run it after `make e2e` (helm install mode), on the same cluster. It upgrades the Keelson release with
 # tests/e2e/scenarios/auth-oidc/values.yaml, waits for the Dex pods that run the new config, and
 # checks the Dex log of those pods:
 #   - there is a "config connector" line for the connector, and
@@ -12,7 +12,7 @@
 # new config hash, so it never reads the log of an old pod.
 # On failure it writes the Dex log, the Deployment, the Application and the events to
 # .cache/e2e/diagnostics/auth-oidc/. At the end it deletes the test objects and upgrades the release
-# back to the core values.
+# back to the values it had before (any MODULES scope, with its --set overrides, #129).
 set -euo pipefail
 # shellcheck source=tests/e2e/lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -20,7 +20,6 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 ARGOCD_NS="${ARGOCD_NS:-argocd}"
 RELEASE=keelson
 CHART="$E2E_ROOT/charts/keelson"
-CORE="$E2E_ROOT/tests/golden/kind-core/values.yaml"
 SCENARIO="$E2E_ROOT/tests/e2e/scenarios/auth-oidc/values.yaml"
 ISSUER="${AUTH_OIDC_ISSUER:-https://kubernetes.default.svc}"
 CONNECTOR_ID=kind-api
@@ -30,7 +29,7 @@ BINDING=unauthenticated-oidc-viewer
 
 for bin in kubectl helm openssl; do command -v "$bin" >/dev/null || fail "missing '$bin' on PATH"; done
 kubectl -n "$ARGOCD_NS" get applications.argoproj.io dex >/dev/null 2>&1 \
-  || fail "no 'dex' Application; run 'make e2e MODULES=core' first"
+  || fail "no 'dex' Application; run 'make e2e' first"
 
 # Upstream's own binding (wrap, don't copy): the API server serves the issuer documents to
 # unauthenticated callers only with it. Delete it at the end only when this script created it.
@@ -55,7 +54,7 @@ cleanup() {
   if (( rc != 0 )); then diagnostics; fi
   log "Cleaning up"
   rm -f "$values"
-  helm upgrade "$RELEASE" "$CHART" -n "$ARGOCD_NS" -f "$CORE" >/dev/null 2>&1 || true
+  helm upgrade "$RELEASE" "$CHART" -n "$ARGOCD_NS" -f "$installed" >/dev/null 2>&1 || true
   # Wait until Dex runs the core config again (no keelson.io/dex-config annotation), so a rerun starts clean.
   for _ in $(seq 1 60); do
     [[ -z "$(kubectl -n auth get deployment dex -o jsonpath="$ANNOTATION" 2>/dev/null || true)" ]] && break
@@ -65,6 +64,11 @@ cleanup() {
   kubectl -n auth delete secret "$SECRET" --ignore-not-found >/dev/null 2>&1 || true
   exit "$rc"
 }
+# The values of the installed release (the MODULES scenario plus run.sh's --set overrides, such as
+# keelson.selfSource for MODULES=profiles). The upgrade adds the scenario on top; cleanup restores them.
+installed="$E2E_CACHE/auth-oidc-installed-values.yaml"
+mkdir -p "$E2E_CACHE"
+helm get values "$RELEASE" -n "$ARGOCD_NS" -o yaml >"$installed" || fail "could not read the values of release $RELEASE"
 trap cleanup EXIT
 
 # 1. The binding and a throwaway Secret with random values.
@@ -80,7 +84,7 @@ log "2/5 Upgrading Keelson with the auth-oidc scenario (issuer $ISSUER)"
 # Helm replaces a whole list, so --set cannot change one field of the connector. Use a copy of the file.
 sed "s|^\( *issuer: \).*|\1$ISSUER|" "$SCENARIO" >"$values"
 grep -q "issuer: $ISSUER" "$values" || fail "could not set the issuer in the scenario values"
-helm upgrade "$RELEASE" "$CHART" -n "$ARGOCD_NS" -f "$CORE" -f "$values" >/dev/null
+helm upgrade "$RELEASE" "$CHART" -n "$ARGOCD_NS" -f "$installed" -f "$values" >/dev/null
 
 # 3. Wait for the Dex pods that run the new config. The release manifest has the hash of the Dex config
 # (the keelson.io/dex-config annotation of the pod template). Wait until the Deployment has this hash,

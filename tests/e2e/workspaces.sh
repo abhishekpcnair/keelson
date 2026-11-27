@@ -106,9 +106,19 @@ elapsed=$(( $(date +%s) - start ))
 [[ "$GATEWAY_PORT" == 8080 ]] || fail "upstream's workspaces_test.sh uses localhost:8080; unset GATEWAY_PORT"
 port_forward_gateway
 # port_forward_gateway replaced our EXIT trap: stop the forward and delete the test Workspace.
-trap 'kill "$E2E_PF_PID" 2>/dev/null || true; kubectl delete -f "$FIXTURE" --ignore-not-found --wait=false >/dev/null 2>&1 || true' EXIT
-bash "$UP/tests/workspaces_test.sh" "$PROFILE" >/dev/null 2>&1 && ok "workspaces API: 200 for default-editor, 403 otherwise" \
-  || fail "upstream workspaces_test.sh failed (rerun it by hand for curl output)"
+# The upstream output has unredacted tokens: the trap deletes it on every exit.
+WS_API_LOG="$(mktemp)"
+trap 'kill "$E2E_PF_PID" 2>/dev/null || true; rm -f "$WS_API_LOG"; kubectl delete -f "$FIXTURE" --ignore-not-found --wait=false >/dev/null 2>&1 || true' EXIT
+if bash "$UP/tests/workspaces_test.sh" "$PROFILE" >"$WS_API_LOG" 2>&1; then
+  ok "workspaces API: 200 for default-editor, 403 otherwise"
+else
+  # The upstream script traces each command (set -x) and prints curl's verbose output. Show the end,
+  # with the ServiceAccount tokens (JWTs) redacted. The pattern covers only JWTs: if upstream ever
+  # prints other secrets (cookies, passwords), extend it.
+  echo "--- upstream workspaces_test.sh output (last 60 lines)"
+  tail -n 60 "$WS_API_LOG" | sed -E 's/eyJ[A-Za-z0-9._-]+/<token>/g; s/^/  /'
+  fail "upstream workspaces_test.sh failed"
+fi
 
 # 5. No caBundle fight: force a sync, then the webhook still has a CA and the app stays Synced.
 before="$(app workspaces '{.status.operationState.startedAt}')"
