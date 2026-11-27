@@ -7,8 +7,11 @@
 E2E_REG_PORT="${E2E_REG_PORT:-5555}"
 E2E_REG_REPO="registry.e2e-registry.svc:5000/charts"
 
-# root_app_install: push the chart under test, register the registry with ArgoCD, apply the root.
-root_app_install() {
+# e2e_registry_push: start the registry, push the chart under test, register the registry with
+# ArgoCD. Sets E2E_CHART_VERSION. Also used by the helm mode when the scenario has a component
+# Application (MODULES=profiles, ADR 0004): component Applications pull this chart from
+# keelson.selfSource, and the chart under test is not published (#129).
+e2e_registry_push() {
   kubectl apply -f "$E2E_ROOT/tests/e2e/registry.yaml" >/dev/null || fail "could not apply tests/e2e/registry.yaml"
   kubectl -n e2e-registry rollout status deployment/registry --timeout=180s >/dev/null \
     || fail "the e2e registry did not roll out"
@@ -16,7 +19,9 @@ root_app_install() {
   local base sha ver pkg tgz pf
   base="$(py -c "import yaml;print(yaml.safe_load(open('$CHART/Chart.yaml'))['version'])")"
   sha="$(git -C "$E2E_ROOT" rev-parse --short=8 HEAD)"
-  ver="$base-e2e.$sha"   # unique per commit, so no chart version is reused (R2 needs an exact version)
+  # Unique per run, so a rerun never reuses a chart version (ArgoCD caches by version). The "g" keeps
+  # an all-digit SHA that starts with 0 valid SemVer (R2 needs an exact version).
+  ver="$base-e2e.$(date +%s).g$sha"
   pkg="$E2E_CACHE/root-app"
   mkdir -p "$pkg"
   helm package "$CHART" --version "$ver" -d "$pkg" >/dev/null || fail "helm package failed"
@@ -25,16 +30,23 @@ root_app_install() {
   # Push through a port-forward. The forward lives only for this push.
   kubectl -n e2e-registry port-forward "svc/registry" "$E2E_REG_PORT:5000" >"$pkg/port-forward.log" 2>&1 &
   pf=$!
+  E2E_REG_PF=$pf   # run.sh's exit handler kills it, also on an interrupt or an early exit
+  local ready=0
   for _ in $(seq 1 30); do
-    curl -fsS -o /dev/null "http://localhost:$E2E_REG_PORT/v2/" && break
+    kill -0 "$pf" 2>/dev/null || fail "the registry port-forward exited ($(cat "$pkg/port-forward.log" 2>/dev/null))"
+    if curl -fs -o /dev/null "http://localhost:$E2E_REG_PORT/v2/"; then ready=1; break; fi
     sleep 1
   done
+  (( ready )) || fail "the e2e registry did not answer on localhost:$E2E_REG_PORT after 30 tries ($(cat "$pkg/port-forward.log" 2>/dev/null))"
   if ! helm push "$tgz" "oci://localhost:$E2E_REG_PORT/charts" --plain-http >/dev/null; then
     kill "$pf" 2>/dev/null || true
+    E2E_REG_PF=
     fail "helm push to the e2e registry failed"
   fi
   kill "$pf" 2>/dev/null || true
+  E2E_REG_PF=
   log "Pushed keelson $ver to the e2e registry"
+  E2E_CHART_VERSION="$ver"
 
   # Test-only repository Secret: ArgoCD reads the in-cluster registry over plain HTTP.
   kubectl apply -f - >/dev/null <<EOS || fail "could not create the e2e registry repository Secret"
@@ -52,12 +64,21 @@ stringData:
   enableOCI: "true"
   insecureOCIForceHttp: "true"
 EOS
+}
+
+# root_app_install: push the chart under test, register the registry with ArgoCD, apply the root.
+root_app_install() {
+  e2e_registry_push
+  local ver="$E2E_CHART_VERSION"
 
   # The root Application renders the chart under test with the same values as the helm mode.
-  py - "$SCENARIO" "$ARGOCD_NS" "$ver" <<'PYEOF' | kubectl apply -f - >/dev/null || fail "could not apply the root Application"
+  py - "$SCENARIO" "$ARGOCD_NS" "$ver" "$E2E_REG_REPO" <<'PYEOF' | kubectl apply -f - >/dev/null || fail "could not apply the root Application"
 import json, sys, yaml
-scenario, ns, ver = sys.argv[1], sys.argv[2], sys.argv[3]
+scenario, ns, ver, repo = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 values = yaml.safe_load(open(scenario)) or {}
+# Component Applications (ADR 0004) pull the chart from the same registry (#129).
+values.setdefault("keelson", {}).setdefault("selfSource", {}).update(
+    {"repoURL": repo, "targetRevision": ver})
 root = {
     "apiVersion": "argoproj.io/v1alpha1",
     "kind": "Application",
@@ -65,7 +86,7 @@ root = {
     "spec": {
         "project": "default",
         "source": {
-            "repoURL": "registry.e2e-registry.svc:5000/charts",
+            "repoURL": repo,
             "chart": "keelson",
             "targetRevision": ver,
             "helm": {"releaseName": "keelson", "valuesObject": values},
