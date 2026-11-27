@@ -36,7 +36,7 @@ For the full default values, see `charts/keelson/values.yaml`.
 | `auth.dex.connectors[].allowedGroups` | array | — | — | microsoft: only members may log in. |
 | `auth.dex.connectors[].emailToLowercase` | boolean | true | — | microsoft: Kubeflow compares user emails case-sensitively. |
 | `auth.dex.connectors[].enterprise` | object | — | — | github: GitHub Enterprise Server. Without it, the connector uses github.com. |
-| `auth.dex.connectors[].enterprise.hostName` | string, required | — | pattern `^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*(:[0-9]{1,5})?$` | Host name of the server, lowercase. No scheme and no path. A :port is allowed. |
+| `auth.dex.connectors[].enterprise.hostName` | string, required | — | max length 259; pattern `^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*(:[0-9]{1,5})?$` | Host name of the server, lowercase. No scheme and no path. A :port is allowed (not range-checked). |
 | `auth.dex.connectors[].enterprise.rootCASecretRef` | object | — | — | Optional. Secret in namespace auth with the server's CA certificate. Without it, Dex uses the system CAs. The Secret must exist, or Dex does not start. |
 | `auth.dex.connectors[].enterprise.rootCASecretRef.key` | string | "ca.crt" | pattern `^[-._a-zA-Z0-9]+$` | Key of the PEM CA certificate in the Secret. |
 | `auth.dex.connectors[].enterprise.rootCASecretRef.name` | string, required | — | max length 253; pattern `^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$` | Secret in namespace auth. A name only. |

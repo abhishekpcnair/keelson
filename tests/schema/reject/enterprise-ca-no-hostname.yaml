@@ -1,0 +1,11 @@
+# expect: /auth/dex/connectors/0/enterprise
+# rootCA needs hostName: Dex rejects a rootCA without it (#46).
+domain: kubeflow.example.com
+auth:
+  dex:
+    connectors:
+      - type: github
+        id: ghe
+        secretRef: { name: dex-ghe }
+        orgs: [{ name: my-org }]
+        enterprise: { rootCASecretRef: { name: ghe-ca } }

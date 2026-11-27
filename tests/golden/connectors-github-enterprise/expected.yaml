@@ -337,7 +337,7 @@ spec:
       - patch: |-
           # purpose: restart Dex when its config changes; pass connector client IDs and secrets from the user's Secret; mount GitHub Enterprise CA Secrets
           # upstream: none
-          # remove-when: never (Keelson intent: auth.dex.connectors[].secretRef)
+          # remove-when: never (Keelson intent: auth.dex.connectors[].secretRef and enterprise.rootCASecretRef)
           apiVersion: apps/v1
           kind: Deployment
           metadata:
@@ -606,6 +606,53 @@ spec:
   project: keelson
   source:
     path: applications/dashboard/overlays/istio
+    repoURL: https://github.com/kubeflow/manifests
+    targetRevision: 26.10.0
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+      limit: 10
+    syncOptions:
+    - ServerSideApply=true
+    - CreateNamespace=true
+    - RespectIgnoreDifferences=true
+
+---
+# Source: keelson/templates/applications.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: pipelines
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: pipelines
+  annotations:
+    argocd.argoproj.io/sync-wave: "20"
+spec:
+  destination:
+    namespace: kubeflow
+    server: https://kubernetes.default.svc
+  ignoreDifferences:
+  - group: rbac.authorization.k8s.io
+    jsonPointers:
+    - /rules
+    kind: ClusterRole
+    name: kubeflow-pipelines-edit
+  - group: rbac.authorization.k8s.io
+    jsonPointers:
+    - /rules
+    kind: ClusterRole
+    name: kubeflow-pipelines-view
+  project: keelson
+  source:
+    path: applications/pipeline/overlays
     repoURL: https://github.com/kubeflow/manifests
     targetRevision: 26.10.0
   syncPolicy:

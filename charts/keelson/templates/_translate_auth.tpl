@@ -100,6 +100,7 @@ upstream (static users on, no connectors).
 {{- $list := list -}}
 {{- $env := list -}}
 {{- $volumes := list -}}
+{{- $volSeen := dict -}}
 {{- $mounts := list -}}
 {{- range $connectors -}}
 {{- if hasKey $seen .id -}}{{- fail (printf "auth.dex.connectors: duplicate id %q" .id) -}}{{- end -}}
@@ -114,6 +115,8 @@ upstream (static users on, no connectors).
 {{- /* "ca-<id>" can pass the 63-character volume name limit: use a short hash of the id.
        Not optional: a missing Secret stops Dex loudly, not one connector quietly. */ -}}
 {{- $vol := printf "ca-%s" (trunc 8 (sha256sum .id)) -}}
+{{- if hasKey $volSeen $vol -}}{{- fail (printf "auth.dex.connectors[%s]: CA volume name %s collides with connector %s; rename one connector id" .id $vol (get $volSeen $vol)) -}}{{- end -}}
+{{- $_ := set $volSeen $vol .id -}}
 {{- $volumes = append $volumes (dict "name" $vol "secret" (dict "secretName" $ca.name "items" (list (dict "key" ($ca.key | default "ca.crt") "path" "ca.crt")))) -}}
 {{- $mounts = append $mounts (dict "name" $vol "mountPath" (printf "/etc/dex/ca/%s" .id) "readOnly" true) -}}
 {{- end -}}
@@ -215,7 +218,7 @@ envFrom[1] (dex-passwords) stays.
 {{- define "keelson.translate.auth.deployment" -}}
 # purpose: restart Dex when its config changes; pass connector client IDs and secrets from the user's Secret{{ if .volumes }}; mount GitHub Enterprise CA Secrets{{ end }}
 # upstream: none
-# remove-when: never (Keelson intent: auth.dex.connectors[].secretRef)
+# remove-when: never (Keelson intent: auth.dex.connectors[].secretRef{{ if .volumes }} and enterprise.rootCASecretRef{{ end }})
 apiVersion: apps/v1
 kind: Deployment
 metadata:

@@ -1,0 +1,11 @@
+# expect: invalid propertyName 'enterprise'
+# enterprise is for type github only (#46).
+domain: kubeflow.example.com
+auth:
+  dex:
+    connectors:
+      - type: microsoft
+        id: entra
+        tenant: 00000000-0000-0000-0000-000000000000
+        secretRef: { name: dex-entra }
+        enterprise: { hostName: ghe.example.com }

@@ -180,7 +180,7 @@ auth:
 
 - Create a GitHub OAuth app with the callback URL `https://<domain>/dex/callback`.
 - `orgs` is required. Without it, any GitHub user could log in. `extraConfig` cannot set `orgs`,
-  `org`, `hostName` or `rootCA`, in any letter case.
+  `org`, `hostName` or `rootCA`, in any letter case. Use `enterprise` for those ([below](#github-enterprise-server)).
 - Dex asks for the `read:org` scope. An org owner may need to approve the app for the org.
 - Groups come back as `<org>:<team-slug>`, for example `my-org:ml-platform`.
 
