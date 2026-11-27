@@ -1,0 +1,22 @@
+name: pipelines
+wave: 20
+source:
+  type: kustomize
+  path: applications/pipeline/overlays   # multi-user KFP, bundled SeaweedFS + MySQL (not for production)
+namespace: kubeflow
+namespaces: [kubeflow]
+dependsOn: [dashboard, cert-manager-kubeflow, istio, kubeflow-istio-resources, kubeflow-roles]
+defaultEnabled: true
+# The VirtualService binds to kubeflow-gateway, so `domain`/TLS (#5) apply with no patch here.
+# Storage and database translations: #12b, #12c.
+translations: []
+smokeTest: tests/e2e/pipelines.sh
+upstreamHelmChart: applications/pipeline/helm   # Draft; ADR 0002
+# Aggregated ClusterRoles: the RBAC controller fills in .rules at runtime (the same as kubeflow-roles).
+# Found by the kind run on PR #121: without this, the Application stays OutOfSync. Listed by name, so
+# drift on other roles still shows. These are the only two aggregated roles in the built overlay.
+# No entry for cache-webhook-kubeflow: upstream omits its caBundle (cainjector fills it), and ArgoCD
+# does not compare fields the desired manifest omits.
+ignoreDifferences:
+  - {group: rbac.authorization.k8s.io, kind: ClusterRole, name: kubeflow-pipelines-edit, jsonPointers: [/rules]}
+  - {group: rbac.authorization.k8s.io, kind: ClusterRole, name: kubeflow-pipelines-view, jsonPointers: [/rules]}

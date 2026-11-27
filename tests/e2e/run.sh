@@ -22,7 +22,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/lib/root-app.sh"
 
 MODULES="${1:-core}"
-E2E_INSTALL="${E2E_INSTALL:-helm}"
+export E2E_INSTALL="${E2E_INSTALL:-helm}"   # smoke tests read it (pipelines.sh)
 case "$E2E_INSTALL" in helm|root-app) ;; *) fail "unknown E2E_INSTALL '$E2E_INSTALL' (use helm or root-app)" ;; esac
 shift || true
 E2E_TIMEOUT="${E2E_TIMEOUT:-30m}"
@@ -78,8 +78,8 @@ kd() { kubectl --request-timeout=20s "$@"; }
 collect_diagnostics() {
   rm -rf "$DIAG"; mkdir -p "$DIAG"
   log "Collecting diagnostics into $DIAG"
-  kd -n "$ARGOCD_NS" get applications -l app.kubernetes.io/part-of=keelson -o wide >"$DIAG/applications.txt" 2>&1 || true
-  kd -n "$ARGOCD_NS" get applications -l app.kubernetes.io/part-of=keelson -o yaml >"$DIAG/applications.yaml" 2>&1 || true
+  kd -n "$ARGOCD_NS" get applications.argoproj.io -l app.kubernetes.io/part-of=keelson -o wide >"$DIAG/applications.txt" 2>&1 || true
+  kd -n "$ARGOCD_NS" get applications.argoproj.io -l app.kubernetes.io/part-of=keelson -o yaml >"$DIAG/applications.yaml" 2>&1 || true
   kd get pods -A --field-selector=status.phase!=Running,status.phase!=Succeeded -o wide >"$DIAG/pods-not-running.txt" 2>&1 || true
   kd get events -A --sort-by=.lastTimestamp >"$DIAG/events.txt" 2>&1 || true
   kd -n auth logs -l app=dex --all-containers --tail=500 >"$DIAG/dex.log" 2>&1 || true
@@ -120,7 +120,7 @@ log "Waiting up to $E2E_TIMEOUT for $expected Applications to be Synced and Heal
 start=$SECONDS
 while :; do
   # A failed or timed-out read counts as "API not answering" and is retried until the deadline.
-  status="$({ kd -n "$ARGOCD_NS" get applications -l app.kubernetes.io/part-of=keelson -o json 2>/dev/null || true; } \
+  status="$({ kd -n "$ARGOCD_NS" get applications.argoproj.io -l app.kubernetes.io/part-of=keelson -o json 2>/dev/null || true; } \
     | py -c '
 import json, sys
 try:
@@ -156,7 +156,7 @@ fi
 # 5. Smoke tests: the distinct smokeTest paths of the enabled modules, in wave order.
 # Capture the list first. With `done < <(...)`, a failure inside the substitution is silent,
 # and the run would pass with no smoke tests.
-smoke_list="$(kd -n "$ARGOCD_NS" get applications -l app.kubernetes.io/part-of=keelson \
+smoke_list="$(kd -n "$ARGOCD_NS" get applications.argoproj.io -l app.kubernetes.io/part-of=keelson \
   -o jsonpath='{range .items[*]}{.metadata.labels.keelson\.io/module}{"\n"}{end}' \
   | py -c '
 import sys, yaml, pathlib

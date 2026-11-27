@@ -84,7 +84,7 @@ PYEOF
 # later self-heal sync cannot cause a false failure. Prints a table, then fails on any violation.
 assert_wave_order() {
   local json
-  json="$(kd -n "$ARGOCD_NS" get applications -l app.kubernetes.io/part-of=keelson -o json)" \
+  json="$(kd -n "$ARGOCD_NS" get applications.argoproj.io -l app.kubernetes.io/part-of=keelson -o json)" \
     || fail "could not read the Applications for the wave-order check"
   py "$E2E_ROOT/tests/e2e/lib/wave_order.py" <<<"$json" || fail "sync-wave order is not respected (see the table above)"
   log "Sync-wave order holds for every wave pair"
