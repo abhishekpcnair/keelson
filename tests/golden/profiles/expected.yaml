@@ -512,7 +512,10 @@ spec:
     chart: keelson
     helm:
       valuesObject:
+        auth:
+          serviceAccountIssuers: []
         component: profiles
+        platform: kind
         profiles:
         - contributors:
           - bob@example.com

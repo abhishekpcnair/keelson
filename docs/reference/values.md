@@ -62,6 +62,9 @@ For the full default values, see `charts/keelson/values.yaml`.
 | `auth.oidcClient` | object | — | — | The OIDC client that oauth2-proxy uses to log in with Dex. Both components must read the same client ID and secret. |
 | `auth.oidcClient.secretRef` | object | — | — | Secret with keys client-id and client-secret. Create it in both namespaces auth and oauth2-proxy. Keelson never creates it. Required with environment production. |
 | `auth.oidcClient.secretRef.name` | string | — | not matching `^(oauth2-proxy\|dex-oidc-client)$` | Secret name. Not oauth2-proxy and not dex-oidc-client: those names are upstream's generated Secrets. |
+| `auth.serviceAccountIssuers` | array | — | unique items | Kubernetes service-account token issuers that profile namespaces with groups accept, so m2m tokens don't get 401. Empty on platform kind means the two Kind issuers. Required on platform generic when a profile has groups (checked at render time). See docs/configuration/profiles.md. |
+| `auth.serviceAccountIssuers[].issuer` | string, required | — | format `uri`; pattern `^https?://[^\s]+$` | The iss claim of the cluster's service-account tokens (kubectl get --raw /.well-known/openid-configuration). |
+| `auth.serviceAccountIssuers[].jwksUri` | string | — | format `uri`; pattern `^https?://[^\s]+$` | Where istiod fetches the signing keys, without authentication. Omit it to use the jwks_uri from the issuer's OIDC discovery, which istiod must also reach without authentication. |
 | `auth.staticUsers` | object | — | — | Static user settings. |
 | `auth.staticUsers.enabled` | boolean | — | — | Upstream static user user@example.com. Kind and dev only. |
 
@@ -148,7 +151,9 @@ For the full default values, see `charts/keelson/values.yaml`.
 |---|---|---|---|---|
 | `profiles` | array | — | — | Kubeflow profiles as code. Names must be unique (checked at render time). |
 | `profiles[].contributors` | array | — | — | Emails with edit access (ClusterRole kubeflow-edit), as the dashboard's Manage contributors adds them. |
-| `profiles[].groups` |  | — | — | Not supported yet. Rejected at render time; see issue #28. |
+| `profiles[].groups` | array | — | — | IdP groups with access to this namespace: Kubernetes RBAC, Workspaces and workload network access. Not the dashboard namespace list or Pipelines. Names must be unique in the profile (checked at render time). See docs/configuration/profiles.md. |
+| `profiles[].groups[].name` | string, required | — | max length 256; min length 1; pattern `^[^*].*[^*]$\|^[^*]$` | Group name exactly as the IdP emits it in the groups claim. Can't start or end with *: Istio reads that as a wildcard. |
+| `profiles[].groups[].role` | string | "edit" | one of `edit`, `view` | edit (ClusterRole kubeflow-edit) or view (ClusterRole kubeflow-view). |
 | `profiles[].name` | string, required | — | max length 63; pattern `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$` | Profile and namespace name (DNS-1123 label). |
 | `profiles[].owner` | string, required | — | pattern `^[^@\s]+@[^@\s]+\.[^@\s]+$` | Owner email: the kubeflow-userid header value. |
 | `profiles[].viewers` | array | — | — | Emails with view access (ClusterRole kubeflow-view). |

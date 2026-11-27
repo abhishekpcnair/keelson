@@ -63,6 +63,24 @@ Set `AUTH_OIDC_ISSUER` to try another issuer. A bad URL makes the script fail at
 
 On failure it writes diagnostics to `.cache/e2e/diagnostics/tls-selfsigned/`. At the end it upgrades the release back to the values it had before, and deletes the `Certificate` and the Secret. Set `TLS_PORT` to use another local port.
 
+### Groups (`groups.sh`, #66)
+
+`groups.sh` runs after `make e2e MODULES=profiles`, on the same cluster. It needs the `keelson.selfSource` override that `run.sh` sets for that scope.
+1. `idp-keycloak.sh` starts upstream's test Keycloak from `.cache/upstream/<tag>/tests/keycloak` (`keycloak.yaml` and `realm.json` only). It adds a throwaway admin with a random password, and uses the admin API to allow the Dex callback and turn off PKCE for the client.
+2. The release is upgraded with `tests/e2e/scenarios/groups/values.yaml`: a Dex `oidc` connector to Keycloak, and a profile `keelson-e2e-groups` with `groups: [kubeflow-users]` and another owner.
+3. `kubectl auth can-i create pods` is `yes` for `user@example.com` with the group, and `no` without it.
+4. m2m: a pod in the namespace (the registry image from `registry.yaml`, pinned by digest) calls itself through its Service. A malformed token must get `401`. A service-account token must not.
+5. `groups.py` logs in through Dex and Keycloak. The Workspaces API gives `200`, and the dashboard does not list the namespace (the documented caveat).
+6. It adds a second group to the user and logs in again. It prints the Workspaces status for the comma-joined groups header (#28) as a `comma-caveat` JSON line. This step records the result. It does not fail on it.
+
+`groups.py` resolves `kubeflow.example.com` and the Keycloak host to `127.0.0.1` itself, so you don't need to change `/etc/hosts`. On failure it writes diagnostics to `.cache/e2e/diagnostics/groups/`. At the end it deletes the test objects and the test profile, and upgrades the release back to the values it had before.
+
+```sh
+make e2e MODULES=profiles && tests/e2e/groups.sh
+```
+
+CI does not run `groups.sh`: it starts Keycloak and logs in twice, which adds a lot to the `profiles` job. Run it by hand for each release (`docs/release-checklist.md`) and for any PR that changes group access.
+
 ## When it fails
 
 `run.sh` exits non-zero and writes diagnostics to `.cache/e2e/diagnostics/`: Application status, pods that aren't running, events, and Dex, oauth2-proxy and ArgoCD controller logs. For gateway denials (#139) it also writes `istio-pods.txt`, `istiod.log`, `istio-ingressgateway.log` and `gateway-stats-<pod>.txt` (Envoy `rbac` counters; Istio does not expose `jwt_authn` or `ext_authz` filter stats by default). In CI they are uploaded as the `e2e-diagnostics` artifact.

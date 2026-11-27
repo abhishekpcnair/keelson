@@ -8,7 +8,7 @@ Fields:
 - `name`, `wave`, `defaultEnabled`, `dependsOn`
 - `source.type`: `kustomize` (ADR 0002) or `keelson` (ADR 0004)
   - `kustomize`: `source.path`, and optional `source.platformPaths` (keyed by `platform`)
-  - `keelson`: `source.component` (renders `templates/components/<component>.yaml`) and `source.values` (the values keys copied into `helm.valuesObject`). If every one of those keys is empty, the module renders no Application. Optional `source.namespacesFrom`: a values list whose items' `name`s are added to the AppProject destinations. Add the component name to the `component` enum in `values.schema.json`.
+  - `keelson`: `source.component` (renders `templates/components/<component>.yaml`) and `source.values` (the values keys copied into `helm.valuesObject`). If every one of those keys is empty, the module renders no Application. Optional `source.context`: more values keys (dotted paths allowed, for example `auth.serviceAccountIssuers`) copied into `helm.valuesObject`; they never make the module render an Application. Optional `source.namespacesFrom`: a values list whose items' `name`s are added to the AppProject destinations. Add the component name to the `component` enum in `values.schema.json`.
 - `namespace`: the Application destination namespace
 - `namespaces`: every namespace the path writes to, which builds the AppProject allowlist (checked by `make namespaces`)
 - `translations`: names of translation helpers (`templates/_translate_<name>.tpl`). The engine calls

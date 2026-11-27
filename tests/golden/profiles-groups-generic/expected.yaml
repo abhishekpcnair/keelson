@@ -1,0 +1,115 @@
+---
+# Source: keelson/templates/components/profiles.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: keelson-group-ml-vision-af85176f-edit
+  namespace: team-vision
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: keelson-profiles
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    keelson.io/group: "ml-vision"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kubeflow-edit
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: "ml-vision"
+
+---
+# Source: keelson/templates/components/profiles.yaml
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: keelson-groups
+  namespace: team-vision
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: keelson-profiles
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            requestPrincipals:
+              - "http://dex.auth.svc.cluster.local:5556/dex/*"
+      when:
+        - key: request.auth.claims[groups]
+          values:
+            - "ml-vision"
+
+---
+# Source: keelson/templates/components/profiles.yaml
+apiVersion: kubeflow.org/v1
+kind: Profile
+metadata:
+  name: "team-vision"
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: keelson-profiles
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+    # Removing a profile from values must never delete its namespace or data.
+    argocd.argoproj.io/sync-options: Prune=false
+spec:
+  owner:
+    kind: User
+    name: "alice@example.com"
+
+---
+# Source: keelson/templates/components/profiles.yaml
+apiVersion: kubeflow.org/v1
+kind: Profile
+metadata:
+  name: "team-empty"
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: keelson-profiles
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+    # Removing a profile from values must never delete its namespace or data.
+    argocd.argoproj.io/sync-options: Prune=false
+spec:
+  owner:
+    kind: User
+    name: "bob@example.com"
+
+---
+# Source: keelson/templates/components/profiles.yaml
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: keelson-groups
+  namespace: team-vision
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: keelson-profiles
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  # No selector: every workload in the namespace.
+  jwtRules:
+    - issuer: "http://dex.auth.svc.cluster.local:5556/dex"
+      jwksUri: "http://dex.auth.svc.cluster.local:5556/dex/keys"
+      forwardOriginalToken: true
+      # As upstream's dex-jwt and m2m-token-issuer: the Authorization header only.
+      fromHeaders:
+        - name: Authorization
+          prefix: "Bearer "
+    - issuer: "https://oidc.prod-aks.azure.com/00000000-0000-0000-0000-000000000000/"
+      jwksUri: "https://oidc.prod-aks.azure.com/00000000-0000-0000-0000-000000000000/openid/v1/jwks"
+      forwardOriginalToken: true
+      fromHeaders:
+        - name: Authorization
+          prefix: "Bearer "
+    - issuer: "https://kubernetes.default.svc.cluster.local"
+      forwardOriginalToken: true
+      fromHeaders:
+        - name: Authorization
+          prefix: "Bearer "

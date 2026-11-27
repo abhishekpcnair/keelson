@@ -26,6 +26,7 @@ After the release:
 
 Other checks:
 - [ ] `main` CI green: verify, the e2e run on `main` (the nightly run is opt-in: repository variable `NIGHTLY_E2E`), upstream-watch shows no pending bump older than four weeks
+- [ ] Groups on Kind, by hand (CI does not run it): `make e2e MODULES=profiles && tests/e2e/groups.sh` passes. Check its `comma-caveat` line against `docs/configuration/profiles.md`
 - [ ] AKS manual test with the `aks-entra-external` scenario:
   - [ ] Fresh AKS cluster, existing ArgoCD, `helm install` from the release candidate
   - [ ] Log in with Entra ID; group → profile mapping works (applies once #28 settles how groups map to profiles)

@@ -30,7 +30,7 @@ Keelson combines the engine from the third project, the phasing from the second 
 ### Goals (v0.1)
 1. One `helm install` plus ArgoCD gives a working multi-user Kubeflow on Kind and on AKS.
 2. The config surface is one `values.yaml`, validated by `values.schema.json`.
-3. Identity uses Dex and oauth2-proxy, with connectors for Entra ID, generic OIDC, GitHub and static test users. Group claims map to profiles.
+3. Identity uses Dex and oauth2-proxy, with connectors for Entra ID, generic OIDC, GitHub and static test users. Group claims map to profiles. v0.1 caveat: groups grant Kubernetes RBAC, Workspaces and workload network access. The dashboard namespace list and Pipelines still need per-user bindings.
 4. Profiles, and who belongs to them, are declared in values.
 5. Profile namespaces get a Pod Security baseline and default labels from upstream's profile controller; `profileNamespaceLabels` adds labels. Kyverno is optional and, if needed, handles secret distribution only (decided after the #12 external-storage spike).
 6. Core modules: dashboard and profiles, Pipelines, Workspaces (Notebooks v2), plus their dependencies (cert-manager, Istio, Knative only if needed).
@@ -115,7 +115,7 @@ profiles:
     owner: alice@example.com
     contributors: [ bob@example.com ]
     viewers: [ carol@example.com ]
-    # groups: [ "ml-vision" ]        # not yet: #28
+    groups: [ { name: ml-vision, role: edit } ]   # RBAC, Workspaces, workload access (#66)
 storage:
   objectStore: bundled               # bundled | external
   external: { endpoint: "", bucket: "", secretRef: {} }
@@ -190,7 +190,7 @@ A module is accepted only if it has a golden test scenario, a smoke test (or a d
 - The default is oauth2-proxy with Dex, because upstream tests that combination. Dex brokers to the user's IdP and is not used as a user database.
 - Connectors come from values: Entra ID (`microsoft`), generic OIDC, GitHub, Google, LDAP. Client secrets are referenced through `secretRef` and never inlined.
 - Profiles, owners, contributors and viewers come from `profiles[]` (#9). Contributor and viewer access uses KFAM's exact RoleBinding and AuthorizationPolicy shape, so the dashboard shows it.
-- Group claims → profiles (`profiles[].groups`) is not in yet. No upstream component honours groups at 26.10.0. The spike and the upstream ask are #28.
+- Group claims → profiles (`profiles[].groups`, #66, option a from #28). For each profile with groups, Keelson renders a group `RoleBinding` for each group, a namespace `RequestAuthentication` and an ALLOW `AuthorizationPolicy` on `request.auth.claims[groups]`. The `RequestAuthentication` lists the Dex issuer and the cluster's service-account issuers (`auth.serviceAccountIssuers`; Kind default from `platform`), or m2m tokens get 401. Namespaces without groups don't change. KFAM, the dashboard and Pipelines don't read groups at 26.10.0, so those still need `contributors` or `viewers` (goal 3 caveat). The upstream asks are in #28.
 - Static users exist for Kind/CI only. The schema rejects them when `environment: production`, which also requires a connector.
 - With `environment: production`, oauth2-proxy and Dex read their client and cookie secrets from Secrets that the user makes (`auth.oidcClient`, `auth.cookie`), not from upstream's public literals. Keelson never creates these Secrets.
 - Connectors are added by replacing upstream's Dex `config.yaml` (the upstream-documented way). The re-stated upstream keys are checked against the pinned tag by `make kustomize-check`. The issuer stays in-cluster.

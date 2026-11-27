@@ -1,4 +1,5 @@
-# expect: group → profile mapping is not supported yet
-# groups is not supported yet.
+# expect: /profiles/0/groups/0
+# A group is an object with name (and role), not a string.
+platform: kind
 profiles:
   - {name: t, owner: a@x.com, groups: [x]}

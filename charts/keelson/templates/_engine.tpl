@@ -47,6 +47,8 @@ skip, is never enabled.
 {{- if not (and (kindIs "string" $m.source.component) $m.source.component) -}}{{- fail (printf "%s: source.component must be a non-empty string" $path) -}}{{- end -}}
 {{- if not (and (kindIs "slice" $m.source.values) $m.source.values) -}}{{- fail (printf "%s: source.values must be a non-empty list" $path) -}}{{- end -}}
 {{- if hasKey $m.source "path" -}}{{- fail (printf "%s: source.path is not allowed for source.type keelson" $path) -}}{{- end -}}
+{{- if and (hasKey $m.source "context") (not (kindIs "slice" $m.source.context)) -}}{{- fail (printf "%s: source.context must be a list" $path) -}}{{- end -}}
+{{- range $m.source.context -}}{{- if not (and (kindIs "string" .) .) -}}{{- fail (printf "%s: source.context items must be non-empty strings (values keys, dotted paths allowed)" $path) -}}{{- end -}}{{- end -}}
 {{- else -}}
 {{- fail (printf "%s: source.type %q is not supported (kustomize: ADR 0002, keelson: ADR 0004)" $path $m.source.type) -}}
 {{- end -}}
@@ -188,11 +190,26 @@ targetRevision: {{ $s.targetRevision | default .Chart.Version | quote }}
 {{/*
 keelson.componentValues: the helm.valuesObject of a component Application: the
 component name plus a copy of only the values keys it needs (ADR 0004 point 3).
+`source.context` keys are copied too. They may be dotted paths (auth.x), and
+they never make an empty component render an Application.
 Call with (dict "root" $ "module" $m).
 */}}
 {{- define "keelson.componentValues" -}}
 {{- $out := dict "component" .module.source.component -}}
 {{- range .module.source.values -}}{{- $_ := set $out . (get $.root.Values . | deepCopy) -}}{{- end -}}
+{{- range .module.source.context -}}
+{{- $parts := splitList "." . -}}
+{{- $v := $.root.Values -}}
+{{- $key := . -}}
+{{- range $parts -}}{{- if kindIs "map" $v -}}{{- $v = get $v . -}}{{- else -}}{{- $v = "" -}}{{- end -}}{{- end -}}
+{{- $node := $out -}}
+{{- range initial $parts -}}
+{{- if not (hasKey $node .) -}}{{- $_ := set $node . dict -}}{{- end -}}
+{{- $node = get $node . -}}
+{{- if not (kindIs "map" $node) -}}{{- fail (printf "source.context %q: %s is already copied as a value, not a map" $key .) -}}{{- end -}}
+{{- end -}}
+{{- $_ := set $node (last $parts) (deepCopy $v) -}}
+{{- end -}}
 {{- toYaml $out -}}
 {{- end -}}
 

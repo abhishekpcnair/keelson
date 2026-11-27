@@ -1,0 +1,8 @@
+# expect: is the Dex issuer; Keelson adds it itself
+# Dex is always in the namespace RequestAuthentication; listing it again duplicates the rule.
+component: profiles
+auth:
+  serviceAccountIssuers:
+    - issuer: http://dex.auth.svc.cluster.local:5556/dex
+profiles:
+  - { name: team-a, owner: a@example.com, groups: [ { name: ml } ] }

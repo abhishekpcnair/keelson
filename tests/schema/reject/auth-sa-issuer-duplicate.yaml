@@ -1,0 +1,6 @@
+# expect: items at 0 and 1 are equal
+# The same issuer twice gives two jwtRules with one issuer.
+auth:
+  serviceAccountIssuers:
+    - issuer: https://kubernetes.default.svc
+    - issuer: https://kubernetes.default.svc

@@ -114,6 +114,33 @@ spec: {template: {spec: {containers: [{name: server, env: [{name: DBCONFIG_USER,
         self.assertFalse(kc.external_db([{"target": {"name": "pipeline-install-config"}, "patch": "data: {}"}]))
 
 
+M2M = """
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata: {name: m2m-token-issuer, namespace: istio-system}
+spec:
+  jwtRules:
+  - {issuer: https://a, jwksUri: http://j/a}
+  - {issuer: https://b, jwksUri: http://j/b}
+"""
+
+
+class KindServiceAccountIssuers(unittest.TestCase):
+    def test_template_pairs_match_the_chart(self):
+        ours = kc.kind_sa_issuers(kc.PROFILES_TEMPLATE.read_text())
+        self.assertEqual(len(ours), 2)
+        self.assertTrue(all(i and j for i, j in ours))
+
+    def test_equal_passes(self):
+        self.assertEqual(kc.check_kind_sa_issuers([("https://a", "http://j/a"), ("https://b", "http://j/b")], M2M), [])
+
+    def test_changed_jwks_uri_fails(self):
+        self.assertIn("differ", kc.check_kind_sa_issuers([("https://a", "http://j/a"), ("https://b", "http://x")], M2M)[0])
+
+    def test_missing_request_authentication_fails(self):
+        self.assertIn("no RequestAuthentication", kc.check_kind_sa_issuers([("https://a", "http://j/a")], "kind: ConfigMap\nmetadata: {name: x}\n")[0])
+
+
 if __name__ == "__main__":
     unittest.main()
 

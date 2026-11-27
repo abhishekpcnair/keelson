@@ -22,6 +22,56 @@ principals:
 {{- end -}}
 
 {{/*
+Dex and Kind constants for group access (#66, #28).
+- Dex issuer: from keelson.dex.upstreamConfig, which `make kustomize-check` keeps
+  equal to upstream. Its JWKS is <issuer>/keys, served in-cluster by the dex Service.
+- Kind service-account issuers: upstream common/oauth2-proxy/overlays/m2m-dex-and-kind,
+  RequestAuthentication m2m-token-issuer. `make kustomize-check` fails if the
+  built jwtRules (issuer, jwksUri) differ from kindServiceAccountIssuers.
+*/}}
+{{- define "keelson.profiles.kindServiceAccountIssuers" -}}
+- issuer: https://kubernetes.default.svc.cluster.local
+  jwksUri: http://cluster-jwks-proxy.istio-system.svc.cluster.local/openid/v1/jwks
+- issuer: https://kubernetes.default.svc
+  jwksUri: http://cluster-jwks-proxy.istio-system.svc.cluster.local/openid/v1/jwks
+{{- end -}}
+
+{{/* keelson.profiles.groupAuth: the Dex issuer and JWKS URL, and the Kind issuers. YAML map. */}}
+{{- define "keelson.profiles.groupAuth" -}}
+{{- $issuer := (include "keelson.dex.upstreamConfig" . | fromYaml).issuer -}}
+{{- $out := dict "dex" (dict "issuer" $issuer "jwksUri" (printf "%s/keys" $issuer)) -}}
+{{- $_ := set $out "kindServiceAccountIssuers" (include "keelson.profiles.kindServiceAccountIssuers" . | fromYamlArray) -}}
+{{- toYaml $out -}}
+{{- end -}}
+
+{{/*
+keelson.profiles.serviceAccountIssuers: auth.serviceAccountIssuers, or the two
+Kind issuers when it is empty and platform is kind (#66 D3). YAML list.
+*/}}
+{{- define "keelson.profiles.serviceAccountIssuers" -}}
+{{- $sa := (.Values.auth).serviceAccountIssuers | default list -}}
+{{- if and (not $sa) (eq .Values.platform "kind") -}}
+{{- $sa = (include "keelson.profiles.groupAuth" . | fromYaml).kindServiceAccountIssuers -}}
+{{- end -}}
+{{- toYaml $sa -}}
+{{- end -}}
+
+{{/*
+keelson.profiles.groupBindingName: (dict "name" group "role" edit|view) →
+keelson-group-<sanitized>-<hash8>-<role>. The hash of the exact group name keeps
+names that sanitize the same apart (GitHub org:team and org-team).
+*/}}
+{{- define "keelson.profiles.groupBindingName" -}}
+{{- $s := regexReplaceAll "[^a-z0-9]+" (lower .name) "-" | trimAll "-" | trunc 40 | trimSuffix "-" -}}
+{{- $h := sha256sum .name | trunc 8 -}}
+{{- if $s -}}
+{{- printf "keelson-group-%s-%s-%s" $s $h .role -}}
+{{- else -}}
+{{- printf "keelson-group-%s-%s" $h .role -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
 keelson.profiles.bindingName: KFAM getBindingName for (dict "email" e "role" edit|view):
 lower("User-" + email + "-ClusterRole-" + role), each run of [^a-zA-Z0-9] → "-".
 */}}
@@ -46,10 +96,28 @@ modes, so a bad profile fails at `helm install`, not at sync time.
 {{- /* argocd.namespace is a parent-only value: the component render sees the default, so the parent render checks it. */ -}}
 {{- $reserved := list "kubeflow" "istio-system" "auth" "oauth2-proxy" "cert-manager" -}}
 {{- if not .Values.component -}}{{- $reserved = append $reserved .Values.argocd.namespace -}}{{- end -}}
+{{- $dexIssuer := (include "keelson.profiles.groupAuth" . | fromYaml).dex.issuer -}}
+{{- $issuers := dict -}}
+{{- range $i, $s := (.Values.auth).serviceAccountIssuers -}}
+{{- if eq (trimSuffix "/" $s.issuer) $dexIssuer -}}
+{{- fail (printf "auth.serviceAccountIssuers[%d].issuer: %q is the Dex issuer; Keelson adds it itself. List only service-account issuers" $i $s.issuer) -}}
+{{- end -}}
+{{- if hasKey $issuers $s.issuer -}}
+{{- fail (printf "auth.serviceAccountIssuers[%d].issuer: %q is already listed at [%d]" $i $s.issuer (get $issuers $s.issuer)) -}}
+{{- end -}}
+{{- $_ := set $issuers $s.issuer $i -}}
+{{- end -}}
 {{- range $i, $p := .Values.profiles -}}
 {{- $w := printf "profiles[%d]" $i -}}
-{{- if hasKey $p "groups" -}}
-{{- fail (printf "%s.groups: group → profile mapping is not supported yet; see https://github.com/abhishekpcnair/keelson/issues/28" $w) -}}
+{{- if and $p.groups (not (include "keelson.profiles.serviceAccountIssuers" $ | fromYamlArray)) -}}
+{{- fail (printf "%s.groups: set auth.serviceAccountIssuers on platform %s (kubectl get --raw /.well-known/openid-configuration shows the issuer); without it m2m tokens to this namespace get 401" $w $.Values.platform) -}}
+{{- end -}}
+{{- $groups := dict -}}
+{{- range $j, $g := $p.groups -}}
+{{- if hasKey $groups $g.name -}}
+{{- fail (printf "%s.groups[%d]: group %q is listed more than once; give each group one role" $w $j $g.name) -}}
+{{- end -}}
+{{- $_ := set $groups $g.name $j -}}
 {{- end -}}
 {{- if or (has $p.name $reserved) (hasPrefix "kube-" $p.name) -}}
 {{- fail (printf "%s.name: %q is a system namespace" $w $p.name) -}}
@@ -145,5 +213,104 @@ spec:
           values:
             - {{ printf "%s%s" $kfam.userIdPrefix .email | quote }}
 {{- end }}
+{{- with .groups }}
+{{- include "keelson.profiles.groupResources" (dict "root" $ "namespace" $ns "groups" .) }}
+{{- end }}
+{{- end }}
+{{- end -}}
+
+{{/*
+keelson.profiles.groupResources: group access for one profile namespace (#66,
+option a from #28). Call with (dict "root" $ "namespace" ns "groups" list).
+Rendered only for a profile with groups: a namespace RequestAuthentication
+rejects tokens from issuers it does not list (#66 D2).
+- A RoleBinding for each group: Kubernetes RBAC, and Workspaces (GROUPS_HEADER).
+- RequestAuthentication: the sidecars verify the Dex JWT, so request.auth.claims
+  holds its groups. It also lists the service-account issuers, or m2m tokens get 401.
+- AuthorizationPolicy: ALLOW for each group. ALLOW policies combine with OR, so
+  this adds to the profile controller's ns-owner-access-istio.
+KFAM and the dashboard do not read any of these (#28).
+*/}}
+{{- define "keelson.profiles.groupResources" -}}
+{{- $ga := include "keelson.profiles.groupAuth" .root | fromYaml -}}
+{{- $sa := include "keelson.profiles.serviceAccountIssuers" .root | fromYamlArray -}}
+{{- $ns := .namespace -}}
+{{- range .groups }}
+{{- $role := .role | default "edit" }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "keelson.profiles.groupBindingName" (dict "name" .name "role" $role) }}
+  namespace: {{ $ns }}
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: keelson-profiles
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    keelson.io/group: {{ .name | quote }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kubeflow-{{ $role }}
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: {{ .name | quote }}
+{{- end }}
+---
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: keelson-groups
+  namespace: {{ $ns }}
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: keelson-profiles
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  # No selector: every workload in the namespace.
+  jwtRules:
+    - issuer: {{ $ga.dex.issuer | quote }}
+      jwksUri: {{ $ga.dex.jwksUri | quote }}
+      forwardOriginalToken: true
+      # As upstream's dex-jwt and m2m-token-issuer: the Authorization header only.
+      fromHeaders:
+        - name: Authorization
+          prefix: "Bearer "
+{{- range $sa }}
+    - issuer: {{ .issuer | quote }}
+{{- with .jwksUri }}
+      jwksUri: {{ . | quote }}
+{{- end }}
+      forwardOriginalToken: true
+      fromHeaders:
+        - name: Authorization
+          prefix: "Bearer "
+{{- end }}
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: keelson-groups
+  namespace: {{ $ns }}
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: keelson-profiles
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  action: ALLOW
+  rules:
+{{- range .groups }}
+    - from:
+        - source:
+            requestPrincipals:
+              - {{ printf "%s/*" $ga.dex.issuer | quote }}
+      when:
+        - key: request.auth.claims[groups]
+          values:
+            - {{ .name | quote }}
 {{- end }}
 {{- end -}}

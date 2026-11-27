@@ -15,6 +15,10 @@ Dex drift guard: when a patch replaces the Dex config.yaml, every key except
 DEX_MANAGED (and staticPasswords, when kept) must equal upstream's at the tag, so an upstream
 bump that changes them fails here instead of being silently overwritten.
 
+Kind issuer guard: the namespace RequestAuthentication for profiles with groups (#66)
+lists keelson.profiles.kindServiceAccountIssuers. Their issuer and jwksUri must equal the
+jwtRules of RequestAuthentication m2m-token-issuer in upstream's m2m-dex-and-kind overlay.
+
 Also checks every restated upstream file (charts/keelson/restated/, see
 RESTATED) against the upstream file at upstream.manifestsRef. Drift fails.
 
@@ -108,6 +112,37 @@ def check_restated(chart: pathlib.Path, upstream: pathlib.Path):
             diff = sorted(set((a or {}).items()) ^ set((b or {}).items()))
             errors.append(f"{chart / ours}: drift from upstream {theirs} at {upstream.name}: {diff}")
     return errors
+
+
+PROFILES_TEMPLATE = SCHEMA.parent / "templates/_translate_profiles.tpl"
+KIND_M2M_OVERLAY = "common/oauth2-proxy/overlays/m2m-dex-and-kind"
+
+
+def kind_sa_issuers(text: str):
+    """The (issuer, jwksUri) pairs in the keelson.profiles.kindServiceAccountIssuers define."""
+    m = re.search(r'define "keelson\.profiles\.kindServiceAccountIssuers" -}}\n(.*?)\{\{- end', text, re.S)
+    return [(r.get("issuer"), r.get("jwksUri")) for r in (yaml.safe_load(m.group(1)) or [])] if m else []
+
+
+def m2m_issuers(built: str):
+    """The (issuer, jwksUri) pairs of RequestAuthentication m2m-token-issuer in a build."""
+    for d in yaml.safe_load_all(built):
+        if isinstance(d, dict) and d.get("kind") == "RequestAuthentication" \
+                and d.get("metadata", {}).get("name") == "m2m-token-issuer":
+            return [(r.get("issuer"), r.get("jwksUri")) for r in d.get("spec", {}).get("jwtRules") or []]
+    return None
+
+
+def check_kind_sa_issuers(ours, built: str):
+    theirs = m2m_issuers(built)
+    if theirs is None:
+        return [f"{KIND_M2M_OVERLAY}: no RequestAuthentication m2m-token-issuer (update keelson.profiles.kindServiceAccountIssuers)"]
+    if not ours:
+        return [f"{PROFILES_TEMPLATE.name}: no keelson.profiles.kindServiceAccountIssuers define"]
+    if ours != theirs:
+        return [f"{PROFILES_TEMPLATE.name}: kindServiceAccountIssuers {ours} differ from upstream "
+                f"{KIND_M2M_OVERLAY} m2m-token-issuer jwtRules {theirs}"]
+    return []
 
 
 def checked_apps(rendered: pathlib.Path):
@@ -252,6 +287,15 @@ def main():
         sys.exit(f"kustomize_check: {a.cache / tag} missing; run 'make upstream-cache TAG={tag}'")
     errors += check_restated(a.chart, a.cache / tag)
     errors += check_upstream_refs(a.cache / tag)
+    try:
+        check_version(a.cache / tag)
+    except VersionError as e:
+        sys.exit(f"kustomize_check: {e}")
+    r = subprocess.run([KUSTOMIZE, "build", str(a.cache / tag / KIND_M2M_OVERLAY)], capture_output=True, text=True)
+    if r.returncode:
+        errors.append(f"{KIND_M2M_OVERLAY}: build fails: {r.stderr.strip()}")
+    else:
+        errors += check_kind_sa_issuers(kind_sa_issuers(PROFILES_TEMPLATE.read_text()), r.stdout)
     with tempfile.TemporaryDirectory() as tmp:
         for where, src, patches, ignore in checked_apps(a.rendered):
             tag = str(src["targetRevision"])

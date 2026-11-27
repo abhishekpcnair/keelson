@@ -1,0 +1,5 @@
+# expect: /auth/serviceAccountIssuers/0/issuer
+# The issuer is a URL.
+auth:
+  serviceAccountIssuers:
+    - issuer: kubernetes.default.svc
