@@ -220,7 +220,7 @@ A module is accepted only if it has a golden test scenario, a smoke test (or a d
 | Golden render | `helm template` per scenario in `tests/golden/<scenario>/` compared with the committed `expected.yaml` | CI (blocking) |
 | Manifest validity | `kubeconform` on rendered output (with ArgoCD CRD schemas) | CI |
 | Design rules | `hack/check_rules.py`: pinned revisions, source allowlist, sync wave on every Application, a reason header on every patch | CI (blocking) |
-| E2E | Kind plus ArgoCD; sync to Healthy; smoke tests: log in through Dex, create a profile, start a workspace, run a sample pipeline | CI on `main` + nightly + bump PRs |
+| E2E | Kind plus ArgoCD; sync to Healthy; smoke tests: log in through Dex, create a profile, start a workspace, run a sample pipeline | CI on `main` + nightly (opt-in, #147) + bump PRs |
 | AKS | Manual checklist before each minor release | release |
 
 ## 13. Release and supply chain

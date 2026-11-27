@@ -32,6 +32,7 @@
 
 ### Fixes
 
+- the nightly e2e run is opt-in: it runs only when the repository variable `NIGHTLY_E2E` is `true`. Push, PR and manual runs are unchanged. (#147)
 - rule R5 finds image changes in JSON and JSON6902 patches, and in `*.json` patch files (#24)
 - ignore a `.cache` symlink, not only a directory, and add rule R6 that rejects tracked symlinks in `make verify` (#25)
 - e2e starts one run per PR event and cancels superseded runs (#30)

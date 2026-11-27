@@ -25,7 +25,7 @@ After the release:
 - [ ] `cosign verify-attestation --type cyclonedx` on the chart passes (see the README). The count of attestations is the number of unique images in `images.json`
 
 Other checks:
-- [ ] `main` CI green: verify, e2e (nightly), upstream-watch shows no pending bump older than four weeks
+- [ ] `main` CI green: verify, the e2e run on `main` (the nightly run is opt-in: repository variable `NIGHTLY_E2E`), upstream-watch shows no pending bump older than four weeks
 - [ ] AKS manual test with the `aks-entra-external` scenario:
   - [ ] Fresh AKS cluster, existing ArgoCD, `helm install` from the release candidate
   - [ ] Log in with Entra ID; group → profile mapping works (applies once #28 settles how groups map to profiles)
