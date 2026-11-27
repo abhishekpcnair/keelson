@@ -111,52 +111,6 @@ spec:
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: keelson-tls
-  namespace: argocd
-  labels:
-    app.kubernetes.io/part-of: keelson
-    keelson.io/module: keelson-tls
-  annotations:
-    argocd.argoproj.io/sync-wave: "-85"
-spec:
-  destination:
-    namespace: istio-system
-    server: https://kubernetes.default.svc
-  project: keelson
-  source:
-    chart: keelson
-    helm:
-      valuesObject:
-        component: tls
-        domain: kubeflow.example.com
-        tls:
-          acme:
-            email: ""
-            server: staging
-          issuer: selfsigned
-          secretRef:
-            name: ""
-    repoURL: ghcr.io/abhishekpcnair/charts
-    targetRevision: 0.1.0-alpha.1
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
-    retry:
-      backoff:
-        duration: 10s
-        factor: 2
-        maxDuration: 5m
-      limit: 10
-    syncOptions:
-    - ServerSideApply=true
-    - SkipDryRunOnMissingResource=true
-
----
-# Source: keelson/templates/applications.yaml
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
   name: istio-crds
   namespace: argocd
   labels:
@@ -382,6 +336,52 @@ spec:
     syncOptions:
     - ServerSideApply=true
     - CreateNamespace=true
+
+---
+# Source: keelson/templates/applications.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: keelson-tls
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: keelson-tls
+  annotations:
+    argocd.argoproj.io/sync-wave: "-55"
+spec:
+  destination:
+    namespace: istio-system
+    server: https://kubernetes.default.svc
+  project: keelson
+  source:
+    chart: keelson
+    helm:
+      valuesObject:
+        component: tls
+        domain: kubeflow.example.com
+        tls:
+          acme:
+            email: ""
+            server: staging
+          issuer: selfsigned
+          secretRef:
+            name: ""
+    repoURL: ghcr.io/abhishekpcnair/charts
+    targetRevision: 0.1.0-alpha.1
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+      limit: 10
+    syncOptions:
+    - ServerSideApply=true
+    - SkipDryRunOnMissingResource=true
 
 ---
 # Source: keelson/templates/applications.yaml

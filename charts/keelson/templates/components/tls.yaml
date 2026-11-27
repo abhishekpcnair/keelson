@@ -6,12 +6,7 @@ kubeflow-self-signing-issuer (common/cert-manager/overlays/kubeflow).
 letsencrypt: a Keelson ACME ClusterIssuer with a DNS-01 Azure DNS solver
 (cert-manager.io/v1 fields checked against the upstream CRD at 26.10.0).
 */}}
-{{- /* Both render modes: the parent render fails at helm install, not at sync time. */}}
-{{- with dig "acme" "dns01" "azureDNS" nil (.Values.tls | default dict) }}
-{{- if and (eq $.Values.tls.issuer "letsencrypt") (eq (hasKey . "managedIdentity") (hasKey . "clientSecretRef")) }}
-{{- fail "tls.acme.dns01.azureDNS: set exactly one of managedIdentity or clientSecretRef" }}
-{{- end }}
-{{- end }}
+{{- /* values.schema.json (root allOf rules) allows exactly one Azure DNS login, in both render modes. */}}
 {{- if eq .Values.component "tls" }}
 {{- $issuer := (.Values.tls).issuer | default "none" }}
 {{- if not (has $issuer (include "keelson.tls.issued" . | fromYamlArray)) }}
@@ -19,15 +14,16 @@ letsencrypt: a Keelson ACME ClusterIssuer with a DNS-01 Azure DNS solver
 {{- end }}
 {{- $issuerName := "kubeflow-self-signing-issuer" }}
 {{- if eq $issuer "letsencrypt" }}
-{{- $issuerName = "keelson-letsencrypt" }}
 {{- $acme := .Values.tls.acme }}
 {{- $server := $acme.server | default "staging" }}
+{{- /* One ClusterIssuer per server: a server change changes issuerRef, so cert-manager reissues. */}}
+{{- $issuerName = printf "keelson-letsencrypt-%s" $server }}
 {{- $az := $acme.dns01.azureDNS }}
 ---
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
-  name: keelson-letsencrypt
+  name: {{ $issuerName }}
   labels:
     app.kubernetes.io/part-of: keelson
     keelson.io/module: keelson-tls

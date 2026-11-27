@@ -73,10 +73,10 @@ The AppProject is at wave `-1000`. Modules follow these bands (design §6):
 |---|---|
 | -100 | cert-manager |
 | -90 | cert-manager-kubeflow |
-| -85 | keelson-tls (only with `tls.issuer: selfsigned` or `letsencrypt`) |
 | -80 | istio-crds, istio-namespace, kubeflow-namespace |
 | -70 | istio |
 | -60 | oauth2-proxy, dex |
+| -55 | keelson-tls (only with `tls.issuer: selfsigned` or `letsencrypt`) |
 | -50 | kubeflow-roles, kubeflow-istio-resources |
 | -40 | Kyverno policies (planned) |
 | 0 | dashboard (planned) |

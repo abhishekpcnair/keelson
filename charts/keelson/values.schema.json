@@ -115,7 +115,15 @@
         "required": ["domain"],
         "properties": {
           "domain": { "minLength": 1 },
-          "tls": { "required": ["secretRef"], "properties": { "secretRef": { "required": ["name"], "properties": { "name": { "minLength": 1 } } } } }
+          "tls": {
+            "required": ["secretRef"],
+            "properties": {
+              "secretRef": {
+                "required": ["name"],
+                "properties": { "name": { "minLength": 1, "$comment": "keelson-tls is the Secret that Keelson issues for selfsigned and letsencrypt.", "not": { "const": "keelson-tls" } } }
+              }
+            }
+          }
         }
       }
     },
@@ -136,6 +144,16 @@
           "tls": { "required": ["acme"], "properties": { "acme": { "required": ["email", "dns01"], "properties": { "email": { "minLength": 1 }, "dns01": { "required": ["azureDNS"] } } } } }
         }
       }
+    },
+    {
+      "$comment": "Azure DNS needs a login: managedIdentity, or a service principal.",
+      "if": { "required": ["tls"], "properties": { "tls": { "required": ["acme"], "properties": { "acme": { "required": ["dns01"], "properties": { "dns01": { "required": ["azureDNS"], "properties": { "azureDNS": { "propertyNames": { "not": { "enum": ["managedIdentity", "clientSecretRef"] } } } } } } } } } } },
+      "then": { "properties": { "tls": { "properties": { "acme": { "properties": { "dns01": { "properties": { "azureDNS": { "required": ["managedIdentity"] } } } } } } } } }
+    },
+    {
+      "$comment": "A managed identity takes no service principal fields; the template would drop them.",
+      "if": { "required": ["tls"], "properties": { "tls": { "required": ["acme"], "properties": { "acme": { "required": ["dns01"], "properties": { "dns01": { "required": ["azureDNS"], "properties": { "azureDNS": { "required": ["managedIdentity"] } } } } } } } } },
+      "then": { "properties": { "tls": { "properties": { "acme": { "properties": { "dns01": { "properties": { "azureDNS": { "propertyNames": { "not": { "enum": ["clientID", "tenantID", "clientSecretRef"] } } } } } } } } } } }
     },
     {
       "if": { "required": ["tls"], "properties": { "tls": { "required": ["acme"], "properties": { "acme": { "required": ["dns01"], "properties": { "dns01": { "required": ["azureDNS"], "properties": { "azureDNS": { "required": ["clientSecretRef"] } } } } } } } } },
@@ -252,7 +270,7 @@
           "additionalProperties": false,
           "description": "TLS Secret for issuer existing. A name only.",
           "properties": {
-            "name": { "type": "string", "description": "kubernetes.io/tls Secret in istio-system (issuer=existing). A name only, never key material." }
+            "name": { "type": "string", "description": "kubernetes.io/tls Secret in istio-system (issuer=existing). A name only, never key material. Not keelson-tls: Keelson owns that name." }
           }
         },
         "acme": {
@@ -272,6 +290,7 @@
                   "required": ["subscriptionID", "resourceGroupName", "hostedZoneName"],
                   "additionalProperties": false,
                   "description": "Azure DNS zone that holds domain. Set exactly one of managedIdentity or clientSecretRef.",
+                  "$comment": "Exactly one login: managedIdentity alone, or clientSecretRef with clientID and tenantID. The root allOf rules check it.",
                   "properties": {
                     "subscriptionID": { "type": "string", "minLength": 1, "description": "Azure subscription ID of the DNS zone." },
                     "resourceGroupName": { "type": "string", "minLength": 1, "description": "Resource group of the DNS zone." },

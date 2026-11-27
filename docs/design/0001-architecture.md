@@ -141,11 +141,11 @@ advanced:
 |---|---|---|---|
 | -100 | cert-manager | `common/cert-manager/base` | ✓ |
 | -90 | cert-manager-kubeflow | `common/cert-manager/overlays/kubeflow` (not included by base; ClusterIssuer needs the CRDs and webhook) | ✓ |
-| -85 | keelson-tls (Keelson-generated) | a cert-manager `Certificate` for `domain`, rendered from `tls.issuer` (ADR 0004) | ✓ |
 | -80 | istio-crds, istio-namespace, kubeflow-namespace | `common/istio/istio-crds/base`, `common/istio/istio-namespace/base`, `common/kubeflow-namespace/base` (istio writes `Sidecar`s into `kubeflow`) | ✓ |
 | -70 | istio | `common/istio/istio-install/overlays/oauth2-proxy` | ✓ |
 | -60 | oauth2-proxy | `common/oauth2-proxy/overlays/m2m-dex-only` (`m2m-dex-and-kind` on Kind) | ✓ |
 | -60 | dex | `common/dex/overlays/oauth2-proxy` | ✓ |
+| -55 | keelson-tls (Keelson-generated) | a cert-manager `Certificate` for `domain`, rendered from `tls.issuer` (ADR 0004); needs `cert-manager-kubeflow` and `istio-namespace`, and comes just before the Gateway | ✓ |
 | -50 | kubeflow-roles, kubeflow-istio-resources | `common/kubeflow-roles/base`, `common/istio/kubeflow-istio-resources/base` | ✓ |
 | -40 | kyverno policies (optional) | Keelson-owned policies | ✓ |
 | 0 | dashboard (central dashboard, profile controller, PodDefaults) | `applications/dashboard/overlays/istio` | ✓ |

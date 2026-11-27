@@ -18,6 +18,9 @@ bump that changes them fails here instead of being silently overwritten.
 Also checks every restated upstream file (charts/keelson/restated/, see
 RESTATED) against the upstream file at upstream.manifestsRef. Drift fails.
 
+Upstream names guard: every upstream object that a Keelson template refers to by name
+(see UPSTREAM_REFS) must still exist in its upstream directory at upstream.manifestsRef.
+
 Usage:
   hack/kustomize_check.py --rendered <file-or-dir> [--cache .cache/upstream]
 The kustomize binary ($KUSTOMIZE, default `kustomize`) must match the version
@@ -64,6 +67,28 @@ RESTATED = {
     "restated/profile-namespace-labels.yaml":
         "applications/dashboard/upstream/profile-controller/overlays/kubeflow-pss/namespace-labels-kubeflow-pss.yaml",
 }
+
+
+# Upstream objects that Keelson templates name: (upstream dir, kind, name) -> the template that uses it.
+UPSTREAM_REFS = {
+    ("common/cert-manager/overlays/kubeflow", "ClusterIssuer", "kubeflow-self-signing-issuer"):
+        "templates/components/tls.yaml",
+}
+
+
+def check_upstream_refs(upstream: pathlib.Path):
+    """Errors for each UPSTREAM_REFS object that is not in its upstream directory at the pinned tag."""
+    errors = []
+    for (path, kind, name), user in UPSTREAM_REFS.items():
+        d = upstream / path
+        found = False
+        for f in sorted(d.glob("*.yaml")) if d.is_dir() else []:
+            for doc in yaml.safe_load_all(f.read_text()):
+                if isinstance(doc, dict) and doc.get("kind") == kind and (doc.get("metadata") or {}).get("name") == name:
+                    found = True
+        if not found:
+            errors.append(f"{user}: uses upstream {kind}/{name}, which is not in {path} at {upstream.name}")
+    return errors
 
 
 def check_restated(chart: pathlib.Path, upstream: pathlib.Path):
@@ -186,6 +211,7 @@ def main():
     if not (a.cache / tag).is_dir():
         sys.exit(f"kustomize_check: {a.cache / tag} missing; run 'make upstream-cache TAG={tag}'")
     errors += check_restated(a.chart, a.cache / tag)
+    errors += check_upstream_refs(a.cache / tag)
     with tempfile.TemporaryDirectory() as tmp:
         for where, src, patches, ignore in checked_apps(a.rendered):
             tag = str(src["targetRevision"])

@@ -46,6 +46,7 @@ Each `MODULES` value installs a golden scenario's `values.yaml`, so e2e installs
 |---|---|
 | `core` | `tests/golden/kind-core/values.yaml` |
 | `profiles` | `tests/golden/profiles/values.yaml`: `core` plus a `keelson-profiles` component Application (ADR 0004) |
+| `tls` | `tests/golden/kind-core/values.yaml` plus `tests/e2e/scenarios/tls-selfsigned/values.yaml`, merged into `.cache/e2e/tls-fresh-values.yaml`: a fresh install with `tls.issuer: selfsigned` and the `keelson-tls` component Application from the start (#23). Run `tests/e2e/tls_selfsigned.sh` after it for the HTTPS checks. |
 | `all` | Not yet. Fails with a message until a broader scenario exists. |
 
 ## Extra checks
@@ -54,7 +55,7 @@ Each `MODULES` value installs a golden scenario's `values.yaml`, so e2e installs
 
 Set `AUTH_OIDC_ISSUER` to try another issuer. A bad URL makes the script fail at step 5. You can run the script again, because step 3 waits for the pods of the new config hash.
 
-`tls_selfsigned.sh` also runs after `make e2e`, on the same cluster (CI runs it after `auth_oidc.sh` on pull requests). It upgrades the release with `tests/e2e/scenarios/tls-selfsigned/values.yaml`: `domain: kubeflow.test` and `tls.issuer: selfsigned`. The `keelson-tls` component Application pulls the chart under test, so the script pushes it to the in-cluster registry first, unless the release already sets `keelson.selfSource`. It checks three things:
+`tls_selfsigned.sh` also runs after `make e2e` (`MODULES=core` or `MODULES=tls`), on the same cluster (CI runs it after `auth_oidc.sh` on pull requests). It upgrades the release with `tests/e2e/scenarios/tls-selfsigned/values.yaml`: `domain: kubeflow.test` and `tls.issuer: selfsigned`. The `keelson-tls` component Application pulls the chart under test, so the script pushes it to the in-cluster registry first, unless the release already sets `keelson.selfSource`. It checks three things:
 1. The `keelson-tls` Application is Synced and Healthy, and the `Certificate` `keelson-tls` is Ready.
 2. `curl -k --resolve kubeflow.test:8443:127.0.0.1` over a port-forward to the gateway's port 443 gets oauth2-proxy's sign-in page (or a redirect to `/oauth2/start`). Kind has no load balancer IP.
 3. `openssl s_client` shows the SAN `DNS:kubeflow.test`.

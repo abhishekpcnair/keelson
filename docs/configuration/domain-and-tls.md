@@ -91,7 +91,7 @@ tls:
   issuer: selfsigned
 ```
 
-Keelson renders a `keelson-tls` Application (wave -85, after `cert-manager-kubeflow`).
+Keelson renders a `keelson-tls` Application (wave -55, after `istio-namespace` and just before the Gateway).
 It holds one cert-manager `Certificate` in `istio-system`, for `domain` only.
 Upstream's ClusterIssuer `kubeflow-self-signing-issuer` signs it.
 cert-manager writes the certificate to the Secret `keelson-tls`, and the Gateway serves it.
@@ -99,15 +99,23 @@ cert-manager writes the certificate to the Secret `keelson-tls`, and the Gateway
 Browsers don't trust a self-signed certificate. Use it for tests and private networks.
 `curl` needs `-k`.
 
-Keelson owns the Secret name `keelson-tls`. Don't use `keelson-tls` as the `secretRef.name`
-of an `existing` Secret. The schema can't check this.
+`keelson-tls` is a component Application: it pulls this chart from `keelson.selfSource`.
+The default works only for a published release. For a git checkout, a fork or a mirror,
+set `keelson.selfSource` ([Keelson components](../modules/README.md#keelson-components)).
+
+Keelson owns the Secret name `keelson-tls`. The schema rejects `keelson-tls` as the `secretRef.name`
+of an `existing` Secret. The render also fails if you turn off the `keelson-tls` module with
+`selfsigned` or `letsencrypt`. To bring your own Secret, use `existing`.
 
 When you switch from `selfsigned` or `letsencrypt` to another issuer, the `keelson-tls` Application goes away,
-but ArgoCD keeps the `Certificate` and the Secret. Delete them yourself:
+but ArgoCD keeps what it made. Delete it yourself:
 
 ```sh
 kubectl -n istio-system delete certificate keelson-tls
 kubectl -n istio-system delete secret keelson-tls
+# letsencrypt only: the ClusterIssuer and the ACME account key, one of each per server you used
+kubectl delete clusterissuer keelson-letsencrypt-staging keelson-letsencrypt-production --ignore-not-found
+kubectl -n cert-manager delete secret keelson-letsencrypt-staging keelson-letsencrypt-production --ignore-not-found
 ```
 
 ## `letsencrypt`: a certificate from Let's Encrypt
@@ -129,7 +137,8 @@ tls:
 ```
 
 The `keelson-tls` Application then holds two resources:
-- a cert-manager `ClusterIssuer` named `keelson-letsencrypt`, for the ACME server in `acme.server`;
+- a cert-manager `ClusterIssuer` named `keelson-letsencrypt-staging` or `keelson-letsencrypt-production`,
+  for the ACME server in `acme.server`;
 - the `Certificate` for `domain`, issued by that ClusterIssuer into the Secret `keelson-tls`.
 
 cert-manager proves that you own `domain` with a DNS-01 challenge. It writes a TXT record into
@@ -139,6 +148,25 @@ v0.1 supports Azure DNS only. HTTP-01 and other DNS providers are follow-ups.
 `acme.email` is the contact of the ACME account. cert-manager creates the account key in the
 Secret `keelson-letsencrypt-staging` or `keelson-letsencrypt-production` in the `cert-manager`
 namespace. You never put a key in values.
+
+### A failing issuance holds back the install
+
+Under a root Application, ArgoCD waits until each wave is Healthy before it starts the next one.
+The `keelson-tls` Application is Healthy only when the `Certificate` is Ready. If cert-manager
+can't solve the challenge, for example because the identity has no role on the DNS zone, the
+Application stays Progressing or Degraded. Wave -55 holds the Gateway (`kubeflow-istio-resources`)
+and every later module. cert-manager, Istio, Dex and oauth2-proxy still come up.
+
+Find the cause:
+
+```sh
+kubectl -n istio-system describe certificate keelson-tls
+kubectl -n istio-system get certificaterequests,orders.acme.cert-manager.io,challenges.acme.cert-manager.io
+kubectl -n istio-system describe challenges.acme.cert-manager.io
+kubectl -n cert-manager logs -l app.kubernetes.io/component=controller --tail=100
+```
+
+Fix the role or the values. cert-manager retries on its own, and the install goes on.
 
 ### Azure DNS on AKS
 
@@ -192,11 +220,13 @@ has high rate limits. Start there, and wait until the `Certificate` is Ready:
 kubectl -n istio-system get certificate keelson-tls
 ```
 
-Then set `acme.server: production`. cert-manager doesn't replace a valid certificate by itself
-when the server changes, so delete the Secret once. cert-manager then issues a trusted one:
+Then set `acme.server: production`. The `Certificate` then points at the ClusterIssuer
+`keelson-letsencrypt-production`, and cert-manager issues a trusted certificate by itself.
+The staging ClusterIssuer and its account Secret stay. Delete them when you no longer need them:
 
 ```sh
-kubectl -n istio-system delete secret keelson-tls
+kubectl delete clusterissuer keelson-letsencrypt-staging
+kubectl -n cert-manager delete secret keelson-letsencrypt-staging
 ```
 
 ## What doesn't change

@@ -41,6 +41,11 @@ domain is empty. skip is true only for keelson-tls when there is nothing to issu
 {{- if eq $issuer "existing" -}}
 {{- $p = include "keelson.translate.domain.gatewayTLS" (dict "domain" $v.domain "secret" $v.tls.secretRef.name "issuer" $issuer) -}}
 {{- else if $issued -}}
+{{- /* Without keelson-tls the Gateway would point at a Secret that nothing issues. */ -}}
+{{- $tlsMod := get ($v.modules | default dict) "keelson-tls" | default dict -}}
+{{- if and (hasKey $tlsMod "enabled") (not $tlsMod.enabled) -}}
+{{- fail (printf "tls.issuer=%s needs module keelson-tls; use tls.issuer=existing to bring your own Secret" $issuer) -}}
+{{- end -}}
 {{- $p = include "keelson.translate.domain.gatewayTLS" (dict "domain" $v.domain "secret" "keelson-tls" "issuer" $issuer) -}}
 {{- else -}}
 {{- $p = include "keelson.translate.domain.gatewayHosts" (dict "domain" $v.domain) -}}

@@ -34,7 +34,8 @@ CONTEXTS = {
     "not": {"pattern"},
     "pnames": {"pattern", "not", "maxLength"},
     "pnames_not": {"pattern", "enum"},
-    "fact": {"required", "const", "minLength", "minItems", "propertyNames", "properties"},
+    "fact": {"required", "const", "minLength", "minItems", "propertyNames", "properties", "not"},
+    "fact_not": {"const"},
     "fact_pnames": {"not"},
     "fact_pnames_not": {"enum", "pattern"},
 }
@@ -73,6 +74,8 @@ def validate(node, where, ctx="schema"):
     elif ctx == "fact":
         for n, p in node.get("properties", {}).items():
             sub(n, p, "fact")
+        if "not" in node:
+            sub("not", node["not"], "fact_not")
     if "not" in node and ctx in ("schema", "branch"):
         sub("not", node["not"], "not")
     if "propertyNames" in node:
@@ -182,6 +185,8 @@ def facts(schema, node, path, acc):
         acc.setdefault(path, []).append(f"is {code(node['const'])}")
     if "minLength" in node:
         acc.setdefault(path, []).append("is not empty")
+    if "const" in node.get("not", {}):
+        acc.setdefault(path, []).append(f"is not {code(node['not']['const'])}")
     if "minItems" in node:
         acc.setdefault(path, []).append(f"has at least {items(node['minItems'])}")
     pn = node.get("propertyNames", {})

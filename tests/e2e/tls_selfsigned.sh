@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # E2E (#23): tls.issuer selfsigned serves `domain` over HTTPS with a Keelson-issued certificate.
-# Run it after `make e2e` (helm install mode), on the same cluster. It upgrades the Keelson release
+# Run it after `make e2e` (helm install mode; MODULES=core, or MODULES=tls for a fresh install with
+# tls.issuer selfsigned from the start), on the same cluster. It upgrades the Keelson release
 # with tests/e2e/scenarios/tls-selfsigned/values.yaml (domain kubeflow.test) and checks:
 #   1. the keelson-tls Application is Synced and Healthy, and the Certificate keelson-tls is Ready;
 #   2. `curl -k --resolve kubeflow.test:<port>:127.0.0.1 https://kubeflow.test:<port>/` gets
@@ -33,6 +34,11 @@ kubectl -n "$ARGOCD_NS" get applications.argoproj.io kubeflow-istio-resources >/
 installed="$E2E_CACHE/tls-selfsigned-installed-values.yaml"
 mkdir -p "$E2E_CACHE"
 helm get values "$RELEASE" -n "$ARGOCD_NS" -o yaml >"$installed" || fail "could not read the values of release $RELEASE"
+installed_issuer="$(py -c '
+import sys, yaml
+v = yaml.safe_load(open(sys.argv[1])) or {}
+print((v.get("tls") or {}).get("issuer", "none"))
+' "$installed")"
 
 app_state() {
   kubectl -n "$ARGOCD_NS" get applications.argoproj.io "$1" -o jsonpath='{.status.sync.status}/{.status.health.status}' 2>/dev/null || true
@@ -58,6 +64,8 @@ cleanup() {
   if [[ -n "${E2E_REG_PF:-}" ]]; then kill "$E2E_REG_PF" 2>/dev/null || true; fi
   if [[ -n "${body:-}" ]]; then rm -f "$body"; fi
   helm upgrade "$RELEASE" "$CHART" -n "$ARGOCD_NS" -f "$installed" >/dev/null 2>&1 || true
+  # MODULES=tls installed keelson-tls itself: it stays, and so do its Certificate and Secret.
+  if [[ "$installed_issuer" == selfsigned || "$installed_issuer" == letsencrypt ]]; then exit "$rc"; fi
   # The keelson-tls Application goes away without a cascade, so delete what it made.
   for _ in $(seq 1 60); do
     kubectl -n "$ARGOCD_NS" get applications.argoproj.io keelson-tls >/dev/null 2>&1 || break
