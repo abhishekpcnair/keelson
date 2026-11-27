@@ -1,0 +1,7 @@
+# expect: module pipelines depends on dashboard, which is disabled
+# Pipelines needs the dashboard module (Profile CRD and profile controller). The other modules that
+# need the dashboard are off too, so the error names pipelines.
+modules:
+  dashboard: {enabled: false}
+  workspaces: {enabled: false}
+  workspace-kinds: {enabled: false}

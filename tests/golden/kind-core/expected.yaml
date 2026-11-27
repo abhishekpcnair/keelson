@@ -493,6 +493,53 @@ spec:
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
+  name: pipelines
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: pipelines
+  annotations:
+    argocd.argoproj.io/sync-wave: "20"
+spec:
+  destination:
+    namespace: kubeflow
+    server: https://kubernetes.default.svc
+  ignoreDifferences:
+  - group: rbac.authorization.k8s.io
+    jsonPointers:
+    - /rules
+    kind: ClusterRole
+    name: kubeflow-pipelines-edit
+  - group: rbac.authorization.k8s.io
+    jsonPointers:
+    - /rules
+    kind: ClusterRole
+    name: kubeflow-pipelines-view
+  project: keelson
+  source:
+    path: applications/pipeline/overlays
+    repoURL: https://github.com/kubeflow/manifests
+    targetRevision: 26.10.0
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+      limit: 10
+    syncOptions:
+    - ServerSideApply=true
+    - CreateNamespace=true
+    - RespectIgnoreDifferences=true
+
+---
+# Source: keelson/templates/applications.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
   name: workspaces
   namespace: argocd
   labels:

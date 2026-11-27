@@ -76,7 +76,7 @@ def can_i(user):
 
 
 def app(jsonpath):
-    return kubectl("-n", ARGOCD_NS, "get", "application", "keelson-profiles", "-o", f"jsonpath={jsonpath}")
+    return kubectl("-n", ARGOCD_NS, "get", "applications.argoproj.io", "keelson-profiles", "-o", f"jsonpath={jsonpath}")
 
 
 def main():
@@ -94,7 +94,7 @@ def main():
                      timeout=15, allow_redirects=False)
     check(r.ok and CONTRIBUTOR in r.text, f"dashboard lists contributor {CONTRIBUTOR}: {r.status_code}")
 
-    kubectl("-n", ARGOCD_NS, "annotate", "application", "keelson-profiles",
+    kubectl("-n", ARGOCD_NS, "annotate", "applications.argoproj.io", "keelson-profiles",
             "argocd.argoproj.io/refresh=hard", "--overwrite")
     time.sleep(60)
     sync, health = app("{.status.sync.status}"), app("{.status.health.status}")
