@@ -232,7 +232,7 @@ To upgrade, move to the next Keelson release:
 3. Let ArgoCD sync, then check that everything is healthy:
 
    ```sh
-   kubectl -n argocd get applications -l app.kubernetes.io/part-of=keelson
+   kubectl -n argocd get applications.argoproj.io -l app.kubernetes.io/part-of=keelson
    ```
 
    Every Application should be `Synced` and `Healthy`.

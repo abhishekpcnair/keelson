@@ -13,12 +13,14 @@ fail() { printf 'e2e: FAIL: %s\n' "$*" >&2; exit 1; }
 # on_exit <command>: run <command> when the script exits, after the commands added before it.
 # Each call adds to one list, so several cleanups don't replace each other's EXIT trap (#109).
 # Commands run in reverse order, and each one runs with `|| true`. Expansion happens at exit.
+# E2E_EXIT_RC holds the script's exit code while they run.
 E2E_ON_EXIT=()
 on_exit() {
   E2E_ON_EXIT+=("$1")
   if (( ${#E2E_ON_EXIT[@]} == 1 )); then trap '_e2e_run_on_exit' EXIT; fi
 }
 _e2e_run_on_exit() {
+  E2E_EXIT_RC=$?   # first, before any command resets $?: cleanups that report on failure read it
   local i
   for (( i=${#E2E_ON_EXIT[@]}-1; i>=0; i-- )); do
     eval "${E2E_ON_EXIT[$i]}" || true

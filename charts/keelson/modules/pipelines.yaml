@@ -5,7 +5,7 @@ source:
   path: applications/pipeline/overlays   # multi-user KFP, bundled SeaweedFS + MySQL (not for production)
 namespace: kubeflow
 namespaces: [kubeflow]
-dependsOn: [dashboard, cert-manager-kubeflow, istio, kubeflow-istio-resources, kubeflow-roles]
+dependsOn: [dashboard, cert-manager-kubeflow, istio, kubeflow-istio-resources, kubeflow-namespace, kubeflow-roles]
 defaultEnabled: true
 # The VirtualService binds to kubeflow-gateway, so `domain`/TLS (#5) apply with no patch here.
 # Storage and database translations: #12b, #12c.

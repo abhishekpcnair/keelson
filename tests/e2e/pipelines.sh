@@ -23,16 +23,17 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 UPSTREAM="$(upstream_dir)"
 KF_PROFILE=kubeflow-user-example-com   # the name in upstream's common/user-namespace/base
-KFP_VERSION="2.18.0"                   # upstream .github/workflows/full_kubeflow_integration_test.yaml at 26.10.0
+# Upstream .github/workflows/full_kubeflow_integration_test.yaml at 26.10.0. Check it at each upstream bump.
+# The venv uses the runner's python3; kfp 2.18 supports it (upstream pins Python 3.12 only for the v1 SDK).
+KFP_VERSION="2.18.0"
 UNAUTH_NS="keelson-e2e-unauthorized"
 
 [ -d "$UPSTREAM/tests" ] || fail "$UPSTREAM/tests not found; run 'make upstream-cache'"
 
-# port_forward_gateway sets its own EXIT trap, so call it first. The one trap below replaces it.
 port_forward_gateway
 VENV="$(mktemp -d)"
 cleanup() {
-  local rc=$?
+  local rc="$E2E_EXIT_RC"
   if [[ "$rc" != 0 ]]; then
     # Diagnostics for a failed run: is the backend reachable from the gateway (#12)?
     {
@@ -44,11 +45,10 @@ cleanup() {
       kubectl -n istio-system logs -l app=istio-ingressgateway --tail=30 2>&1 | grep -i -E 'pipeline|503|UF|URX' || true
     } >&2
   fi
-  kill "$E2E_PF_PID" 2>/dev/null || true
   rm -rf "$VENV"
   kubectl delete namespace "$UNAUTH_NS" --ignore-not-found --wait=false >/dev/null 2>&1 || true
 }
-trap cleanup EXIT
+on_exit cleanup
 
 # wait_for <seconds> <what> <command...>: retry the command until it succeeds.
 wait_for() {
@@ -65,7 +65,7 @@ if kubectl get namespace "$KF_PROFILE" >/dev/null 2>&1; then
   log "namespace $KF_PROFILE already exists; using it"
 else
   log "creating the example profile from upstream's common/user-namespace/base"
-  kubectl kustomize "$UPSTREAM/common/user-namespace/base" | kubectl apply -f - >/dev/null
+  kubectl apply -k "$UPSTREAM/common/user-namespace/base" >/dev/null
 fi
 wait_for 180 "ServiceAccount default-editor in $KF_PROFILE" \
   kubectl -n "$KF_PROFILE" get serviceaccount default-editor
@@ -87,12 +87,15 @@ restart_without_sidecar() {
   local deploys
   deploys="$(deploys_without_sidecar)"
   [[ -n "$deploys" ]] || return 0
-  if [[ "${E2E_INSTALL:-helm}" != helm ]]; then
+  [[ -n "${E2E_INSTALL:-}" ]] || fail "E2E_INSTALL is not set (run.sh exports it; set helm or root-app when you run this script alone)"
+  if [[ "$E2E_INSTALL" != helm ]]; then
     fail "Deployments in kubeflow have no istio-proxy sidecar although the sync waves order the install: $deploys"
   fi
   log "restarting Deployments with no istio-proxy sidecar (helm install, no wave order): $deploys"
   for d in $deploys; do kubectl -n kubeflow rollout restart "deployment/$d" >/dev/null; done
   for d in $deploys; do kubectl -n kubeflow rollout status "deployment/$d" --timeout=300s >/dev/null; done
+  deploys="$(deploys_without_sidecar)"
+  [[ -z "$deploys" ]] || fail "still no istio-proxy sidecar after the restart: $deploys"
 }
 restart_without_sidecar
 

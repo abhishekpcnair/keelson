@@ -1,6 +1,6 @@
 # Quickstart: Keelson on Kind
 
-Install Keelson on a Kind cluster on your laptop. In CI, the same steps take about 6 minutes.
+Install Keelson on a Kind cluster on your laptop.
 
 You get the **core** modules (cert-manager, Istio, oauth2-proxy, Dex and the Kubeflow namespaces and roles), the **dashboard**,
 **workspaces** and **pipelines** modules. That is 14 ArgoCD Applications.
@@ -23,8 +23,8 @@ You need these tools on your `PATH`:
 
 The scripts never download tools and never use `sudo`.
 
-Plan for RAM. A full Kubeflow install needs about 16 GB for Docker. Core needs less.
-CI runs core on a runner with 16 GB RAM, and the Applications are Healthy in about 4 minutes.
+Plan for RAM. This install needs about 16 GB for Docker: Pipelines alone needs about 3.5 GiB of RAM and 35 GB of disk.
+CI runs it on a runner with 16 GB RAM and 4 CPUs.
 On Linux, `make kind-up` warns when the inotify limits are low.
 
 ## 1. Get the code
