@@ -30,7 +30,7 @@ For the full default values, see `charts/keelson/values.yaml`.
 | `auth` | object | — | — | Login settings: the static user and the Dex connectors. See docs/configuration/authentication.md. |
 | `auth.cookie` | object | — | — | The oauth2-proxy session cookie secret. |
 | `auth.cookie.secretRef` | object | — | — | Secret in namespace oauth2-proxy with key cookie-secret. Keelson never creates it. Required with environment production. |
-| `auth.cookie.secretRef.name` | string | — | not matching `^(oauth2-proxy\|dex-oidc-client)$` | Secret name. Not oauth2-proxy and not dex-oidc-client: those names are upstream's generated Secrets. |
+| `auth.cookie.secretRef.name` | string | — | not matching `^(oauth2-proxy\|dex-oidc-client\|dex-passwords)$` | Secret name. Not oauth2-proxy, dex-oidc-client or dex-passwords: those names are upstream's Secrets. |
 | `auth.dex` | object | — | — | Dex settings. |
 | `auth.dex.connectors` | array | — | — | Identity providers for Dex. Each connector needs domain. Static users off, or environment production, needs at least one. |
 | `auth.dex.connectors[].allowedGroups` | array | — | — | microsoft: only members may log in. |
@@ -56,7 +56,7 @@ For the full default values, see `charts/keelson/values.yaml`.
 | `auth.dex.connectors[].useLoginAsID` | boolean | false | — | github: use the GitHub login as the user ID, not the numeric ID. |
 | `auth.oidcClient` | object | — | — | The OIDC client that oauth2-proxy uses to log in with Dex. Both components must read the same client ID and secret. |
 | `auth.oidcClient.secretRef` | object | — | — | Secret with keys client-id and client-secret. Create it in both namespaces auth and oauth2-proxy. Keelson never creates it. Required with environment production. |
-| `auth.oidcClient.secretRef.name` | string | — | not matching `^(oauth2-proxy\|dex-oidc-client)$` | Secret name. Not oauth2-proxy and not dex-oidc-client: those names are upstream's generated Secrets. |
+| `auth.oidcClient.secretRef.name` | string | — | not matching `^(oauth2-proxy\|dex-oidc-client\|dex-passwords)$` | Secret name. Not oauth2-proxy, dex-oidc-client or dex-passwords: those names are upstream's Secrets. |
 | `auth.staticUsers` | object | — | — | Static user settings. |
 | `auth.staticUsers.enabled` | boolean | — | — | Upstream static user user@example.com. Kind and dev only. |
 

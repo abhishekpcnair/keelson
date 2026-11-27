@@ -61,8 +61,8 @@ kubectl -n oauth2-proxy create secret generic oauth2-proxy-cookie \
 | `auth.cookie.secretRef.name` | `oauth2-proxy-cookie` | `oauth2-proxy` | `cookie-secret` |
 
 Rules:
-- Use any Secret names except `oauth2-proxy` and `dex-oidc-client`. These are the names of upstream's
-  generated Secrets, and the render rejects them.
+- Use any Secret names except `oauth2-proxy`, `dex-oidc-client` and `dex-passwords`. These are the names of
+  upstream's Secrets in `auth` and `oauth2-proxy`, and the render rejects them.
 - The client Secret must have the same values in both namespaces. If they differ, the login fails in
   Dex with `invalid_client`. Keelson cannot check this. External Secrets or a Kyverno policy can keep the
   two copies equal.
