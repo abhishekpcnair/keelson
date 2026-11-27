@@ -64,7 +64,7 @@ For the full default values, see `charts/keelson/values.yaml`.
 
 | Key | Type | Default | Allowed | Description |
 |---|---|---|---|---|
-| `component` | string | — | one of ``, `profiles` | Internal. Only the engine sets it, in component Applications (ADR 0004). |
+| `component` | string | — | one of ``, `profiles`, `tls` | Internal. Only the engine sets it, in component Applications (ADR 0004). |
 
 ## `database`
 
@@ -147,7 +147,7 @@ For the full default values, see `charts/keelson/values.yaml`.
 | Key | Type | Default | Allowed | Description |
 |---|---|---|---|---|
 | `tls` | object | — | — | Where HTTPS ends. See docs/configuration/domain-and-tls.md. |
-| `tls.issuer` | string | "none" | one of `none`, `existing`, `external` | none: HTTP. existing: Istio terminates TLS with secretRef. external: TLS ends in front of the cluster; cookies are secure. |
+| `tls.issuer` | string | "none" | one of `none`, `existing`, `external`, `selfsigned`, `letsencrypt` | none: HTTP. existing: Istio terminates TLS with secretRef. external: TLS ends in front of the cluster; cookies are secure. selfsigned: Keelson issues a self-signed certificate (Secret keelson-tls). letsencrypt: lands in part 2 of #23. |
 | `tls.secretRef` | object | — | — | TLS Secret for issuer existing. A name only. |
 | `tls.secretRef.name` | string | — | — | kubernetes.io/tls Secret in istio-system (issuer=existing). A name only, never key material. |
 
@@ -175,6 +175,7 @@ The chart fails to render when one of these rules is broken.
 - If `auth.dex.connectors` has at least 1 item, then `domain` is not empty.
 - If `tls.issuer` is `existing`, then `domain` is not empty; `tls.secretRef.name` is not empty.
 - If `tls.issuer` is `external`, then `domain` is not empty.
+- If `tls.issuer` is `selfsigned`, then `domain` is not empty.
 - If `auth.dex.connectors[].type` is `oidc`, then `auth.dex.connectors[]` has none of the keys `tenant`, `allowedGroups`, `onlySecurityGroups`, `groupNameFormat`, `emailToLowercase`, `orgs`, `teamNameField`, `useLoginAsID`; `auth.dex.connectors[].issuer` is set.
 - If `auth.dex.connectors[].type` is `microsoft`, then `auth.dex.connectors[]` has none of the keys `issuer`, `scopes`, `groupsClaim`, `orgs`, `teamNameField`, `useLoginAsID`; `auth.dex.connectors[].extraConfig` has no key matching `(?i)^(tenant\|groups\|useGroupsAsWhitelist)$`; `auth.dex.connectors[].tenant` is set.
 - If `auth.dex.connectors[].type` is `github`, then `auth.dex.connectors[]` has none of the keys `issuer`, `scopes`, `groupsClaim`, `tenant`, `allowedGroups`, `onlySecurityGroups`, `groupNameFormat`, `emailToLowercase`; `auth.dex.connectors[].extraConfig` has no key matching `(?i)^(orgs?\|hostName\|rootCA)$`; `auth.dex.connectors[].orgs` is set.

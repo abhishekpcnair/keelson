@@ -1,0 +1,32 @@
+{{- /*
+keelson-tls component (#23, ADR 0004): the certificate that the Kubeflow Gateway
+serves for `domain`. The domain translation points the Gateway's credentialName
+at the Secret keelson-tls. selfsigned: upstream's ClusterIssuer
+kubeflow-self-signing-issuer (common/cert-manager/overlays/kubeflow).
+*/}}
+{{- if eq (.Values.tls).issuer "letsencrypt" }}
+{{- fail "tls.issuer: letsencrypt is not supported yet; it lands in part 2 of #23. Use selfsigned, existing or external" }}
+{{- end }}
+{{- if eq .Values.component "tls" }}
+{{- $issuer := (.Values.tls).issuer | default "none" }}
+{{- if not (has $issuer (include "keelson.tls.issued" . | fromYamlArray)) }}
+{{- fail (printf "component \"tls\": tls.issuer is %q; the component issues a certificate only for %s" $issuer (include "keelson.tls.issued" . | fromYamlArray | join " or ")) }}
+{{- end }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: keelson-tls
+  namespace: istio-system
+  labels:
+    app.kubernetes.io/part-of: keelson
+    keelson.io/module: keelson-tls
+spec:
+  secretName: keelson-tls
+  dnsNames:
+    - {{ .Values.domain | quote }}
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: kubeflow-self-signing-issuer
+{{- end }}

@@ -80,6 +80,10 @@ jobs:
       # runs only in the helm install mode (pull requests). main and nightly use the root Application.
       - if: github.event_name == 'pull_request'
         run: tests/e2e/auth_oidc.sh
+      # tls.issuer selfsigned serves the domain over HTTPS with a Keelson-issued certificate (#23).
+      # It upgrades the Helm release too, so it also runs only on pull requests.
+      - if: github.event_name == 'pull_request'
+        run: tests/e2e/tls_selfsigned.sh
       - if: failure()
         uses: actions/upload-artifact@v7
         with:

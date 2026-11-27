@@ -54,6 +54,13 @@ Each `MODULES` value installs a golden scenario's `values.yaml`, so e2e installs
 
 Set `AUTH_OIDC_ISSUER` to try another issuer. A bad URL makes the script fail at step 5. You can run the script again, because step 3 waits for the pods of the new config hash.
 
+`tls_selfsigned.sh` also runs after `make e2e`, on the same cluster (CI runs it after `auth_oidc.sh` on pull requests). It upgrades the release with `tests/e2e/scenarios/tls-selfsigned/values.yaml`: `domain: kubeflow.test` and `tls.issuer: selfsigned`. The `keelson-tls` component Application pulls the chart under test, so the script pushes it to the in-cluster registry first, unless the release already sets `keelson.selfSource`. It checks three things:
+1. The `keelson-tls` Application is Synced and Healthy, and the `Certificate` `keelson-tls` is Ready.
+2. `curl -k --resolve kubeflow.test:8443:127.0.0.1` over a port-forward to the gateway's port 443 gets oauth2-proxy's sign-in page (or a redirect to `/oauth2/start`). Kind has no load balancer IP.
+3. `openssl s_client` shows the SAN `DNS:kubeflow.test`.
+
+On failure it writes diagnostics to `.cache/e2e/diagnostics/tls-selfsigned/`. At the end it upgrades the release back to the values it had before, and deletes the `Certificate` and the Secret. Set `TLS_PORT` to use another local port.
+
 ## When it fails
 
 `run.sh` exits non-zero and writes diagnostics to `.cache/e2e/diagnostics/`: Application status, pods that aren't running, events, and Dex, oauth2-proxy and ArgoCD controller logs. For gateway denials (#139) it also writes `istio-pods.txt`, `istiod.log`, `istio-ingressgateway.log` and `gateway-stats-<pod>.txt` (Envoy `rbac` counters; Istio does not expose `jwt_authn` or `ext_authz` filter stats by default). In CI they are uploaded as the `e2e-diagnostics` artifact.

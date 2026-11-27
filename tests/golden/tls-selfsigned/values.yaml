@@ -1,0 +1,6 @@
+# tls-selfsigned: own hostname, Keelson issues a self-signed certificate (#23).
+# Renders the keelson-tls component Application (ADR 0004); the Gateway serves the
+# Secret keelson-tls and redirects HTTP to HTTPS.
+domain: kubeflow.example.com
+tls:
+  issuer: selfsigned

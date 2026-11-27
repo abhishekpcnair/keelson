@@ -122,6 +122,10 @@
     {
       "if": { "required": ["tls"], "properties": { "tls": { "required": ["issuer"], "properties": { "issuer": { "const": "external" } } } } },
       "then": { "required": ["domain"], "properties": { "domain": { "minLength": 1 } } }
+    },
+    {
+      "if": { "required": ["tls"], "properties": { "tls": { "required": ["issuer"], "properties": { "issuer": { "const": "selfsigned" } } } } },
+      "then": { "required": ["domain"], "properties": { "domain": { "minLength": 1 } } }
     }
   ],
   "properties": {
@@ -225,9 +229,9 @@
       "properties": {
         "issuer": {
           "type": "string",
-          "enum": ["none", "existing", "external"],
+          "enum": ["none", "existing", "external", "selfsigned", "letsencrypt"],
           "default": "none",
-          "description": "none: HTTP. existing: Istio terminates TLS with secretRef. external: TLS ends in front of the cluster; cookies are secure."
+          "description": "none: HTTP. existing: Istio terminates TLS with secretRef. external: TLS ends in front of the cluster; cookies are secure. selfsigned: Keelson issues a self-signed certificate (Secret keelson-tls). letsencrypt: lands in part 2 of #23."
         },
         "secretRef": {
           "type": "object",
@@ -305,7 +309,7 @@
     },
     "component": {
       "type": "string",
-      "enum": ["", "profiles"],
+      "enum": ["", "profiles", "tls"],
       "description": "Internal. Only the engine sets it, in component Applications (ADR 0004)."
     },
     "profileNamespaceLabels": {
