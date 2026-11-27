@@ -3,6 +3,9 @@
 # kind-core on purpose: it needs the e2e override of keelson.selfSource (MODULES=profiles serves the
 # chart under test from the in-cluster registry, #129).
 platform: kind
+# As in kind-core: CI runs tests/e2e/pss.sh after this scenario too, and it checks this label.
+profileNamespaceLabels:
+  keelson.io/e2e: "true"
 profiles:
   - name: kubeflow-user-example-com
     owner: user@example.com
