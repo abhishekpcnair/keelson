@@ -61,6 +61,7 @@
 
 ### Docs
 
+- Keelson has a logo: `docs/assets/logo.svg` and light and dark wordmarks, shown in the README. (#149)
 - Kind quickstart (`docs/quickstart-kind.md`): create the cluster, install core, wait for the Applications, look at the login, clean up. The README links to it. (#16)
 - ADR 0004 (proposed) ships Keelson-owned resources through the chart's component mode (#21)
 - design goal 7 is MySQL only in v0.1; PostgreSQL waits for an upstream cert-manager overlay (#40)

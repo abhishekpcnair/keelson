@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-wordmark-dark.svg">
+    <img alt="Keelson" src="docs/assets/logo-wordmark-light.svg" width="360">
+  </picture>
+</p>
+
 # Keelson
 
 **GitOps-first Kubeflow.** One Helm chart and one `values.yaml` render ArgoCD Applications that deploy the **official, pinned** Kubeflow manifests. Keelson ships no forked templates and no forked images, and it stays current: every upstream release produces an automated bump PR with an end-to-end test.

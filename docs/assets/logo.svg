@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="t">
+  <title id="t">Keelson</title>
+  <!-- Keelson logo (Apache-2.0, original work). A hull in cross-section; the keelson beam runs
+       along the keel and carries three modules: one chart holding pinned upstream parts together. -->
+  <rect width="128" height="128" rx="28" fill="#0B3D5C"/>
+  <path d="M22 44 C 22 84, 40 102, 64 102 C 88 102, 106 84, 106 44" fill="none" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round"/>
+  <rect x="34" y="78" width="60" height="9" rx="4.5" fill="#F2A900"/>
+  <rect x="60" y="86" width="8" height="24" rx="4" fill="#F2A900"/>
+  <rect x="38" y="56" width="15" height="18" rx="4" fill="#5BC0BE"/>
+  <rect x="56.5" y="46" width="15" height="28" rx="4" fill="#FFFFFF"/>
+  <rect x="75" y="56" width="15" height="18" rx="4" fill="#5BC0BE"/>
+</svg>
