@@ -70,6 +70,15 @@ component: ""
 # labels (including the Pod Security baseline) always stay. "" removes a label.
 # See docs/configuration/profile-namespaces.md.
 profileNamespaceLabels: {}
+# Pipelines database. bundled: upstream's single MySQL pod with public credentials
+# (evaluation only). external: your MySQL server. See docs/modules/pipelines.md.
+database:
+  mode: bundled
+  # external:
+  #   host: mysql.example.internal
+  #   port: 3306
+  #   secretRef: { name: kfp-db }   # in namespace kubeflow; keys username, password
+  #   databases: {}                 # optional: pipeline, cache, metadata
 # Turn modules on or off by name: `modules.<name>.enabled`. Defaults come from
 # charts/keelson/modules/<name>.yaml (defaultEnabled). See docs/modules/README.md.
 modules: {}

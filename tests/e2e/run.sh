@@ -33,8 +33,9 @@ CHART="$E2E_ROOT/charts/keelson"
 case "$MODULES" in
   core) SCENARIO="$E2E_ROOT/tests/golden/kind-core/values.yaml" ;;
   profiles) SCENARIO="$E2E_ROOT/tests/golden/profiles/values.yaml" ;;
+  external-mysql) SCENARIO="$E2E_ROOT/tests/golden/pipelines-external-mysql/values.yaml" ;;
   all)  fail "MODULES=all has no scenario yet; it maps to a broader golden scenario once one exists" ;;
-  *)    fail "unknown MODULES '$MODULES' (use core, profiles or all)" ;;
+  *)    fail "unknown MODULES '$MODULES' (use core, profiles, external-mysql or all)" ;;
 esac
 
 to_seconds() {
@@ -108,6 +109,10 @@ run_exit_diagnostics() {
 trap run_exit_diagnostics EXIT
 
 # 3. Install.
+# The external-mysql scenario needs its database server and Secret before the install (#39).
+if [[ "$MODULES" == external-mysql ]]; then
+  bash "$E2E_ROOT/tests/e2e/db-mysql.sh" || fail "tests/e2e/db-mysql.sh failed"
+fi
 if [[ "$E2E_INSTALL" == root-app ]]; then
   log "Installing Keelson ($MODULES: ${SCENARIO#"$E2E_ROOT"/}) through a root Application (#22)"
   root_app_install

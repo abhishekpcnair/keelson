@@ -70,7 +70,19 @@ For the full default values, see `charts/keelson/values.yaml`.
 
 | Key | Type | Default | Allowed | Description |
 |---|---|---|---|---|
-| `database` | object | — | — | Placeholder; defined by #12 and #39 |
+| `database` | object | — | — | Pipelines database. bundled: upstream's single MySQL pod (not for production). external: your MySQL server (#39). |
+| `database.external` | object | — | — | Your MySQL server. Used only with mode external. |
+| `database.external.databases` | object | — | — | Optional database names. Empty: upstream's names (mlpipeline, cachedb, metadb). |
+| `database.external.databases.cache` | string | — | pattern `^[A-Za-z0-9_]+$` | Cache database. Upstream: cachedb. |
+| `database.external.databases.metadata` | string | — | pattern `^[A-Za-z0-9_]+$` | ML Metadata database. Upstream: metadb. |
+| `database.external.databases.pipeline` | string | — | pattern `^[A-Za-z0-9_]+$` | Pipelines database. Upstream: mlpipeline. |
+| `database.external.host` | string | — | min length 1; format `hostname` | Host name of the MySQL server, reachable from namespace kubeflow. |
+| `database.external.port` | integer | 3306 | 1 to 65535 | MySQL port. |
+| `database.external.secretRef` | object | — | — | Secret in namespace kubeflow with the MySQL user name and password. Keelson never creates it. |
+| `database.external.secretRef.name` | string, required | — | min length 1; not matching `^mysql-secret$` | Secret name. Not mysql-secret: that is upstream's Secret with public literals. |
+| `database.external.secretRef.passwordKey` | string | "password" | min length 1 | Key of the password in the Secret. |
+| `database.external.secretRef.usernameKey` | string | "username" | min length 1 | Key of the user name in the Secret. |
+| `database.mode` | string | "bundled" | one of `bundled`, `external` | bundled or external. PostgreSQL is not supported (#40). |
 
 ## `domain`
 
@@ -174,6 +186,7 @@ The chart fails to render when one of these rules is broken.
 - If `auth.staticUsers.enabled` is `false`, then `auth.dex.connectors` has at least 1 item.
 - If `auth.dex.connectors` has at least 1 item, then `domain` is not empty.
 - If `tls.issuer` is `existing`, then `domain` is not empty; `tls.secretRef.name` is not empty.
+- If `database.mode` is `external`, then `database.external.host` is set; `database.external.secretRef` is set.
 - If `tls.issuer` is `external`, then `domain` is not empty.
 - If `auth.dex.connectors[].type` is `oidc`, then `auth.dex.connectors[]` has none of the keys `tenant`, `allowedGroups`, `onlySecurityGroups`, `groupNameFormat`, `emailToLowercase`, `orgs`, `teamNameField`, `useLoginAsID`; `auth.dex.connectors[].issuer` is set.
 - If `auth.dex.connectors[].type` is `microsoft`, then `auth.dex.connectors[]` has none of the keys `issuer`, `scopes`, `groupsClaim`, `orgs`, `teamNameField`, `useLoginAsID`; `auth.dex.connectors[].extraConfig` has no key matching `(?i)^(tenant\|groups\|useGroupsAsWhitelist)$`; `auth.dex.connectors[].tenant` is set.

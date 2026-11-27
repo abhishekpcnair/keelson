@@ -120,6 +120,10 @@
       }
     },
     {
+      "if": { "required": ["database"], "properties": { "database": { "required": ["mode"], "properties": { "mode": { "const": "external" } } } } },
+      "then": { "properties": { "database": { "required": ["external"], "properties": { "external": { "required": ["host", "secretRef"] } } } } }
+    },
+    {
       "if": { "required": ["tls"], "properties": { "tls": { "required": ["issuer"], "properties": { "issuer": { "const": "external" } } } } },
       "then": { "required": ["domain"], "properties": { "domain": { "minLength": 1 } } }
     }
@@ -127,7 +131,44 @@
   "properties": {
     "global": { "type": "object", "description": "Helm global values. Allowed so parent charts and --set global.* keep working." },
     "storage": { "type": "object", "description": "Placeholder; defined by #12 and #38" },
-    "database": { "type": "object", "description": "Placeholder; defined by #12 and #39" },
+    "database": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Pipelines database. bundled: upstream's single MySQL pod (not for production). external: your MySQL server (#39).",
+      "properties": {
+        "mode": { "type": "string", "enum": ["bundled", "external"], "default": "bundled", "description": "bundled or external. PostgreSQL is not supported (#40)." },
+        "external": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Your MySQL server. Used only with mode external.",
+          "properties": {
+            "host": { "type": "string", "format": "hostname", "minLength": 1, "description": "Host name of the MySQL server, reachable from namespace kubeflow." },
+            "port": { "type": "integer", "minimum": 1, "maximum": 65535, "default": 3306, "description": "MySQL port." },
+            "secretRef": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name"],
+              "description": "Secret in namespace kubeflow with the MySQL user name and password. Keelson never creates it.",
+              "properties": {
+                "name": { "type": "string", "minLength": 1, "not": { "pattern": "^mysql-secret$" }, "description": "Secret name. Not mysql-secret: that is upstream's Secret with public literals." },
+                "usernameKey": { "type": "string", "minLength": 1, "default": "username", "description": "Key of the user name in the Secret." },
+                "passwordKey": { "type": "string", "minLength": 1, "default": "password", "description": "Key of the password in the Secret." }
+              }
+            },
+            "databases": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "Optional database names. Empty: upstream's names (mlpipeline, cachedb, metadb).",
+              "properties": {
+                "pipeline": { "type": "string", "pattern": "^[A-Za-z0-9_]+$", "description": "Pipelines database. Upstream: mlpipeline." },
+                "cache": { "type": "string", "pattern": "^[A-Za-z0-9_]+$", "description": "Cache database. Upstream: cachedb." },
+                "metadata": { "type": "string", "pattern": "^[A-Za-z0-9_]+$", "description": "ML Metadata database. Upstream: metadb." }
+              }
+            }
+          }
+        }
+      }
+    },
     "policy": { "type": "object", "description": "Placeholder; defined by #67" },
     "upstream": {
       "type": "object",

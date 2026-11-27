@@ -18,6 +18,9 @@ bump that changes them fails here instead of being silently overwritten.
 Also checks every restated upstream file (charts/keelson/restated/, see
 RESTATED) against the upstream file at upstream.manifestsRef. Drift fails.
 
+External MySQL guard (#39): with database.mode external, the patched pipelines build must have
+no bundled MySQL object and no reference to upstream's mysql-secret.
+
 Usage:
   hack/kustomize_check.py --rendered <file-or-dir> [--cache .cache/upstream]
 The kustomize binary ($KUSTOMIZE, default `kustomize`) must match the version
@@ -165,6 +168,30 @@ class VersionError(Exception):
     """The kustomize version check failed. The message has no prefix; each caller adds its own."""
 
 
+BUNDLED_DB = {"Deployment/mysql", "Service/mysql", "ServiceAccount/mysql", "PersistentVolumeClaim/mysql-pv-claim",
+              "Secret/mysql-secret", "AuthorizationPolicy/mysql", "DestinationRule/ml-pipeline-mysql"}
+
+
+def external_db(patches):
+    """True when the patches include the database.mode external ConfigMap patch (#39)."""
+    return any((p.get("target") or {}).get("name") == "pipeline-install-config" for p in patches)
+
+
+def check_external_db(where, patched: str, errors):
+    """External MySQL guard (#39): bundled MySQL is gone, and nothing reads upstream's mysql-secret.
+
+    A new upstream consumer of mysql-secret at a bump would silently keep the public literals."""
+    docs = [d for d in yaml.safe_load_all(patched) if isinstance(d, dict)]
+    left = sorted(f"{d.get('kind')}/{d.get('metadata', {}).get('name')}" for d in docs
+                  if f"{d.get('kind')}/{d.get('metadata', {}).get('name')}" in BUNDLED_DB)
+    if left:
+        errors.append(f"{where}: database.mode external leaves bundled MySQL objects: {left}")
+    for d in docs:
+        if "mysql-secret" in yaml.safe_dump(d) and d.get("kind") != "Secret":
+            errors.append(f"{where}: {d.get('kind')}/{d['metadata'].get('name')} still reads mysql-secret "
+                          f"after the database.mode external patches")
+
+
 def check_version(upstream: pathlib.Path):
     m = re.search(r'KUSTOMIZE_VERSION="(v[0-9.]+)"', (upstream / "tests/kustomize_install.sh").read_text())
     if not m:
@@ -233,6 +260,8 @@ def main():
                     errors.append(f"{where}: only {sorted(allowed)} may remain after patches, found {left}")
             else:
                 check_dex_config(where, base, out, errors)
+                if where.split(":")[-1] == "pipelines" and external_db(patches):
+                    check_external_db(where, out, errors)
             checked += 1
     for e in errors:
         print(f"FAIL {e}")

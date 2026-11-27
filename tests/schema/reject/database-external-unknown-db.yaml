@@ -1,0 +1,5 @@
+# expect: /database/external/databases
+# Only pipeline, cache and metadata databases exist (#39).
+database:
+  mode: external
+  external: { host: mysql.example.internal, secretRef: { name: kfp-db }, databases: { foo: bar } }

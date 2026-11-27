@@ -1,0 +1,5 @@
+# expect: /database/external/port
+# A port is 1-65535 (#39).
+database:
+  mode: external
+  external: { host: mysql.example.internal, port: 0, secretRef: { name: kfp-db } }

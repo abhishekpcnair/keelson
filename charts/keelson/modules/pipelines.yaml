@@ -8,8 +8,8 @@ namespaces: [kubeflow]
 dependsOn: [dashboard, cert-manager-kubeflow, istio, kubeflow-istio-resources, kubeflow-namespace, kubeflow-roles]
 defaultEnabled: true
 # The VirtualService binds to kubeflow-gateway, so `domain`/TLS (#5) apply with no patch here.
-# Storage and database translations: #12b, #12c.
-translations: []
+# database.mode external (#39). Object storage: #38.
+translations: [database]
 smokeTest: tests/e2e/pipelines.sh
 upstreamHelmChart: applications/pipeline/helm   # Draft; ADR 0002
 # Aggregated ClusterRoles: the RBAC controller fills in .rules at runtime (the same as kubeflow-roles).

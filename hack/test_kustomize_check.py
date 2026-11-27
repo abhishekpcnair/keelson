@@ -71,3 +71,33 @@ class IgnoreDifferences(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ExternalDb(unittest.TestCase):
+    CLEAN = """
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: cache-server}
+spec: {template: {spec: {containers: [{name: server, env: [{name: DBCONFIG_USER, valueFrom: {secretKeyRef: {name: kfp-db, key: username}}}]}]}}}
+"""
+
+    def test_clean_build_passes(self):
+        errors = []
+        kc.check_external_db("pipelines", self.CLEAN, errors)
+        self.assertEqual(errors, [])
+
+    def test_bundled_object_left_fails(self):
+        errors = []
+        kc.check_external_db("pipelines", self.CLEAN + "---\napiVersion: v1\nkind: Service\nmetadata: {name: mysql}\n", errors)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("Service/mysql", errors[0])
+
+    def test_new_consumer_of_mysql_secret_fails(self):
+        errors = []
+        kc.check_external_db("pipelines", self.CLEAN.replace("kfp-db", "mysql-secret"), errors)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("still reads mysql-secret", errors[0])
+
+    def test_only_with_the_external_patch(self):
+        self.assertTrue(kc.external_db([{"target": {"name": "pipeline-install-config"}}]))
+        self.assertFalse(kc.external_db([{"target": {"name": "ml-pipeline"}}, {"patch": "x"}]))
