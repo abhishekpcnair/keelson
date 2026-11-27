@@ -30,7 +30,7 @@ For the full default values, see `charts/keelson/values.yaml`.
 | `auth` | object | — | — | Login settings: the static user and the Dex connectors. See docs/configuration/authentication.md. |
 | `auth.cookie` | object | — | — | The oauth2-proxy session cookie secret. |
 | `auth.cookie.secretRef` | object | — | — | Secret in namespace oauth2-proxy with key cookie-secret. Keelson never creates it. Required with environment production. |
-| `auth.cookie.secretRef.name` | string | — | not matching `^(oauth2-proxy\|dex-oidc-client)$` | Secret name. Not oauth2-proxy and not dex-oidc-client: those names are upstream's generated Secrets. |
+| `auth.cookie.secretRef.name` | string | — | not matching `^(oauth2-proxy\|dex-oidc-client\|dex-passwords)$` | Secret name. Not oauth2-proxy, dex-oidc-client or dex-passwords: those names are upstream's Secrets. |
 | `auth.dex` | object | — | — | Dex settings. |
 | `auth.dex.connectors` | array | — | — | Identity providers for Dex. Each connector needs domain. Static users off, or environment production, needs at least one. |
 | `auth.dex.connectors[].allowedGroups` | array | — | — | microsoft: only members may log in. |
@@ -61,7 +61,7 @@ For the full default values, see `charts/keelson/values.yaml`.
 | `auth.dex.connectors[].useLoginAsID` | boolean | false | — | github: use the GitHub login as the user ID, not the numeric ID. |
 | `auth.oidcClient` | object | — | — | The OIDC client that oauth2-proxy uses to log in with Dex. Both components must read the same client ID and secret. |
 | `auth.oidcClient.secretRef` | object | — | — | Secret with keys client-id and client-secret. Create it in both namespaces auth and oauth2-proxy. Keelson never creates it. Required with environment production. |
-| `auth.oidcClient.secretRef.name` | string | — | not matching `^(oauth2-proxy\|dex-oidc-client)$` | Secret name. Not oauth2-proxy and not dex-oidc-client: those names are upstream's generated Secrets. |
+| `auth.oidcClient.secretRef.name` | string | — | not matching `^(oauth2-proxy\|dex-oidc-client\|dex-passwords)$` | Secret name. Not oauth2-proxy, dex-oidc-client or dex-passwords: those names are upstream's Secrets. |
 | `auth.serviceAccountIssuers` | array | — | unique items | Kubernetes service-account token issuers that profile namespaces with groups accept, so m2m tokens don't get 401. Empty on platform kind means the two Kind issuers. Required on platform generic when a profile has groups (checked at render time). See docs/configuration/profiles.md. |
 | `auth.serviceAccountIssuers[].issuer` | string, required | — | format `uri`; pattern `^https?://[^\s]+$` | The iss claim of the cluster's service-account tokens (kubectl get --raw /.well-known/openid-configuration). |
 | `auth.serviceAccountIssuers[].jwksUri` | string | — | format `uri`; pattern `^https?://[^\s]+$` | Where istiod fetches the signing keys, without authentication. Omit it to use the jwks_uri from the issuer's OIDC discovery, which istiod must also reach without authentication. |

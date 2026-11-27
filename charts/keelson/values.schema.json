@@ -278,8 +278,8 @@
               "properties": {
                 "name": {
                   "type": "string",
-                  "not": { "pattern": "^(oauth2-proxy|dex-oidc-client)$" },
-                  "description": "Secret name. Not oauth2-proxy and not dex-oidc-client: those names are upstream's generated Secrets."
+                  "not": { "pattern": "^(oauth2-proxy|dex-oidc-client|dex-passwords)$" },
+                  "description": "Secret name. Not oauth2-proxy, dex-oidc-client or dex-passwords: those names are upstream's Secrets."
                 }
               }
             }
@@ -297,8 +297,8 @@
               "properties": {
                 "name": {
                   "type": "string",
-                  "not": { "pattern": "^(oauth2-proxy|dex-oidc-client)$" },
-                  "description": "Secret name. Not oauth2-proxy and not dex-oidc-client: those names are upstream's generated Secrets."
+                  "not": { "pattern": "^(oauth2-proxy|dex-oidc-client|dex-passwords)$" },
+                  "description": "Secret name. Not oauth2-proxy, dex-oidc-client or dex-passwords: those names are upstream's Secrets."
                 }
               }
             }
