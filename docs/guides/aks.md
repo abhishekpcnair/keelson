@@ -167,7 +167,7 @@ Keelson recommends the `microsoft` connector.
 Keelson lowercases emails (`emailToLowercase: true`). Kubeflow compares the email with Profile owners
 case-sensitively, so `Alice@Example.com` and `alice@example.com` would be two users otherwise.
 
-Which Entra group maps to which Kubeflow profile is not part of this version of the guide.
+Which Entra group gets which Kubeflow profile is in [section 8](#8-groups-to-profiles).
 
 ## 5. Expose the ingress gateway
 
@@ -246,6 +246,64 @@ If you turn a module off, ArgoCD deletes its Application but keeps what it deplo
 Keelson supports the current and the previous upstream release. For the alpha releases, only the current one.
 The upgrade from the previous minor release is on the manual AKS checklist and is not yet tested.
 
+## 7. Pipelines database
+
+By default, Pipelines runs its own MySQL pod with upstream's public credentials. Use it for evaluation only.
+For production, point Pipelines at your own MySQL server with `database.mode: external`.
+The values, the Secret and the grants are in [Pipelines: external MySQL](../modules/pipelines.md#external-mysql).
+
+```yaml
+database:
+  mode: external
+  external:
+    host: mysql.example.internal
+    secretRef: { name: kfp-db }   # in namespace kubeflow; keys username and password
+```
+
+**Azure Database for MySQL is not supported yet.** Its flexible server requires TLS by default
+([`require_secure_transport`](https://learn.microsoft.com/azure/mysql/flexible-server/how-to-connect-tls-ssl)),
+and at `26.10.0` Kubeflow Pipelines has no setting for a TLS connection to MySQL. This is tracked in
+[#146](https://github.com/abhishekpcnair/keelson/issues/146). Don't turn TLS off on a production server to work around it.
+Until #146 is done, use a MySQL server that you run without TLS inside your network, or stay on the bundled database for evaluation.
+
+Switching an existing install from bundled to external deletes the bundled data. Read the warning in
+[Pipelines](../modules/pipelines.md#external-mysql) first.
+
+PostgreSQL is not in v0.1 ([#40](https://github.com/abhishekpcnair/keelson/issues/40)).
+
+## 8. Groups to profiles
+
+Give an Entra group access to a profile namespace with `profiles[].groups`. With the `microsoft`
+connector, use the group **name** (section 4):
+
+```yaml
+platform: generic
+auth:
+  serviceAccountIssuers:
+    - issuer: <issuer URL from step 2 below>
+      jwksUri: <jwks_uri from step 3 below>
+profiles:
+  - name: team-vision
+    owner: alice@example.com
+    groups:
+      - name: ml-vision   # the Entra group name, as Dex sends it
+        role: edit        # edit (default) or view
+```
+
+A profile with `groups` gets a namespace policy that checks Dex tokens and the cluster's service-account tokens.
+On AKS, Keelson needs the cluster's OIDC issuer for that, or the render fails:
+
+1. Turn on the [AKS OIDC issuer](https://learn.microsoft.com/azure/aks/use-oidc-issuer) (`az aks update --enable-oidc-issuer`).
+2. Read its URL with `az aks show -n <cluster> -g <resource-group> --query oidcIssuerProfile.issuerUrl -o tsv`.
+3. Read the `jwks_uri` from `curl -s <issuer URL>.well-known/openid-configuration` (the issuer URL ends with `/`).
+4. Put both in `auth.serviceAccountIssuers`, as above. The details are in
+   [Profiles: service-account issuers](../configuration/profiles.md#service-account-issuers).
+
+Groups give access to Workspaces and the namespace, but not everything: the dashboard's namespace list
+and Pipelines still need `contributors` or `viewers`, and a user in two or more groups may not match.
+See [what works and what doesn't](../configuration/profiles.md#what-works-and-what-doesnt-v01).
+`kubectl` with AKS Entra integration sees group **object IDs**, not the names Dex sends.
+
 ## What is not here yet
 
 These parts are added when the feature they describe is released:
@@ -254,7 +312,7 @@ These parts are added when the feature they describe is released:
 |---|---|
 | Auth secrets | Done. See [Secrets for oauth2-proxy and Dex](../configuration/authentication.md#secrets-for-oauth2-proxy-and-dex), linked from section 2. |
 | Object store | Waits for [#38](https://github.com/abhishekpcnair/keelson/issues/38). |
-| Azure Database for MySQL | Waits for [#39](https://github.com/abhishekpcnair/keelson/issues/39). |
-| Groups to profiles | Waits for [#66](https://github.com/abhishekpcnair/keelson/issues/66). |
+| Azure Database for MySQL | External MySQL is done (section 7). Azure's TLS requirement waits for [#146](https://github.com/abhishekpcnair/keelson/issues/146). |
+| Groups to profiles | Done (section 8). |
 
 Progress is tracked in [#42](https://github.com/abhishekpcnair/keelson/issues/42).
