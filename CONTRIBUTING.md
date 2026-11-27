@@ -17,7 +17,7 @@ These come from [`CLAUDE.md`](CLAUDE.md) and are checked by `hack/check_rules.py
 5. No inline secrets. Use `secretRef`.
 
 ## Local setup
-You need `helm`, `kubeconform`, the pinned `kustomize` (for `make verify`), `python3` with `pyyaml`, and (for e2e) `kind`, `kubectl` and Docker.
+You need `helm`, `kubeconform`, the pinned `kustomize` (for `make verify`), `python3` with `pyyaml`, `jq` (`make rules` runs `hack/test_sbom.sh`), and (for e2e) `kind`, `kubectl` and Docker.
 
 `make verify` also runs `make health-check`, which needs the `argocd` CLI at **v3.6.2**. That is `ARGOCD_VERSION` in `hack/kind-up.sh`, and CI uses the same pin. Use one of these:
 - Set `ARGOCD=/path/to/argocd`.
